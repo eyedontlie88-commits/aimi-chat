@@ -1,0 +1,156 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import CharacterCard from '@/components/CharacterCard'
+import CharacterFormModal from '@/components/CharacterFormModal'
+import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
+
+const MAX_CHARACTERS = 10
+
+interface Character {
+    id: string
+    name: string
+    avatarUrl: string
+    shortDescription: string
+    tags: string
+    relationshipConfig?: {
+        status: string
+    }
+}
+
+export default function CharactersPage() {
+    const [characters, setCharacters] = useState<Character[]>([])
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [isLoading, setIsLoading] = useState(true)
+    const [siliconPresets, setSiliconPresets] = useState<SiliconPresetModel[]>([])
+
+    const characterCount = characters.length
+    const hasReachedLimit = characterCount >= MAX_CHARACTERS
+
+    useEffect(() => {
+        loadCharacters()
+        loadSiliconPresets()
+    }, [])
+
+    const loadCharacters = async () => {
+        try {
+            const res = await fetch('/api/characters')
+            const data = await res.json()
+            setCharacters(data.characters || [])
+        } catch (error) {
+            console.error('Error loading characters:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const loadSiliconPresets = async () => {
+        try {
+            const res = await fetch('/api/silicon-presets')
+            const data = await res.json()
+            setSiliconPresets(data.presets || [])
+        } catch (error) {
+            console.error('Error loading silicon presets:', error)
+        }
+    }
+
+    return (
+        <>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                {/* Header */}
+                <div className="text-center mb-12">
+                    <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+                        <span className="gradient-text">Nhân Vật Của Bạn</span>
+                    </h1>
+                    <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-6">
+                        Tạo và tùy chỉnh người yêu AI của riêng bạn. Mỗi nhân vật đều có tính cách, cách nói chuyện và ranh giới độc đáo.
+                    </p>
+                </div>
+
+                {isLoading ? (
+                    <div className="text-center py-20 text-gray-400">
+                        <div className="animate-pulse">Đang tải...</div>
+                    </div>
+                ) : characters.length === 0 ? (
+                    /* Empty State */
+                    <div className="max-w-lg mx-auto text-center py-16">
+                        <div className="card glass p-8">
+                            <div className="text-6xl mb-4">🥺</div>
+                            <h2 className="text-2xl font-bold text-white mb-4">Bạn chưa có nhân vật nào</h2>
+                            <p className="text-gray-300 mb-6">
+                                Bắt đầu bằng cách tạo người yêu AI đầu tiên của bạn.
+                                Hãy mô tả tính cách, cách nói chuyện và ranh giới để AI hiểu đúng con người đó.
+                            </p>
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-3"
+                            >
+                                ✨ Tạo nhân vật mới
+                            </button>
+                            <p className="text-xs text-gray-500 mt-6">
+                                Bạn có thể tạo tối đa {MAX_CHARACTERS} nhân vật.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    /* Has Characters */
+                    <>
+                        {/* Counter Bar */}
+                        <div className="flex items-center justify-between mb-8 glass rounded-lg px-6 py-4">
+                            <div className="flex items-center gap-4">
+                                <span className="text-gray-300">
+                                    Nhân vật của bạn: <span className="text-white font-bold">{characterCount}</span> / {MAX_CHARACTERS}
+                                </span>
+                                {hasReachedLimit && (
+                                    <span className="text-xs text-yellow-400">
+                                        Đã đạt giới hạn
+                                    </span>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                disabled={hasReachedLimit}
+                                className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={hasReachedLimit ? 'Xoá bớt hoặc chỉnh sửa nhân vật cũ nếu muốn thay đổi.' : 'Tạo nhân vật mới'}
+                            >
+                                ✨ Tạo nhân vật mới
+                            </button>
+                        </div>
+
+                        {/* Character Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {characters.map((character) => (
+                                <CharacterCard
+                                    key={character.id}
+                                    id={character.id}
+                                    name={character.name}
+                                    avatarUrl={character.avatarUrl}
+                                    shortDescription={character.shortDescription}
+                                    tags={character.tags}
+                                    relationshipStatus={character.relationshipConfig?.status}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Limit Info */}
+                        {hasReachedLimit && (
+                            <div className="text-center mt-8 text-sm text-gray-400">
+                                <p>Giới hạn này chỉ áp dụng cho bản cá nhân. Sau này mở rộng, chúng ta sẽ nâng giới hạn lên.</p>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            <CharacterFormModal
+                isOpen={isCreateModalOpen}
+                onClose={() => {
+                    setIsCreateModalOpen(false)
+                    loadCharacters()
+                }}
+                mode="create"
+                siliconPresets={siliconPresets}
+            />
+        </>
+    )
+}

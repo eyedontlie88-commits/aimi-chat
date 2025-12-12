@@ -1,0 +1,249 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter, notFound } from 'next/navigation'
+import Link from 'next/link'
+import { getSiliconPresetModels } from '@/lib/llm/silicon-presets'
+import Image from 'next/image'
+import CharacterFormModal from '@/components/CharacterFormModal'
+
+interface Character {
+    id: string
+    name: string
+    avatarUrl: string
+    gender: string
+    shortDescription: string
+    persona: string
+    speakingStyle: string
+    boundaries: string
+    tags: string
+    modelName?: string
+    provider?: string
+    _count: {
+        messages: number
+        memories: number
+    }
+    relationshipConfig?: {
+        status: string
+    }
+}
+
+export default function CharacterPage({ params }: { params: { id: string } }) {
+    const router = useRouter()
+    const [character, setCharacter] = useState<Character | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false)
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [siliconPresets, setSiliconPresets] = useState<any[]>([])
+
+    useEffect(() => {
+        loadCharacter()
+    }, [params.id])
+
+    const loadCharacter = async () => {
+        try {
+            const [charRes, presetsRes] = await Promise.all([
+                fetch(`/api/characters/${params.id}`),
+                fetch('/api/config/presets')
+            ])
+
+            const charData = await charRes.json()
+            const presetsData = await presetsRes.json()
+
+            setCharacter(charData.character)
+            if (presetsData.presets) {
+                setSiliconPresets(presetsData.presets)
+            }
+        } catch (error) {
+            console.error('Error loading data:', error)
+        }
+    }
+
+    const handleDelete = async () => {
+        if (!confirm(`Are you sure you want to delete ${character?.name}? This will also delete all messages and memories.`)) {
+            return
+        }
+
+        setIsDeleting(true)
+        try {
+            await fetch(`/api/characters/${params.id}`, { method: 'DELETE' })
+            router.push('/characters')
+            router.refresh()
+        } catch (error) {
+            console.error('Error deleting character:', error)
+            alert('Failed to delete character')
+            setIsDeleting(false)
+        }
+    }
+
+    if (!character) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="animate-pulse text-gray-400">Loading...</div>
+            </div>
+        )
+    }
+
+    const tagList = character.tags.split(',').map((t) => t.trim()).filter(Boolean)
+
+    return (
+        <>
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div className="card">
+                    <div className="flex flex-col md:flex-row gap-8">
+                        {/* Avatar */}
+                        <div className="flex-shrink-0">
+                            <div className="relative w-48 h-48 rounded-full overflow-hidden ring-4 ring-primary/50 mx-auto md:mx-0">
+                                <Image
+                                    src={character.avatarUrl}
+                                    alt={character.name}
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                />
+                            </div>
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 space-y-4">
+                            <div>
+                                <h1 className="text-3xl font-bold gradient-text mb-2">{character.name}</h1>
+                                <p className="text-gray-300">{character.shortDescription}</p>
+                            </div>
+
+                            {/* Tags */}
+                            {tagList.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                    {tagList.map((tag) => (
+                                        <span
+                                            key={tag}
+                                            className="px-3 py-1 text-sm rounded-full bg-primary/20 text-primary border border-primary/30"
+                                        >
+                                            {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Stats */}
+                            <div className="flex gap-6 text-sm">
+                                <div>
+                                    <span className="text-gray-400">Relationship:</span>{' '}
+                                    <span className="text-primary font-medium">
+                                        {character.relationshipConfig?.status || 'Not set'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400">Messages:</span>{' '}
+                                    <span className="text-white font-medium">{character._count.messages}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400">Memories:</span>{' '}
+                                    <span className="text-white font-medium">{character._count.memories}</span>
+                                </div>
+                                {character.modelName && (
+                                    <div>
+                                        <span className="text-gray-400">Model:</span>{' '}
+                                        <span className="text-primary font-mono text-xs">{character.modelName}</span>
+                                    </div>
+                                )}
+                                {character.provider && character.provider !== 'default' && (
+                                    <div>
+                                        <span className="text-gray-400">Provider:</span>{' '}
+                                        <span className="text-primary font-mono text-xs uppercase">{character.provider}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Persona Preview */}
+                            <div className="glass p-4 rounded-lg">
+                                <h3 className="text-sm font-semibold text-primary mb-2">Persona</h3>
+                                <p className="text-sm text-gray-300 line-clamp-6 whitespace-pre-wrap">
+                                    {character.persona}
+                                </p>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex flex-wrap gap-3">
+                                <Link
+                                    href={`/chat/${character.id}`}
+                                    className="btn-primary flex-1 flex items-center justify-center"
+                                >
+                                    💬 Start Chat
+                                </Link>
+                                <button
+                                    onClick={() => setIsEditModalOpen(true)}
+                                    className="btn-secondary"
+                                >
+                                    ✏️ Edit
+                                </button>
+                                <button
+                                    onClick={() => setIsDuplicateModalOpen(true)}
+                                    className="btn-secondary"
+                                >
+                                    📋 Duplicate
+                                </button>
+                                <button
+                                    onClick={handleDelete}
+                                    disabled={isDeleting}
+                                    className="btn-secondary text-red-400 hover:text-red-300 disabled:opacity-50"
+                                >
+                                    🗑️ {isDeleting ? 'Deleting...' : 'Delete'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Edit Modal */}
+            <CharacterFormModal
+                isOpen={isEditModalOpen}
+                onClose={() => {
+                    setIsEditModalOpen(false)
+                    loadCharacter()
+                }}
+                mode="edit"
+                characterId={character.id}
+                initialData={{
+                    name: character.name,
+                    avatarUrl: character.avatarUrl,
+                    gender: character.gender,
+                    shortDescription: character.shortDescription,
+                    persona: character.persona,
+                    speakingStyle: character.speakingStyle,
+                    boundaries: character.boundaries,
+                    tags: character.tags,
+                    modelName: character.modelName || '',
+                    provider: character.provider || 'default',
+                }}
+                siliconPresets={siliconPresets}
+            />
+
+            {/* Duplicate Modal */}
+            <CharacterFormModal
+                isOpen={isDuplicateModalOpen}
+                onClose={() => {
+                    setIsDuplicateModalOpen(false)
+                }}
+                mode="duplicate"
+                initialData={{
+                    name: `${character.name} (Copy)`,
+                    avatarUrl: character.avatarUrl,
+                    gender: character.gender,
+                    shortDescription: character.shortDescription,
+                    persona: character.persona,
+                    speakingStyle: character.speakingStyle,
+                    boundaries: character.boundaries,
+                    tags: character.tags,
+                    modelName: character.modelName || '',
+                    provider: character.provider || 'default',
+                    relationshipStatus: 'crush',
+                }}
+                siliconPresets={siliconPresets}
+            />
+        </>
+    )
+}

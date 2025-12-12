@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")  // For migrations (bypasses connection pooler)
+}
+
+model Character {
+  id               String   @id @default(cuid())
+  name             String
+  avatarUrl        String
+  gender           String
+  shortDescription String
+  persona          String
+  speakingStyle    String
+  boundaries       String
+  tags             String
+  provider         String   @default("default") // "default" | "silicon" | "deepseek" | "moonshot"
+  modelName        String?   // Optional: override default LLM model
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  messages           Message[]
+  memories           Memory[]
+  relationshipConfig RelationshipConfig?
+}
+
+model UserProfile {
+  id                     String   @id @default("me")
+  displayName            String
+  nicknameForUser        String
+  gender                 String?
+  age                    Int?
+  occupation             String?
+  personalityDescription String?
+  likes                  String?
+  dislikes               String?
+  chatTheme              String?  @default("midnight")
+  chatTextTone           String?  @default("auto")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  relationshipConfigs RelationshipConfig[]
+}
+
+model RelationshipConfig {
+  id              String    @id @default(cuid())
+  characterId     String    @unique
+  userId          String
+  status          String
+  startDate       DateTime?
+  specialNotes    String?
+  intimacyLevel   Int       @default(0) // 0: người lạ, 1: đã biết, 2: thân, 3: người yêu, 4: tri kỷ
+  affectionPoints Int       @default(0) // 0..100
+  stage           String    @default("UNDEFINED") // "STRANGER" | "DATING" | ... (using String for easy SQLite compat, ideally Enum)
+  lastActiveAt    DateTime  @default(now())
+  messageCount    Int       @default(0) // total messages from user
+  // P1.5: Stage change cooldown - track message count at last stage change
+  lastStageChangeAt Int     @default(0) // messageCount when stage last changed
+  
+  // Emotional Momentum System
+  trustDebt          Float   @default(0.0)  // Accumulated negative momentum (0 = clean, higher = more debt)
+  emotionalMomentum  Float   @default(0.0)  // Continuous inertia (-1.0 to +1.0)
+  apologyCount       Int     @default(0)    // Consecutive apology-like messages for spam detection
+  lastMessageHash    String? // Hash of last user message (for future similarity detection)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  character   Character   @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  userProfile UserProfile @relation(fields: [userId], references: [id])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  characterId String
+  role        String
+  content     String
+  sceneState  String?
+  createdAt   DateTime @default(now())
+
+  // Reply/quote feature
+  replyToMessageId String?
+  replyTo          Message?  @relation("MessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies          Message[] @relation("MessageReplies")
+
+  // Heart reaction from character (NONE | LIKE | HEARTBEAT)
+  reactionType String?
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  memories  Memory[]  @relation("MessageMemories")
+}
+
+model Memory {
+  id              String   @id @default(cuid())
+  characterId     String
+  type            String
+  content         String
+  importanceScore Int      @default(5)
+  sourceMessageId String?
+  category        String   @default("fact")   // "fact" | "event" | "relationship" | "diary"
+  visibility      String   @default("public") // "public" | "private"
+  createdAt       DateTime @default(now())
+
+  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  sourceMessage Message?  @relation("MessageMemories", fields: [sourceMessageId], references: [id], onDelete: SetNull)
+
+  @@index([characterId, importanceScore])
+}
