@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getSiliconPresets } from '@/lib/llm/silicon-presets'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
     try {
         const presets = getSiliconPresets()

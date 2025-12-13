@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { MAX_CHARACTERS_PER_USER, DEFAULT_USER_ID } from '@/lib/config'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
     try {
         const characters = await prisma.character.findMany({

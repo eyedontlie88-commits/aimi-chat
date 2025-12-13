@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getSiliconPresetModels } from '@/lib/llm/silicon-presets'
+import { getSiliconPresets } from '@/lib/llm/silicon-presets'
 import Image from 'next/image'
 import CharacterFormModal from '@/components/CharacterFormModal'
 

@@ -5,6 +5,8 @@ import { buildChatPrompt } from '@/lib/prompt/builder'
 import { updateRelationshipStats } from '@/lib/relationship'
 import type { SceneState, LLMProviderId } from '@/lib/llm/types'
 
+export const dynamic = 'force-dynamic'
+
 const USER_ID = 'me'
 
 export async function POST(request: NextRequest) {

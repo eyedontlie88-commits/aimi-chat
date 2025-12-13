@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma'
  * Only available in non-production environments
  */
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
     // Guard: Only allow in development
     if (process.env.NODE_ENV === 'production') {

@@ -13,6 +13,11 @@ export interface PhoneCheckData {
     app: string
     description: string
     isSuspicious: boolean
+    // Optional extended fields
+    discovery?: string
+    context?: string
+    additionalInfo?: string
+    severity?: number
 }
 
 export default function PhoneCheckModal({

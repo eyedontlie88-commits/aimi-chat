@@ -53,6 +53,10 @@ interface Memory {
     content: string
     importanceScore: number
     createdAt: string
+    characterId: string
+    sourceMessageId: string | null
+    category: string
+    visibility: string
 }
 
 export default function ChatPage({ params }: { params: { characterId: string } }) {
@@ -315,10 +319,10 @@ export default function ChatPage({ params }: { params: { characterId: string } }
     const handlePhoneCheck = async (data: PhoneCheckData) => {
         const sceneState = {
             type: 'phone_check',
-            description: `${character?.name} đang kiểm tra điện thoại của bạn và thấy: "${data.discovery}" 
-            Bối cảnh: ${data.context}
-            ${data.additionalInfo ? `Chi tiết thêm: ${data.additionalInfo}` : ''}`,
-            severity: data.severity,
+            description: `${character?.name} đang kiểm tra điện thoại của bạn và thấy: "${data.discovery ?? data.description}" 
+            Bối cảnh: ${data.context ?? data.app}
+            ${data.additionalInfo ? `Chi tiết thêm: ${data.additionalInfo}` : ''}${data.isSuspicious ? ' (Có điều đáng ngờ!)' : ''}`,
+            severity: data.severity ?? (data.isSuspicious ? 3 : 1),
         }
         setInputMessage('')
         await sendMessage(sceneState)
@@ -706,13 +710,23 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                 characterName={character.name}
             />
 
-            <MemoryViewer
-                isOpen={isMemoryViewerOpen}
-                onClose={() => setIsMemoryViewerOpen(false)}
-                characterName={character.name}
-                memories={memories}
-                onDelete={handleDeleteMemory}
-            />
+            {/* Convert memories createdAt to Date for MemoryViewer */}
+            {(() => {
+                const memoriesForViewer = memories.map((m) => ({
+                    ...m,
+                    createdAt: new Date(m.createdAt as any),
+                }))
+
+                return (
+                    <MemoryViewer
+                        isOpen={isMemoryViewerOpen}
+                        onClose={() => setIsMemoryViewerOpen(false)}
+                        characterName={character.name}
+                        memories={memoriesForViewer}
+                        onDelete={handleDeleteMemory}
+                    />
+                )
+            })()}
 
             <CreateMemoryModal
                 isOpen={isCreateMemoryOpen}

@@ -1,10 +1,10 @@
-import { LLMProvider, LLMMessage, LLMConfig } from './types'
+import { LLMProviderClient, LLMMessage, LLMConfig } from './types'
 
-export class OpenAICompatibleProvider implements LLMProvider {
+export class OpenAICompatibleProvider implements LLMProviderClient {
     constructor(private config: LLMConfig) { }
 
-    async generateResponse(messages: LLMMessage[], modelOverride?: string): Promise<string> {
-        const { baseUrl, apiKey, model } = this.config
+    async generateResponse(messages: LLMMessage[], options: { model?: string } = {}): Promise<string> {
+        const { baseUrl, apiKey, defaultModel } = this.config
 
         try {
             const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -14,7 +14,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
                     Authorization: `Bearer ${apiKey}`,
                 },
                 body: JSON.stringify({
-                    model: modelOverride || model,
+                    model: options.model || defaultModel,
                     messages,
                     temperature: 0.8,
                     max_tokens: 500,
