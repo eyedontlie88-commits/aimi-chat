@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getSiliconPresetModels } from '@/lib/llm/silicon-presets'
+import { getSiliconPresets } from '@/lib/llm/silicon-presets'
 
 export async function GET() {
-    const presets = getSiliconPresetModels()
+    const presets = getSiliconPresets()
     return NextResponse.json({ presets })
 }
