@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getAuthContext, isAuthError } from '@/lib/auth/require-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
     try {
+        const { uid, prisma } = await getAuthContext(request)
+
+        // Verify character belongs to this user
+        const relationship = await prisma.relationshipConfig.findFirst({
+            where: { characterId: params.id, userId: uid },
+        })
+
+        if (!relationship) {
+            return NextResponse.json({ error: 'Character not found' }, { status: 404 })
+        }
+
         const character = await prisma.character.findUnique({
             where: { id: params.id },
             include: {
@@ -18,6 +29,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
         return NextResponse.json({ character })
     } catch (error) {
+        if (isAuthError(error)) {
+            return NextResponse.json({ error: error.message }, { status: 401 })
+        }
         console.error('Error fetching character:', error)
         return NextResponse.json({ error: 'Failed to fetch character' }, { status: 500 })
     }
@@ -25,7 +39,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     try {
+        const { uid, prisma } = await getAuthContext(request)
         const body = await request.json()
+
+        // Verify character belongs to this user
+        const relationship = await prisma.relationshipConfig.findFirst({
+            where: { characterId: params.id, userId: uid },
+        })
+
+        if (!relationship) {
+            return NextResponse.json({ error: 'Character not found' }, { status: 404 })
+        }
+
         const {
             name,
             avatarUrl,
@@ -80,6 +105,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
         return NextResponse.json({ character: updatedCharacter })
     } catch (error) {
+        if (isAuthError(error)) {
+            return NextResponse.json({ error: error.message }, { status: 401 })
+        }
         console.error('Error updating character:', error)
         return NextResponse.json({ error: 'Failed to update character' }, { status: 500 })
     }
@@ -87,6 +115,17 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
     try {
+        const { uid, prisma } = await getAuthContext(request)
+
+        // Verify character belongs to this user
+        const relationship = await prisma.relationshipConfig.findFirst({
+            where: { characterId: params.id, userId: uid },
+        })
+
+        if (!relationship) {
+            return NextResponse.json({ error: 'Character not found' }, { status: 404 })
+        }
+
         // Delete related data first (in case cascade doesn't work)
         await prisma.memory.deleteMany({ where: { characterId: params.id } })
         await prisma.message.deleteMany({ where: { characterId: params.id } })
@@ -99,6 +138,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
         return NextResponse.json({ success: true })
     } catch (error) {
+        if (isAuthError(error)) {
+            return NextResponse.json({ error: error.message }, { status: 401 })
+        }
         console.error('Error deleting character:', error)
         return NextResponse.json({ error: 'Failed to delete character' }, { status: 500 })
     }

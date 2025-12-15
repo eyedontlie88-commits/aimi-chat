@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getAuthContext, isAuthError } from '@/lib/auth/require-auth'
 
 /**
  * TASK C: Dev-only API to quickly manipulate relationship state
@@ -18,11 +18,21 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+        const { prisma, uid } = await getAuthContext(request)
         const body = await request.json()
         const { characterId, action, ...params } = body
 
         if (!characterId) {
             return NextResponse.json({ error: 'characterId required' }, { status: 400 })
+        }
+
+        // Verify character belongs to this user
+        const relationship = await prisma.relationshipConfig.findFirst({
+            where: { characterId, userId: uid },
+        })
+
+        if (!relationship) {
+            return NextResponse.json({ error: 'Character not found' }, { status: 404 })
         }
 
         console.log(`[Dev API] 🧪 ${action} for character: ${characterId}`, params)
@@ -146,6 +156,9 @@ export async function POST(request: NextRequest) {
             },
         })
     } catch (error: any) {
+        if (isAuthError(error)) {
+            return NextResponse.json({ error: error.message }, { status: 401 })
+        }
         console.error('[Dev API] ❌ Error:', error)
         return NextResponse.json({ error: error.message }, { status: 500 })
     }

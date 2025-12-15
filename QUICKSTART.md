@@ -1,4 +1,4 @@
-# DokiChat - Quick Start Guide
+# AImi chat - Quick Start Guide
 
 Your personal romantic AI chat app is ready! 🎉
 

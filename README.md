@@ -1,4 +1,4 @@
-# DokiChat - Personal AI Romantic Companions
+# AImi chat - Personal AI Romantic Companions
 
 A personal web application for chatting with romantic AI characters who remember and care about you. Built with Next.js, TypeScript, Prisma, and TailwindCSS.
 

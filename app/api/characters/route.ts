@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { MAX_CHARACTERS_PER_USER, DEFAULT_USER_ID } from '@/lib/config'
+import { getAuthContext, isAuthError } from '@/lib/auth/require-auth'
+import { MAX_CHARACTERS_PER_USER } from '@/lib/config'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const { uid, prisma } = await getAuthContext(request)
+
         const characters = await prisma.character.findMany({
             orderBy: { name: 'asc' },
+            where: {
+                relationshipConfig: {
+                    userId: uid,
+                },
+            },
             include: {
                 relationshipConfig: true,
             },
@@ -15,6 +22,9 @@ export async function GET() {
 
         return NextResponse.json({ characters })
     } catch (error) {
+        if (isAuthError(error)) {
+            return NextResponse.json({ error: error.message }, { status: 401 })
+        }
         console.error('Error fetching characters:', error)
         return NextResponse.json({ error: 'Failed to fetch characters' }, { status: 500 })
     }
@@ -22,6 +32,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     try {
+        const { uid, prisma } = await getAuthContext(request)
         const body = await request.json()
         const {
             name,
@@ -37,9 +48,9 @@ export async function POST(request: NextRequest) {
             provider,
         } = body
 
-        // Check character limit
+        // Check character limit for this user
         const currentCount = await prisma.relationshipConfig.count({
-            where: { userId: DEFAULT_USER_ID },
+            where: { userId: uid },
         })
 
         if (currentCount >= MAX_CHARACTERS_PER_USER) {
@@ -73,11 +84,22 @@ export async function POST(request: NextRequest) {
             },
         })
 
-        // Create default relationship config
+        // Ensure user profile exists (for authenticated users)
+        await prisma.userProfile.upsert({
+            where: { id: uid },
+            create: {
+                id: uid,
+                displayName: 'Bạn',
+                nicknameForUser: 'em',
+            },
+            update: {},
+        })
+
+        // Create relationship config linking to user
         await prisma.relationshipConfig.create({
             data: {
                 characterId: character.id,
-                userId: DEFAULT_USER_ID,
+                userId: uid,
                 status: relationshipStatus || 'đang hẹn hò',
                 startDate: new Date(),
                 specialNotes: 'Mới gặp nhau!',
@@ -86,8 +108,10 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ character }, { status: 201 })
     } catch (error) {
+        if (isAuthError(error)) {
+            return NextResponse.json({ error: error.message }, { status: 401 })
+        }
         console.error('Error creating character:', error)
         return NextResponse.json({ error: 'Failed to create character' }, { status: 500 })
     }
 }
-

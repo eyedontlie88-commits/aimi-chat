@@ -1,16 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getAuthContext, isAuthError } from '@/lib/auth/require-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
     try {
+        const { uid, prisma } = await getAuthContext(request)
         const { searchParams } = new URL(request.url)
         const characterId = searchParams.get('characterId')
         const limit = parseInt(searchParams.get('limit') || '50')
 
         if (!characterId) {
             return NextResponse.json({ error: 'characterId is required' }, { status: 400 })
+        }
+
+        // Verify character belongs to this user
+        const relationship = await prisma.relationshipConfig.findFirst({
+            where: { characterId, userId: uid },
+        })
+
+        if (!relationship) {
+            return NextResponse.json({ error: 'Character not found' }, { status: 404 })
         }
 
         const messages = await prisma.message.findMany({
@@ -31,6 +41,9 @@ export async function GET(request: NextRequest) {
         // Reverse to get chronological order (oldest first)
         return NextResponse.json({ messages: messages.reverse() })
     } catch (error) {
+        if (isAuthError(error)) {
+            return NextResponse.json({ error: error.message }, { status: 401 })
+        }
         console.error('Error fetching messages:', error)
         return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 })
     }
@@ -38,11 +51,21 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
+        const { uid, prisma } = await getAuthContext(request)
         const { searchParams } = new URL(request.url)
         const characterId = searchParams.get('characterId')
 
         if (!characterId) {
             return NextResponse.json({ error: 'Missing characterId' }, { status: 400 })
+        }
+
+        // Verify character belongs to this user
+        const relationship = await prisma.relationshipConfig.findFirst({
+            where: { characterId, userId: uid },
+        })
+
+        if (!relationship) {
+            return NextResponse.json({ error: 'Character not found' }, { status: 404 })
         }
 
         console.log(`[Reset API] 🔄 Full reset for character: ${characterId}`)
@@ -99,8 +122,10 @@ export async function DELETE(request: NextRequest) {
             },
         })
     } catch (error) {
+        if (isAuthError(error)) {
+            return NextResponse.json({ error: error.message }, { status: 401 })
+        }
         console.error('[Reset API] ❌ Error:', error)
         return NextResponse.json({ error: 'Failed to reset' }, { status: 500 })
     }
 }
-

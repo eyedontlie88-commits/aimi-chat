@@ -98,8 +98,8 @@ export default function CharactersPage() {
                         {/* Counter Bar */}
                         <div className="flex items-center justify-between mb-8 glass rounded-lg px-6 py-4">
                             <div className="flex items-center gap-4">
-                                <span className="text-gray-300">
-                                    Nhân vật của bạn: <span className="text-white font-bold">{characterCount}</span> / {MAX_CHARACTERS}
+                                <span className="text-gray-500 text-sm">
+                                    Nhân vật của bạn: <span className="font-medium">{characterCount} / {MAX_CHARACTERS}</span>
                                 </span>
                                 {hasReachedLimit && (
                                     <span className="text-xs text-yellow-400">

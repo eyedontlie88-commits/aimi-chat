@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { PrismaClient } from '@prisma/client'
 
 // ============================================
 // Constants
@@ -134,11 +134,13 @@ interface UpdateRelationshipResult {
 /**
  * Update relationship stats with emotional momentum system
  * 
+ * @param prisma Prisma client to use (from auth context)
  * @param characterId Target character
  * @param impactScore Impact score from -2 to +2 (from LLM)
  * @param userMessage User's message text (for apology detection)
  */
 export async function updateRelationshipStats(
+    prisma: PrismaClient,
     characterId: string,
     impactScore: number,
     userMessage: string = ''

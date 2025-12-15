@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getAuthContext, isAuthError } from '@/lib/auth/require-auth'
 import { generateWithProviders } from '@/lib/llm'
 import { buildChatPrompt } from '@/lib/prompt/builder'
 import { updateRelationshipStats } from '@/lib/relationship'
@@ -7,10 +7,9 @@ import type { SceneState, LLMProviderId } from '@/lib/llm/types'
 
 export const dynamic = 'force-dynamic'
 
-const USER_ID = 'me'
-
 export async function POST(request: NextRequest) {
     try {
+        const { uid, prisma } = await getAuthContext(request)
         const body = await request.json()
         const { characterId, message, sceneState, replyToMessageId } = body
 
@@ -18,23 +17,35 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'characterId and message are required' }, { status: 400 })
         }
 
+        // Verify character belongs to this user
+        const relationshipConfig = await prisma.relationshipConfig.findFirst({
+            where: { characterId, userId: uid },
+        })
+
+        if (!relationshipConfig) {
+            return NextResponse.json({ error: 'Character not found' }, { status: 404 })
+        }
+
         // Load all required context
-        const [character, userProfile, relationshipConfig] = await Promise.all([
+        const [character, userProfile] = await Promise.all([
             prisma.character.findUnique({ where: { id: characterId } }),
-            prisma.userProfile.findUnique({ where: { id: USER_ID } }),
-            prisma.relationshipConfig.findUnique({ where: { characterId } }),
+            prisma.userProfile.findUnique({ where: { id: uid } }),
         ])
 
         if (!character) {
             return NextResponse.json({ error: 'Character not found' }, { status: 404 })
         }
 
-        if (!userProfile) {
-            return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
-        }
-
-        if (!relationshipConfig) {
-            return NextResponse.json({ error: 'Relationship config not found' }, { status: 404 })
+        // Create user profile if doesn't exist (for authenticated users)
+        let profile = userProfile
+        if (!profile) {
+            profile = await prisma.userProfile.create({
+                data: {
+                    id: uid,
+                    displayName: 'Bạn',
+                    nicknameForUser: 'em',
+                },
+            })
         }
 
         // Load recent messages (last 20 for context)
@@ -59,7 +70,7 @@ export async function POST(request: NextRequest) {
         // Build base prompt from system + history
         const basePromptMessages = buildChatPrompt({
             character,
-            userProfile,
+            userProfile: profile,
             relationshipConfig,
             memories,
             recentMessages: messagesForContext,
@@ -89,7 +100,7 @@ export async function POST(request: NextRequest) {
                 select: { role: true, content: true },
             })
             if (replyToMessage) {
-                const replyAuthor = replyToMessage.role === 'user' ? userProfile.nicknameForUser : character.name
+                const replyAuthor = replyToMessage.role === 'user' ? profile.nicknameForUser : character.name
                 userContent = `[Ngữ cảnh: Tin nhắn này đang trả lời tin nhắn trước của ${replyAuthor}: "${replyToMessage.content.slice(0, 200)}${replyToMessage.content.length > 200 ? '...' : ''}"]
 ${message}`
             }
@@ -226,7 +237,7 @@ ${message}`
         })
 
         // Update relationship stats (pass user message for apology detection)
-        const updatedRelationship = await updateRelationshipStats(characterId, impactScore, message)
+        const updatedRelationship = await updateRelationshipStats(prisma, characterId, impactScore, message)
 
         return NextResponse.json({
             reply: cleanedReply,
@@ -238,6 +249,10 @@ ${message}`
             impactScaled: impactScore * 3, // Scaled impact applied to affection
         })
     } catch (error: any) {
+        if (isAuthError(error)) {
+            return NextResponse.json({ error: error.message }, { status: 401 })
+        }
+
         console.error('[Chat API] LLM error:', error?.response?.data || error?.message || error)
 
         const code = error?.code
