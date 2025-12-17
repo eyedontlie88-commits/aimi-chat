@@ -431,10 +431,10 @@ export default function ChatPage({ params }: { params: { characterId: string } }
     return (
         <>
             {/* Fixed container covering viewport from nav to bottom - hides footer */}
-            <div className={`fixed top-16 left-0 right-0 bottom-0 flex flex-col z-10 ${theme.layout.messagesBg}`}>
+            <div className={`absolute inset-0 top-16 w-full max-w-full flex flex-col overflow-x-hidden overflow-y-hidden z-10 ${theme.layout.messagesBg}`}>
                 {/* Header - fixed at top with solid bg */}
-                <div className={`shrink-0 border-b backdrop-blur-md px-4 py-3 ${theme.layout.headerBg} ${theme.layout.headerBorder} ${theme.resolvedHeaderText}`}>
-                    <div className="max-w-4xl mx-auto flex items-center justify-between">
+                <div className={`shrink-0 w-full max-w-full border-b backdrop-blur-md px-2 sm:px-4 py-3 overflow-x-hidden ${theme.layout.headerBg} ${theme.layout.headerBorder} ${theme.resolvedHeaderText}`}>
+                    <div className="w-full mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 overflow-x-hidden">
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => router.back()}
@@ -445,8 +445,8 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                             <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-primary/30">
                                 <Image src={character.avatarUrl} alt={character.name} fill unoptimized />
                             </div>
-                            <div>
-                                <h2 className="font-semibold text-white">{character.name}</h2>
+                            <div className="flex-1 min-w-0 max-w-full">
+                                <h2 className="font-semibold text-white truncate max-w-full">{character.name}</h2>
                                 {/* Affection Bar */}
                                 <div className="mt-0.5 text-xs text-slate-300">
                                     <div className="flex items-center gap-2">
@@ -464,54 +464,59 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                                             </span>
                                         )}
                                     </div>
-                                    <div className="w-32 h-1.5 bg-white/20 rounded-full overflow-hidden mt-1">
+                                    <div className="w-full max-w-32 h-1.5 bg-white/20 rounded-full overflow-hidden mt-1">
                                         <div
                                             className="h-full bg-pink-400 transition-all duration-500"
                                             style={{ width: `${Math.min(100, affectionPoints)}%` }}
                                         />
                                     </div>
-                                    <div className="mt-1 flex items-center gap-2 text-[10px] uppercase font-bold tracking-wider text-pink-300">
+                                    <div className="mt-1 flex items-center gap-2 text-[10px] uppercase font-bold tracking-wider text-pink-300 truncate max-w-full">
                                         STAGE: {relationshipStage}
                                     </div>
                                 </div>
                                 {/* Model Info */}
-                                <div className="mt-1 text-[10px] text-slate-400">
+                                <div className="mt-1 text-[10px] text-slate-400 truncate max-w-full">
                                     Model: {character.provider || 'mặc định'} · {character.modelName || 'default'}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto justify-end">
                             <button
                                 onClick={() => setIsSettingsOpen(true)}
-                                className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
                             >
-                                ⚙️ Settings
+                                <span className="hidden sm:inline">⚙️ Settings</span>
+                                <span className="sm:hidden">⚙️</span>
                             </button>
                             <button
                                 onClick={() => setIsSearchOpen(true)}
-                                className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
                             >
-                                🔍 Tìm
+                                <span className="hidden sm:inline">🔍 Tìm</span>
+                                <span className="sm:hidden">🔍</span>
                             </button>
                             <button
                                 onClick={() => setIsMemoryViewerOpen(true)}
-                                className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
                             >
-                                💭 Ký ức ({memories.length})
+                                <span className="hidden sm:inline">💭 Ký ức ({memories.length})</span>
+                                <span className="sm:hidden">💭 ({memories.length})</span>
                             </button>
                             <button
                                 onClick={() => setIsPhoneCheckOpen(true)}
-                                className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
                             >
-                                📱 Phone Check
+                                <span className="hidden sm:inline">📱 Phone Check</span>
+                                <span className="sm:hidden">📱</span>
                             </button>
                             <button
                                 onClick={handleResetChat}
                                 disabled={isResetting}
-                                className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm transition disabled:opacity-50 ${theme.buttons.dangerBg} ${theme.resolvedDangerText}`}
+                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition disabled:opacity-50 ${theme.buttons.dangerBg} ${theme.resolvedDangerText}`}
                             >
-                                {isResetting ? '⏳ Đang xoá…' : '🗑️ Reset'}
+                                {isResetting ? <span className="sm:hidden">⏳</span> : <span className="sm:hidden">🗑️</span>}
+                                <span className="hidden sm:inline">{isResetting ? '⏳ Đang xoá…' : '🗑️ Reset'}</span>
                             </button>
 
                             {/* Dev Force Reaction Toggle (dev mode only) */}
@@ -549,9 +554,9 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                 <div
                     ref={messagesContainerRef}
                     onScroll={handleScroll}
-                    className="flex-1 overflow-y-auto px-4 py-6 relative"
+                    className="flex-1 w-full max-w-full overflow-y-auto px-2 sm:px-4 py-6 relative"
                 >
-                    <div className="max-w-4xl mx-auto space-y-4">
+                    <div className="w-full max-w-full mx-auto space-y-4 px-2 sm:px-4">
                         {relationshipStage === 'UNDEFINED' && (
                             <div className={`mb-6 p-4 rounded-xl ${theme.notice.bg} ${theme.notice.border} ${theme.notice.text}`}>
                                 <h3 className="font-bold text-sm mb-1">⚠️ Chưa xác định được mối quan hệ</h3>
@@ -700,34 +705,37 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                         </form>
                     </div>
                 </div>
-            </div>
+            </div >
 
 
             {/* Modals */}
-            <PhoneCheckModal
+            < PhoneCheckModal
                 isOpen={isPhoneCheckOpen}
-                onClose={() => setIsPhoneCheckOpen(false)}
+                onClose={() => setIsPhoneCheckOpen(false)
+                }
                 onSubmit={handlePhoneCheck}
                 characterName={character.name}
             />
 
             {/* Convert memories createdAt to Date for MemoryViewer */}
-            {(() => {
-                const memoriesForViewer = memories.map((m) => ({
-                    ...m,
-                    createdAt: new Date(m.createdAt as any),
-                }))
+            {
+                (() => {
+                    const memoriesForViewer = memories.map((m) => ({
+                        ...m,
+                        createdAt: new Date(m.createdAt as any),
+                    }))
 
-                return (
-                    <MemoryViewer
-                        isOpen={isMemoryViewerOpen}
-                        onClose={() => setIsMemoryViewerOpen(false)}
-                        characterName={character.name}
-                        memories={memoriesForViewer}
-                        onDelete={handleDeleteMemory}
-                    />
-                )
-            })()}
+                    return (
+                        <MemoryViewer
+                            isOpen={isMemoryViewerOpen}
+                            onClose={() => setIsMemoryViewerOpen(false)}
+                            characterName={character.name}
+                            memories={memoriesForViewer}
+                            onDelete={handleDeleteMemory}
+                        />
+                    )
+                })()
+            }
 
             <CreateMemoryModal
                 isOpen={isCreateMemoryOpen}
@@ -748,65 +756,67 @@ export default function ChatPage({ params }: { params: { characterId: string } }
             />
 
             {/* Search Modal */}
-            {isSearchOpen && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="glass p-4 rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col gap-3 mx-4">
-                        <h3 className="text-lg font-semibold">🔍 Tìm kiếm tin nhắn</h3>
+            {
+                isSearchOpen && (
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                        <div className="glass p-4 rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col gap-3 mx-4">
+                            <h3 className="text-lg font-semibold">🔍 Tìm kiếm tin nhắn</h3>
 
-                        <div className="flex gap-2">
-                            <input
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-                                className="input-field flex-1"
-                                placeholder="Nhập từ khoá cần tìm..."
-                                autoFocus
-                            />
-                            <button className="btn-primary px-4" onClick={runSearch}>
-                                Tìm
+                            <div className="flex gap-2">
+                                <input
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                                    className="input-field flex-1"
+                                    placeholder="Nhập từ khoá cần tìm..."
+                                    autoFocus
+                                />
+                                <button className="btn-primary px-4" onClick={runSearch}>
+                                    Tìm
+                                </button>
+                            </div>
+
+                            <div className="text-xs text-gray-400">
+                                Tìm trong {messages.length} tin nhắn gần đây.
+                            </div>
+
+                            <div className="mt-2 space-y-2 overflow-y-auto flex-1">
+                                {searchResults.length === 0 ? (
+                                    <div className="text-sm text-gray-400 text-center py-4">
+                                        {searchQuery ? 'Không tìm thấy kết quả nào.' : 'Nhập từ khoá để bắt đầu tìm.'}
+                                    </div>
+                                ) : (
+                                    searchResults.map((m) => (
+                                        <button
+                                            key={m.id}
+                                            onClick={() => jumpToMessage(m.id)}
+                                            className="w-full text-left text-sm p-2 rounded-lg hover:bg-white/5 border border-white/10"
+                                        >
+                                            <div className="text-[11px] text-gray-400 mb-1">
+                                                {m.role === 'user' ? 'Bạn' : character.name} • {new Date(m.createdAt).toLocaleString('vi-VN')}
+                                            </div>
+                                            <div className="line-clamp-2 whitespace-pre-wrap">
+                                                {m.content}
+                                            </div>
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    setIsSearchOpen(false)
+                                    setSearchQuery('')
+                                    setSearchResults([])
+                                }}
+                                className="btn-secondary w-full mt-2"
+                            >
+                                Đóng
                             </button>
                         </div>
-
-                        <div className="text-xs text-gray-400">
-                            Tìm trong {messages.length} tin nhắn gần đây.
-                        </div>
-
-                        <div className="mt-2 space-y-2 overflow-y-auto flex-1">
-                            {searchResults.length === 0 ? (
-                                <div className="text-sm text-gray-400 text-center py-4">
-                                    {searchQuery ? 'Không tìm thấy kết quả nào.' : 'Nhập từ khoá để bắt đầu tìm.'}
-                                </div>
-                            ) : (
-                                searchResults.map((m) => (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => jumpToMessage(m.id)}
-                                        className="w-full text-left text-sm p-2 rounded-lg hover:bg-white/5 border border-white/10"
-                                    >
-                                        <div className="text-[11px] text-gray-400 mb-1">
-                                            {m.role === 'user' ? 'Bạn' : character.name} • {new Date(m.createdAt).toLocaleString('vi-VN')}
-                                        </div>
-                                        <div className="line-clamp-2 whitespace-pre-wrap">
-                                            {m.content}
-                                        </div>
-                                    </button>
-                                ))
-                            )}
-                        </div>
-
-                        <button
-                            onClick={() => {
-                                setIsSearchOpen(false)
-                                setSearchQuery('')
-                                setSearchResults([])
-                            }}
-                            className="btn-secondary w-full mt-2"
-                        >
-                            Đóng
-                        </button>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Heart Toast - shows when character reacts with HEARTBEAT */}
             <HeartToast
