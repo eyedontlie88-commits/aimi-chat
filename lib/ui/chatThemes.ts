@@ -57,37 +57,37 @@ export const chatThemes: Record<ChatThemeId, ChatThemeDefinition> = {
         description: 'Nền tối, dễ đọc ban đêm 🌙',
         isDark: true,
         layout: {
-            pageBg: 'bg-slate-950',
-            headerBg: 'bg-slate-900',
-            headerBorder: 'border-slate-700',
-            messagesBg: 'bg-gradient-to-b from-slate-950 to-slate-900',
-            inputBg: 'bg-slate-900',
-            inputBorder: 'border-slate-700',
+            pageBg: 'bg-neutral-950',           // #0a0a0a - Very dark, easy on eyes
+            headerBg: 'bg-neutral-900',          // #171717 - Soft dark gray
+            headerBorder: 'border-neutral-700',  // #3f3f3f
+            messagesBg: 'bg-gradient-to-b from-neutral-950 to-neutral-900',
+            inputBg: 'bg-neutral-900',           // #171717
+            inputBorder: 'border-neutral-700',   // #3f3f3f
         },
         bubbles: {
-            userBg: 'bg-indigo-600',
-            userText: 'text-white',
-            aiBg: 'bg-slate-800',
-            aiText: 'text-slate-100',
-            replyPreviewBg: 'bg-slate-800/70',
-            replyPreviewBorder: 'border-slate-600',
-            replyPreviewText: 'text-slate-200',
+            userBg: 'bg-blue-600',               // #2563eb - Eye-friendly blue
+            userText: 'text-gray-50',            // #f9fafb - Soft white
+            aiBg: 'bg-neutral-800',              // #262626
+            aiText: 'text-gray-100',             // #f3f4f6 - Soft light text
+            replyPreviewBg: 'bg-neutral-800/70',
+            replyPreviewBorder: 'border-neutral-600',
+            replyPreviewText: 'text-gray-200',   // #e5e7eb
         },
         helpers: {
-            scrollButtonBg: 'bg-slate-800',
-            scrollButtonBorder: 'border-slate-600',
-            scrollIcon: 'text-slate-100',
+            scrollButtonBg: 'bg-neutral-800',
+            scrollButtonBorder: 'border-neutral-600',
+            scrollIcon: 'text-gray-100',         // #f3f4f6
         },
         buttons: {
-            primaryBg: 'bg-slate-700',
-            primaryText: 'text-slate-100',
-            primaryHover: 'hover:bg-slate-600',
+            primaryBg: 'bg-blue-600',            // #2563eb - Primary blue
+            primaryText: 'text-gray-50',         // #f9fafb
+            primaryHover: 'hover:bg-blue-500',   // Lighter blue on hover
             dangerBg: 'bg-red-900/60',
             dangerText: 'text-red-300',
         },
         input: {
-            text: 'text-white',
-            placeholder: 'placeholder:text-slate-400',
+            text: 'text-gray-50',                // #f9fafb - Soft white
+            placeholder: 'placeholder:text-gray-500', // #6b7280 - Not too bright
         },
         notice: {
             bg: 'bg-amber-900/90',
@@ -95,7 +95,7 @@ export const chatThemes: Record<ChatThemeId, ChatThemeDefinition> = {
             text: 'text-amber-100',
             link: 'text-amber-300 hover:text-white underline font-semibold',
         },
-        previewColors: ['#0f172a', '#4f46e5', '#1e293b'],
+        previewColors: ['#0a0a0a', '#2563eb', '#171717'],
     },
     twilight: {
         id: 'twilight',
@@ -149,37 +149,37 @@ export const chatThemes: Record<ChatThemeId, ChatThemeDefinition> = {
         description: 'Hồng pastel, ngọt ngào 🌸',
         isDark: false,
         layout: {
-            pageBg: 'bg-pink-50',
-            headerBg: 'bg-pink-100',
-            headerBorder: 'border-pink-200',
-            messagesBg: 'bg-gradient-to-b from-pink-50 to-rose-100',
+            pageBg: 'bg-gray-100',               // #f3f4f6 - Soft light gray
+            headerBg: 'bg-gray-50',              // #f9fafb - Very light
+            headerBorder: 'border-gray-200',     // #e5e7eb
+            messagesBg: 'bg-gradient-to-b from-gray-100 to-gray-50',
             inputBg: 'bg-white',
-            inputBorder: 'border-pink-300',
+            inputBorder: 'border-gray-300',      // #d1d5db
         },
         bubbles: {
-            userBg: 'bg-pink-500',
+            userBg: 'bg-pink-500',               // #ec4899 - Vibrant but not harsh
             userText: 'text-white',
             aiBg: 'bg-white',
-            aiText: 'text-pink-900',
-            replyPreviewBg: 'bg-pink-200/70',
-            replyPreviewBorder: 'border-pink-300',
-            replyPreviewText: 'text-pink-800',
+            aiText: 'text-gray-800',             // #1f2937 - Good contrast
+            replyPreviewBg: 'bg-gray-200/70',
+            replyPreviewBorder: 'border-gray-300',
+            replyPreviewText: 'text-gray-700',   // #374151
         },
         helpers: {
             scrollButtonBg: 'bg-white',
-            scrollButtonBorder: 'border-pink-300',
+            scrollButtonBorder: 'border-gray-300',
             scrollIcon: 'text-pink-600',
         },
         buttons: {
-            primaryBg: 'bg-pink-200',
-            primaryText: 'text-pink-800',
-            primaryHover: 'hover:bg-pink-300',
+            primaryBg: 'bg-blue-600',            // #2563eb - Consistent blue
+            primaryText: 'text-white',
+            primaryHover: 'hover:bg-blue-500',
             dangerBg: 'bg-red-100',
             dangerText: 'text-red-600',
         },
         input: {
-            text: 'text-pink-900',
-            placeholder: 'placeholder:text-pink-400',
+            text: 'text-gray-800',               // #1f2937 - Good contrast
+            placeholder: 'placeholder:text-gray-400', // #9ca3af
         },
         notice: {
             bg: 'bg-rose-700',
@@ -187,7 +187,7 @@ export const chatThemes: Record<ChatThemeId, ChatThemeDefinition> = {
             text: 'text-white',
             link: 'text-rose-200 hover:text-white underline font-semibold',
         },
-        previewColors: ['#fdf2f8', '#ec4899', '#ffffff'],
+        previewColors: ['#f3f4f6', '#ec4899', '#ffffff'],
     },
     ocean: {
         id: 'ocean',

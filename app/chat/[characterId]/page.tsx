@@ -111,6 +111,9 @@ export default function ChatPage({ params }: { params: { characterId: string } }
     // TASK B: Micro-feedback for impact display
     const [impactFeedback, setImpactFeedback] = useState<{ value: number; show: boolean }>({ value: 0, show: false })
 
+    // Collapse menu state for mobile
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
+
     useEffect(() => {
         loadCharacter()
         loadMessages()
@@ -433,105 +436,147 @@ export default function ChatPage({ params }: { params: { characterId: string } }
             {/* Fixed container covering viewport from nav to bottom - hides footer */}
             <div className={`absolute inset-0 top-16 w-full max-w-full flex flex-col overflow-x-hidden overflow-y-hidden z-10 ${theme.layout.messagesBg}`}>
                 {/* Header - fixed at top with solid bg */}
-                <div className={`shrink-0 w-full max-w-full border-b backdrop-blur-md px-2 sm:px-4 py-3 overflow-x-hidden ${theme.layout.headerBg} ${theme.layout.headerBorder} ${theme.resolvedHeaderText}`}>
-                    <div className="w-full mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 overflow-x-hidden">
-                        <div className="flex items-center gap-3">
+                <div className={`shrink-0 border-b backdrop-blur-md px-4 py-3 relative z-[9999] ${theme.layout.headerBg} ${theme.layout.headerBorder} ${theme.resolvedHeaderText}`}>
+                    <div className="max-w-4xl mx-auto flex items-center justify-between">
+                        <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
                             <button
                                 onClick={() => router.back()}
-                                className={`opacity-80 hover:opacity-100 transition-opacity ${theme.resolvedHeaderText}`}
+                                className={`opacity-80 hover:opacity-100 transition-opacity ${theme.resolvedHeaderText} flex-shrink-0`}
+                                title="Quay lại"
                             >
-                                ← Quay lại
+                                ←
                             </button>
-                            <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-primary/30">
+                            <div className="relative w-8 sm:w-10 h-8 sm:h-10 rounded-full overflow-hidden ring-2 ring-primary/30 flex-shrink-0">
                                 <Image src={character.avatarUrl} alt={character.name} fill unoptimized />
                             </div>
-                            <div className="flex-1 min-w-0 max-w-full">
-                                <h2 className="font-semibold text-white truncate max-w-full">{character.name}</h2>
+                            <div className="min-w-0 flex-1">
+                                <h2 className="font-semibold text-white text-sm sm:text-base truncate">{character.name}</h2>
                                 {/* Affection Bar */}
-                                <div className="mt-0.5 text-xs text-slate-300">
-                                    <div className="flex items-center gap-2">
-                                        <span>{LEVEL_EMOJIS[intimacyLevel]} {LEVEL_LABELS[intimacyLevel]}</span>
-                                        <span className="text-[11px] text-slate-400">
+                                <div className="text-xs text-slate-300 space-y-0.5">
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[10px]">{LEVEL_EMOJIS[intimacyLevel]}</span>
+                                        <span className="truncate text-[10px]">{LEVEL_LABELS[intimacyLevel]}</span>
+                                        <span className="text-[9px] text-slate-400 whitespace-nowrap">
                                             {affectionPoints}/100
                                         </span>
                                         {/* TASK B: Micro-feedback (+6❤️ / -3💔) */}
                                         {impactFeedback.show && (
                                             <span
-                                                className={`text-[11px] font-bold animate-pulse transition-opacity ${impactFeedback.value > 0 ? 'text-green-400' : 'text-red-400'
+                                                className={`text-[10px] font-bold ${impactFeedback.value > 0 ? 'text-green-400' : 'text-red-400'
                                                     }`}
                                             >
                                                 {impactFeedback.value > 0 ? `+${impactFeedback.value}❤️` : `${impactFeedback.value}💔`}
                                             </span>
                                         )}
                                     </div>
-                                    <div className="w-full max-w-32 h-1.5 bg-white/20 rounded-full overflow-hidden mt-1">
+                                    <div className="w-full max-w-32 h-1 bg-white/20 rounded-full overflow-hidden mt-1">
                                         <div
                                             className="h-full bg-pink-400 transition-all duration-500"
                                             style={{ width: `${Math.min(100, affectionPoints)}%` }}
                                         />
                                     </div>
-                                    <div className="mt-1 flex items-center gap-2 text-[10px] uppercase font-bold tracking-wider text-pink-300 truncate max-w-full">
+                                    <div className="mt-1 text-[9px] uppercase font-bold tracking-wider text-pink-300 truncate">
                                         STAGE: {relationshipStage}
                                     </div>
                                 </div>
                                 {/* Model Info */}
-                                <div className="mt-1 text-[10px] text-slate-400 truncate max-w-full">
-                                    Model: {character.provider || 'mặc định'} · {character.modelName || 'default'}
+                                <div className="hidden sm:block text-[9px] text-slate-400 truncate">
+                                    {character.provider || 'mặc định'} · {character.modelName || 'default'}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto justify-end">
+                        <div className="flex items-center gap-1 justify-end flex-shrink-0 relative z-[9999]">
+                            {/* Hamburger button - visible on all devices */}
                             <button
-                                onClick={() => setIsSettingsOpen(true)}
-                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                title={isMenuOpen ? 'Ẩn menu' : 'Hiện menu'}
                             >
-                                <span className="hidden sm:inline">⚙️ Settings</span>
-                                <span className="sm:hidden">⚙️</span>
-                            </button>
-                            <button
-                                onClick={() => setIsSearchOpen(true)}
-                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                            >
-                                <span className="hidden sm:inline">🔍 Tìm</span>
-                                <span className="sm:hidden">🔍</span>
-                            </button>
-                            <button
-                                onClick={() => setIsMemoryViewerOpen(true)}
-                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                            >
-                                <span className="hidden sm:inline">💭 Ký ức ({memories.length})</span>
-                                <span className="sm:hidden">💭 ({memories.length})</span>
-                            </button>
-                            <button
-                                onClick={() => setIsPhoneCheckOpen(true)}
-                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                            >
-                                <span className="hidden sm:inline">📱 Phone Check</span>
-                                <span className="sm:hidden">📱</span>
-                            </button>
-                            <button
-                                onClick={handleResetChat}
-                                disabled={isResetting}
-                                className={`flex items-center gap-1 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition disabled:opacity-50 ${theme.buttons.dangerBg} ${theme.resolvedDangerText}`}
-                            >
-                                {isResetting ? <span className="sm:hidden">⏳</span> : <span className="sm:hidden">🗑️</span>}
-                                <span className="hidden sm:inline">{isResetting ? '⏳ Đang xoá…' : '🗑️ Reset'}</span>
+                                {isMenuOpen ? '✕' : '☰'}
                             </button>
 
-                            {/* Dev Force Reaction Toggle (dev mode only) */}
-                            {isDev && (
-                                <select
-                                    value={devForceReaction}
-                                    onChange={(e) => setDevForceReaction(e.target.value as 'OFF' | 'LIKE' | 'HEARTBEAT')}
-                                    className={`px-3 py-2 rounded-xl text-xs font-mono border ${theme.layout.inputBorder} ${theme.layout.inputBg} ${theme.input.text}`}
-                                    title="🧪 Dev: Force Reaction"
-                                >
-                                    <option value="OFF">🧪 OFF</option>
-                                    <option value="LIKE">🧪 LIKE</option>
-                                    <option value="HEARTBEAT">🧪 HEARTBEAT</option>
-                                </select>
-                            )}
+                            {/* Buttons container - dropdown on mobile, row on desktop */}
+                            {isMenuOpen || (typeof window !== 'undefined' && window.innerWidth >= 768) ? (
+                                <div className={`flex gap-1 ${isMenuOpen ? 'flex-col absolute top-14 right-2 bg-slate-900/95 rounded-lg p-2 z-[9999] shadow-xl' : 'hidden md:flex flex-row'}`}>
+                                    {/* Settings button */}
+                                    <button
+                                        onClick={() => {
+                                            setIsSettingsOpen(true)
+                                            setIsMenuOpen(false)
+                                        }}
+                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                        title="Cài đặt"
+                                    >
+                                        <span>⚙️</span>
+                                        <span className="hidden md:inline">Settings</span>
+                                    </button>
+
+                                    {/* Search button */}
+                                    <button
+                                        onClick={() => {
+                                            setIsSearchOpen(true)
+                                            setIsMenuOpen(false)
+                                        }}
+                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                        title="Tìm kiếm"
+                                    >
+                                        <span>🔍</span>
+                                        <span className="hidden md:inline">Tìm</span>
+                                    </button>
+
+                                    {/* Memory button */}
+                                    <button
+                                        onClick={() => {
+                                            setIsMemoryViewerOpen(true)
+                                            setIsMenuOpen(false)
+                                        }}
+                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                        title="Ký ức"
+                                    >
+                                        <span>💭</span>
+                                        <span className="hidden md:inline">Ký ức ({memories.length})</span>
+                                    </button>
+
+                                    {/* Phone Check button */}
+                                    <button
+                                        onClick={() => {
+                                            setIsPhoneCheckOpen(true)
+                                            setIsMenuOpen(false)
+                                        }}
+                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                        title="Phone Check"
+                                    >
+                                        <span>📱</span>
+                                        <span className="hidden md:inline">Phone Check</span>
+                                    </button>
+
+                                    {/* Reset button */}
+                                    <button
+                                        onClick={handleResetChat}
+                                        disabled={isResetting}
+                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition disabled:opacity-50 w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.dangerBg} ${theme.resolvedDangerText}`}
+                                        title="Reset"
+                                    >
+                                        <span>{isResetting ? '⏳' : '🗑️'}</span>
+                                        <span className="hidden md:inline">{isResetting ? 'Đang xoá...' : 'Reset'}</span>
+                                    </button>
+
+                                    {/* Dev Force Reaction (dev mode only) */}
+                                    {isDev && (
+                                        <select
+                                            value={devForceReaction}
+                                            onChange={(e) => setDevForceReaction(e.target.value as 'OFF' | 'LIKE' | 'HEARTBEAT')}
+                                            className={`px-2 py-1.5 rounded-lg text-xs font-mono border w-full sm:w-auto ${theme.layout.inputBorder} ${theme.layout.inputBg} ${theme.input.text}`}
+                                            title="🧪 Dev: Force Reaction"
+                                        >
+                                            <option value="OFF">🧪 OFF</option>
+                                            <option value="LIKE">🧪 LIKE</option>
+                                            <option value="HEARTBEAT">🧪 HEARTBEAT</option>
+                                        </select>
+                                    )}
+                                </div>
+                            ) : null}
                         </div>
 
                         {/* TASK C: Dev Relationship Tools (dev mode only) */}
@@ -554,9 +599,9 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                 <div
                     ref={messagesContainerRef}
                     onScroll={handleScroll}
-                    className="flex-1 w-full max-w-full overflow-y-auto px-2 sm:px-4 py-6 relative"
+                    className="flex-1 overflow-y-auto px-4 py-6 relative"
                 >
-                    <div className="w-full max-w-full mx-auto space-y-4 px-2 sm:px-4">
+                    <div className="max-w-4xl mx-auto space-y-4">
                         {relationshipStage === 'UNDEFINED' && (
                             <div className={`mb-6 p-4 rounded-xl ${theme.notice.bg} ${theme.notice.border} ${theme.notice.text}`}>
                                 <h3 className="font-bold text-sm mb-1">⚠️ Chưa xác định được mối quan hệ</h3>
@@ -687,13 +732,29 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                             >
                                 💾
                             </button>
-                            <input
-                                type="text"
+                            <textarea
                                 value={inputMessage}
-                                onChange={(e) => setInputMessage(e.target.value)}
-                                placeholder={`Nhắn cho ${character.name}...`}
-                                className={`flex-1 px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/30 ${theme.layout.inputBg} ${theme.resolvedInputText} ${theme.input.placeholder} ${theme.layout.inputBorder}`}
+                                onChange={(e) => {
+                                    setInputMessage(e.target.value)
+                                    // Auto-resize: reset height first, then set to scrollHeight
+                                    const textarea = e.currentTarget
+                                    textarea.style.height = 'auto'
+                                    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
+                                }}
+                                onKeyDown={(e) => {
+                                    // Allow Shift+Enter for new line, Enter to send
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault()
+                                        if (inputMessage.trim() && !isLoading) {
+                                            sendMessage()
+                                        }
+                                    }
+                                }}
+                                placeholder={`Nhắn cho ${character.name}... (Shift+Enter để xuống dòng)`}
+                                className={`flex-1 px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none overflow-y-auto ${theme.layout.inputBg} ${theme.resolvedInputText} ${theme.input.placeholder} ${theme.layout.inputBorder}`}
                                 disabled={isLoading}
+                                rows={1}
+                                style={{ minHeight: '40px', maxHeight: '120px' }}
                             />
                             <button
                                 type="submit"
@@ -705,37 +766,34 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                         </form>
                     </div>
                 </div>
-            </div >
+            </div>
 
 
             {/* Modals */}
-            < PhoneCheckModal
+            <PhoneCheckModal
                 isOpen={isPhoneCheckOpen}
-                onClose={() => setIsPhoneCheckOpen(false)
-                }
+                onClose={() => setIsPhoneCheckOpen(false)}
                 onSubmit={handlePhoneCheck}
                 characterName={character.name}
             />
 
             {/* Convert memories createdAt to Date for MemoryViewer */}
-            {
-                (() => {
-                    const memoriesForViewer = memories.map((m) => ({
-                        ...m,
-                        createdAt: new Date(m.createdAt as any),
-                    }))
+            {(() => {
+                const memoriesForViewer = memories.map((m) => ({
+                    ...m,
+                    createdAt: new Date(m.createdAt as any),
+                }))
 
-                    return (
-                        <MemoryViewer
-                            isOpen={isMemoryViewerOpen}
-                            onClose={() => setIsMemoryViewerOpen(false)}
-                            characterName={character.name}
-                            memories={memoriesForViewer}
-                            onDelete={handleDeleteMemory}
-                        />
-                    )
-                })()
-            }
+                return (
+                    <MemoryViewer
+                        isOpen={isMemoryViewerOpen}
+                        onClose={() => setIsMemoryViewerOpen(false)}
+                        characterName={character.name}
+                        memories={memoriesForViewer}
+                        onDelete={handleDeleteMemory}
+                    />
+                )
+            })()}
 
             <CreateMemoryModal
                 isOpen={isCreateMemoryOpen}
@@ -756,67 +814,65 @@ export default function ChatPage({ params }: { params: { characterId: string } }
             />
 
             {/* Search Modal */}
-            {
-                isSearchOpen && (
-                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                        <div className="glass p-4 rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col gap-3 mx-4">
-                            <h3 className="text-lg font-semibold">🔍 Tìm kiếm tin nhắn</h3>
+            {isSearchOpen && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="glass p-4 rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col gap-3 mx-4">
+                        <h3 className="text-lg font-semibold">🔍 Tìm kiếm tin nhắn</h3>
 
-                            <div className="flex gap-2">
-                                <input
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-                                    className="input-field flex-1"
-                                    placeholder="Nhập từ khoá cần tìm..."
-                                    autoFocus
-                                />
-                                <button className="btn-primary px-4" onClick={runSearch}>
-                                    Tìm
-                                </button>
-                            </div>
-
-                            <div className="text-xs text-gray-400">
-                                Tìm trong {messages.length} tin nhắn gần đây.
-                            </div>
-
-                            <div className="mt-2 space-y-2 overflow-y-auto flex-1">
-                                {searchResults.length === 0 ? (
-                                    <div className="text-sm text-gray-400 text-center py-4">
-                                        {searchQuery ? 'Không tìm thấy kết quả nào.' : 'Nhập từ khoá để bắt đầu tìm.'}
-                                    </div>
-                                ) : (
-                                    searchResults.map((m) => (
-                                        <button
-                                            key={m.id}
-                                            onClick={() => jumpToMessage(m.id)}
-                                            className="w-full text-left text-sm p-2 rounded-lg hover:bg-white/5 border border-white/10"
-                                        >
-                                            <div className="text-[11px] text-gray-400 mb-1">
-                                                {m.role === 'user' ? 'Bạn' : character.name} • {new Date(m.createdAt).toLocaleString('vi-VN')}
-                                            </div>
-                                            <div className="line-clamp-2 whitespace-pre-wrap">
-                                                {m.content}
-                                            </div>
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-
-                            <button
-                                onClick={() => {
-                                    setIsSearchOpen(false)
-                                    setSearchQuery('')
-                                    setSearchResults([])
-                                }}
-                                className="btn-secondary w-full mt-2"
-                            >
-                                Đóng
+                        <div className="flex gap-2">
+                            <input
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                                className="input-field flex-1"
+                                placeholder="Nhập từ khoá cần tìm..."
+                                autoFocus
+                            />
+                            <button className="btn-primary px-4" onClick={runSearch}>
+                                Tìm
                             </button>
                         </div>
+
+                        <div className="text-xs text-gray-400">
+                            Tìm trong {messages.length} tin nhắn gần đây.
+                        </div>
+
+                        <div className="mt-2 space-y-2 overflow-y-auto flex-1">
+                            {searchResults.length === 0 ? (
+                                <div className="text-sm text-gray-400 text-center py-4">
+                                    {searchQuery ? 'Không tìm thấy kết quả nào.' : 'Nhập từ khoá để bắt đầu tìm.'}
+                                </div>
+                            ) : (
+                                searchResults.map((m) => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => jumpToMessage(m.id)}
+                                        className="w-full text-left text-sm p-2 rounded-lg hover:bg-white/5 border border-white/10"
+                                    >
+                                        <div className="text-[11px] text-gray-400 mb-1">
+                                            {m.role === 'user' ? 'Bạn' : character.name} • {new Date(m.createdAt).toLocaleString('vi-VN')}
+                                        </div>
+                                        <div className="line-clamp-2 whitespace-pre-wrap">
+                                            {m.content}
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                setIsSearchOpen(false)
+                                setSearchQuery('')
+                                setSearchResults([])
+                            }}
+                            className="btn-secondary w-full mt-2"
+                        >
+                            Đóng
+                        </button>
                     </div>
-                )
-            }
+                </div>
+            )}
 
             {/* Heart Toast - shows when character reacts with HEARTBEAT */}
             <HeartToast
