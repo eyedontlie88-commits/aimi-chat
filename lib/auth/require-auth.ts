@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { verifyIdToken } from '@/lib/firebase/admin'
-import { getPrismaForRole, getPrismaForSchema, getSchemaForRole } from '@/lib/prisma'
+import prisma from '@/lib/prisma'
 
 /**
  * Auth Context for API Routes
@@ -12,14 +12,12 @@ export interface AuthContext {
     uid: string
     /** User role from Firebase claims: 'dev' or 'user' */
     role: 'dev' | 'user'
-    /** Prisma client configured for the correct schema */
+    /** Prisma client (shared instance) */
     prisma: PrismaClient
     /** Whether user is authenticated */
     isAuthed: boolean
     /** User email (if authenticated) */
     email?: string
-    /** Current schema being used */
-    schema: 'public' | 'dev'
 }
 
 /**
@@ -40,7 +38,7 @@ function isAuthRequired(): boolean {
  * Get auth context from request
  * 
  * If authenticated: uses Firebase UID and role from claims
- * If anonymous: uses 'me' as UID, 'user' as role, ALWAYS 'public' schema
+ * If anonymous: uses 'me' as UID, 'user' as role
  * 
  * Does NOT throw for missing auth unless REQUIRE_AUTH=true
  */
@@ -50,30 +48,27 @@ export async function getAuthContext(request: NextRequest): Promise<AuthContext>
 
     if (verified) {
         // Authenticated user
-        const schema = getSchemaForRole(verified.role)
-        console.log(`[Auth] ${verified.role} (${verified.email?.substring(0, 8)}...) → schema ${schema}`)
+        console.log(`[Auth] ${verified.role} (${verified.email?.substring(0, 8)}...)`)
         return {
             uid: verified.uid,
             role: verified.role,
-            prisma: getPrismaForRole(verified.role),
+            prisma,
             isAuthed: true,
             email: verified.email,
-            schema,
         }
     }
 
-    // Anonymous user - ALWAYS uses public schema
+    // Anonymous user
     if (isAuthRequired()) {
         throw new AuthRequiredError('Authentication required')
     }
 
-    console.log(`[Auth] guest → schema public`)
+    console.log(`[Auth] guest (uid=me)`)
     return {
         uid: ANONYMOUS_USER_ID,
         role: 'user',
-        prisma: getPrismaForSchema('public'), // ALWAYS public for guest
+        prisma,
         isAuthed: false,
-        schema: 'public',
     }
 }
 
@@ -89,14 +84,12 @@ export async function requireAuth(request: NextRequest): Promise<AuthContext> {
         throw new AuthRequiredError('Authentication required')
     }
 
-    const schema = getSchemaForRole(verified.role)
     return {
         uid: verified.uid,
         role: verified.role,
-        prisma: getPrismaForRole(verified.role),
+        prisma,
         isAuthed: true,
         email: verified.email,
-        schema,
     }
 }
 

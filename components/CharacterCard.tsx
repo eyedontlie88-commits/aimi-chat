@@ -10,6 +10,10 @@ interface CharacterCardProps {
     relationshipStatus?: string
 }
 
+/**
+ * Instagram-style Character Card
+ * Square 1:1 aspect ratio with gradient overlay
+ */
 export default function CharacterCard({
     id,
     name,
@@ -18,55 +22,67 @@ export default function CharacterCard({
     tags,
     relationshipStatus,
 }: CharacterCardProps) {
-    const tagList = tags.split(',').map((t) => t.trim())
-
     return (
-        <div className="card glass-hover group animate-fade-in">
-            <div className="flex flex-col items-center text-center space-y-4">
-                <Link href={`/characters/${id}`} className="w-full flex flex-col items-center space-y-4">
-                    <div className="relative w-32 h-32 rounded-full overflow-hidden ring-4 ring-primary/30 group-hover:ring-primary/60 transition-all">
-                        <Image
-                            src={avatarUrl}
-                            alt={name}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                        />
-                    </div>
-
-                    <div>
-                        <h3 className="text-xl font-bold text-white group-hover:gradient-text transition-all">
-                            {name}
-                        </h3>
-                        {relationshipStatus && (
-                            <p className="text-xs text-primary mt-1">
-                                {relationshipStatus}
-                            </p>
-                        )}
-                    </div>
-
-                    <p className="text-sm text-gray-300 line-clamp-2">{shortDescription}</p>
-
-                    <div className="flex flex-wrap gap-2 justify-center">
-                        {tagList.map((tag) => (
-                            <span
-                                key={tag}
-                                className="px-3 py-1 text-xs rounded-full bg-primary/20 text-primary border border-primary/30"
-                            >
-                                {tag}
-                            </span>
-                        ))}
-                    </div>
-                </Link>
-
-                {/* CTA Button */}
-                <Link
-                    href={`/chat/${id}`}
-                    className="btn-primary w-full mt-2 text-center inline-flex items-center justify-center"
-                >
-                    Start Chat
-                </Link>
+        <Link
+            href={`/chat/${id}`}
+            className="group relative block aspect-square overflow-hidden rounded-2xl bg-gradient-to-br from-purple-900/50 to-pink-900/50 transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl hover:shadow-purple-500/20"
+        >
+            {/* Background Avatar (blurred) */}
+            <div className="absolute inset-0">
+                <Image
+                    src={avatarUrl}
+                    alt=""
+                    fill
+                    className="object-cover opacity-30 blur-sm scale-110"
+                    unoptimized
+                />
             </div>
-        </div>
+
+            {/* Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+            {/* Content */}
+            <div className="relative h-full flex flex-col items-center justify-center p-4">
+                {/* Circle Avatar */}
+                <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden ring-4 ring-white/30 group-hover:ring-pink-400/60 transition-all duration-300 shadow-xl">
+                    <Image
+                        src={avatarUrl}
+                        alt={name}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                    />
+                </div>
+
+                {/* Name & Status */}
+                <div className="mt-4 text-center">
+                    <h3 className="text-lg sm:text-xl font-bold text-white drop-shadow-lg group-hover:text-pink-200 transition-colors">
+                        {name}
+                    </h3>
+                    {relationshipStatus && (
+                        <p className="text-xs sm:text-sm text-pink-300/80 mt-1 font-medium">
+                            {relationshipStatus}
+                        </p>
+                    )}
+                </div>
+
+                {/* Hover Overlay - Chat Button */}
+                <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+                    <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-center py-2.5 rounded-xl font-semibold text-sm shadow-lg">
+                        💬 Chat ngay
+                    </div>
+                </div>
+            </div>
+
+            {/* Top-right Edit Link */}
+            <Link
+                href={`/characters/${id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
+                title="Chỉnh sửa"
+            >
+                <span className="text-sm">✏️</span>
+            </Link>
+        </Link>
     )
 }

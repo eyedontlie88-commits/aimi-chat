@@ -11,6 +11,7 @@ import {
     type User
 } from '@/lib/firebase/client'
 import { authFetch } from '@/lib/firebase/auth-fetch'
+import { useLanguage } from '@/lib/i18n'
 
 /**
  * Authentication button component
@@ -19,6 +20,7 @@ import { authFetch } from '@/lib/firebase/auth-fetch'
  * Auto-migrates guest data on first login
  */
 export default function AuthButton() {
+    const { t } = useLanguage()
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
     const [showEmailForm, setShowEmailForm] = useState(false)
@@ -135,7 +137,7 @@ export default function AuthButton() {
                 )}
                 {migrationStatus === 'migrating' && (
                     <span className="text-xs text-yellow-400 animate-pulse">
-                        Đang import dữ liệu...
+                        {t.auth.migratingData}
                     </span>
                 )}
                 <div className="flex items-center gap-2">
@@ -146,7 +148,7 @@ export default function AuthButton() {
                         onClick={handleSignOut}
                         className="text-sm text-gray-400 hover:text-white transition-colors"
                     >
-                        Sign out
+                        {t.auth.signOut}
                     </button>
                 </div>
             </div>

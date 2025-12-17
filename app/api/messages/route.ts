@@ -5,7 +5,18 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
     try {
-        const { uid, prisma } = await getAuthContext(request)
+        const authContext = await getAuthContext(request)
+        const { uid, prisma, isAuthed } = authContext
+
+        // Block guest users from accessing messages
+        if (!isAuthed) {
+            console.log('[Auth] Guest cannot access messages - login required')
+            return NextResponse.json(
+                { error: 'Vui lòng đăng nhập để xem tin nhắn', requiresAuth: true },
+                { status: 403 }
+            )
+        }
+
         const { searchParams } = new URL(request.url)
         const characterId = searchParams.get('characterId')
         const limit = parseInt(searchParams.get('limit') || '50')

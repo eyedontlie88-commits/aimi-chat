@@ -17,8 +17,17 @@ model Character {
   speakingStyle    String
   boundaries       String
   tags             String
-  provider         String   @default("default") // "default" | "silicon" | "deepseek" | "moonshot"
-  modelName        String?   // Optional: override default LLM model
+  provider         String   @default("default")
+  modelName        String?
+  isDevOnly        Boolean  @default(false)
+  
+  // Phone Content Auto-Update System
+  phoneContentJson    String?  @db.Text // JSON string of generated phone content
+  phoneLastUpdated    DateTime? // Last time phone content was generated
+  phoneMessageCount   Int      @default(0) // Messages since last update
+  phoneAutoUpdate     Boolean  @default(true) // User preference for auto-update
+  phoneUpdateFrequency Int     @default(20) // Messages between updates
+  
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

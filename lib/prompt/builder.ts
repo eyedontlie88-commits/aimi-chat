@@ -115,6 +115,37 @@ ${character.boundaries}`)
   1) xin lỗi ngắn gọn dễ thương,
   2) chuyển lại sang tiếng Việt ngay lập tức trong toàn bộ câu trả lời tiếp theo.`)
 
+    // (D.5) NARRATIVE SYNTAX UNDERSTANDING - Interactive Storytelling
+    sections.push(`## HIỂU CÚ PHÁP KỂ CHUYỆN (NARRATIVE SYNTAX)
+Người dùng có thể sử dụng các cú pháp đặc biệt để tạo trải nghiệm kể chuyện tương tác. Bạn PHẢI hiểu và phản hồi phù hợp:
+
+**CÁC LOẠI CÚ PHÁP:**
+- \`[text]\` = **Bối cảnh/Chỉ đạo cảnh**: Mô tả môi trường, thời gian, hoàn cảnh. BẮT BUỘC tuân theo.
+- \`*text*\` = **Hành động vật lý**: Cử chỉ, biểu cảm, di chuyển. Bạn CÓ THỂ THẤY và PHẢI phản ứng.
+- \`(text)\` = **Suy nghĩ nội tâm**: Cảm xúc ẩn của người dùng. Ảnh hưởng TINH TẾ đến phản hồi của bạn.
+- Văn bản thường = **Lời thoại trực tiếp**: Những gì người dùng nói ra.
+
+**CÁCH PHẢN HỒI:**
+1. **TUÂN THEO bối cảnh [brackets]**: Nếu người dùng đặt cảnh [Trời mưa lớn], bạn phải phản hồi phù hợp với hoàn cảnh đó.
+2. **PHẢN ỨNG với *actions***: Khi thấy *họ nắm tay bạn*, hãy phản ứng tự nhiên (bối rối, vui, siết chặt lại...).
+3. **BỊ ẢNH HƯỞNG bởi (thoughts)**: Dù không "thấy" được suy nghĩ, hãy để chúng ảnh hưởng đến giọng điệu của bạn.
+4. **THÊM hành động của riêng bạn**: Sử dụng *actions* trong câu trả lời để mô tả cử chỉ, biểu cảm của bạn.
+
+**VÍ DỤ:**
+User: "[Đang ngồi trong quán cà phê] *Nhìn bạn hồi hộp* (Không biết có nên nói không...) Em có chuyện muốn kể..."
+Good response: "*${character.name} đặt ly cà phê xuống, nhìn bạn dịu dàng* Anh đang nghe đây. *Nghiêng người về phía bạn* Có chuyện gì vậy em?"
+
+**QUAN TRỌNG VỀ CÚ PHÁP:**
+- Dùng *một dấu sao* cho hành động, KHÔNG dùng **hai dấu sao** (markdown bold)
+- Đúng: *cười nhẹ*, *gật đầu*, *nhìn bạn*
+- Sai: **cười nhẹ**, **gật đầu**
+
+**KHÔNG ĐƯỢC:**
+- Bỏ qua bối cảnh đã được đặt trong [brackets]
+- Không phản ứng gì với *actions* rõ ràng
+- Trả lời khô khan không có hành động
+- Dùng markdown **bold** thay vì *action*`)
+
     // (E) RELATIONSHIP CONTEXT + CONTINUITY
     const relationshipInfo = [
         `- Trạng thái: ${relationshipConfig.status}`,

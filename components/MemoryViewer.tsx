@@ -45,7 +45,7 @@ export default function MemoryViewer({
     }, {} as Record<string, Memory[]>)
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <div className="card max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col animate-slide-up">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-bold gradient-text">

@@ -27,8 +27,30 @@
     @apply border-border;
   }
 
+  /* Global overflow prevention for mobile */
+  html,
+  body {
+    overflow-x: hidden;
+    min-width: 0;
+    max-width: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Ensure all containers can shrink */
+  div,
+  section,
+  article,
+  aside,
+  header,
+  footer,
+  main,
+  nav {
+    min-width: 0;
   }
 }
 
@@ -155,4 +177,110 @@
 
 .animate-heart-float {
   animation: heart-float 2s ease-out forwards;
+}
+
+/* ============================================
+   Mobile-First Responsive Styles
+   Target: Realme 10 (390×844)
+   ============================================ */
+
+/* Base mobile styles (≤ 390px) */
+@media (max-width: 390px) {
+  :root {
+    --mobile-font-base: 14px;
+    --mobile-font-title: 18px;
+    --mobile-padding: 16px;
+    --mobile-touch-target: 48px;
+  }
+
+  body {
+    font-size: var(--mobile-font-base);
+  }
+
+  /* Navigation adjustments */
+  nav .text-xl {
+    font-size: 16px;
+  }
+
+  nav .text-sm {
+    font-size: 12px;
+  }
+
+  /* Grid: single column */
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Cards: full width with max */
+  .card {
+    max-width: 100%;
+    padding: var(--mobile-padding);
+  }
+
+  /* Touch targets */
+  button,
+  a[role="button"],
+  .btn-primary,
+  .btn-secondary {
+    min-height: var(--mobile-touch-target);
+    padding-left: var(--mobile-padding);
+    padding-right: var(--mobile-padding);
+  }
+
+  /* Container padding */
+  .max-w-7xl,
+  .max-w-4xl,
+  .max-w-2xl {
+    padding-left: var(--mobile-padding);
+    padding-right: var(--mobile-padding);
+  }
+
+  /* Input fields */
+  .input-field,
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+    /* Prevent zoom on iOS */
+    min-height: var(--mobile-touch-target);
+  }
+
+  /* Titles */
+  h1 {
+    font-size: 24px;
+  }
+
+  h2 {
+    font-size: 20px;
+  }
+
+  h3 {
+    font-size: var(--mobile-font-title);
+  }
+
+  /* Hide desktop-only elements */
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* Show mobile-only elements */
+@media (min-width: 391px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* Tablet adjustments (391px - 768px) */
+@media (min-width: 391px) and (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Desktop (769px+) */
+@media (min-width: 769px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
 }

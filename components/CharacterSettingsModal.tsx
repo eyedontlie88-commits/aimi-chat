@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { authFetch } from '@/lib/firebase/auth-fetch'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
+import { useLanguage } from '@/lib/i18n'
 
 interface CharacterData {
     id: string
@@ -38,6 +40,7 @@ export default function CharacterSettingsModal({
     onUpdated,
 }: CharacterSettingsModalProps) {
     const router = useRouter()
+    const { t } = useLanguage()
     const [isLoading, setIsLoading] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -90,7 +93,7 @@ export default function CharacterSettingsModal({
         setIsLoading(true)
 
         try {
-            const res = await fetch(`/api/characters/${character.id}`, {
+            const res = await authFetch(`/api/characters/${character.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
@@ -115,7 +118,7 @@ export default function CharacterSettingsModal({
         setIsDeleting(true)
 
         try {
-            const res = await fetch(`/api/characters/${character.id}`, {
+            const res = await authFetch(`/api/characters/${character.id}`, {
                 method: 'DELETE',
             })
 
@@ -134,7 +137,7 @@ export default function CharacterSettingsModal({
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -143,14 +146,27 @@ export default function CharacterSettingsModal({
 
             {/* Modal */}
             <div className="relative glass rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold gradient-text mb-6">
-                    ⚙️ Cài đặt nhân vật
-                </h2>
+                {/* Header with Close Button */}
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold gradient-text">
+                        {t.charSettings.title}
+                    </h2>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white transition-colors"
+                        title={t.common.close}
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Name */}
                     <div>
-                        <label className="block text-sm font-medium mb-1">Tên nhân vật</label>
+                        <label className="block text-sm font-medium mb-1">{t.characterForm.name}</label>
                         <input
                             type="text"
                             value={formData.name}
@@ -162,26 +178,26 @@ export default function CharacterSettingsModal({
 
                     {/* Short Description */}
                     <div>
-                        <label className="block text-sm font-medium mb-1">Mô tả ngắn</label>
+                        <label className="block text-sm font-medium mb-1">{t.characterForm.shortDesc}</label>
                         <input
                             type="text"
                             value={formData.shortDescription}
                             onChange={(e) => updateField('shortDescription', e.target.value)}
                             className="input-field"
-                            placeholder="VD: Anh trai ấm áp, hay chăm sóc người khác"
+                            placeholder={t.characterForm.shortDescPlaceholder}
                         />
                     </div>
 
                     {/* Meeting Context - QUAN TRỌNG cho Relationship Stage */}
                     <div className="mt-4 p-4 rounded-xl border-2 border-amber-500/50 bg-amber-500/5">
                         <label className="block text-sm font-semibold mb-2 text-amber-300">
-                            📍 Bối cảnh gặp nhau <span className="text-amber-400 text-xs">(quan trọng)</span>
+                            {t.charSettings.meetingContext}
                         </label>
                         <textarea
                             value={formData.meetingContext}
                             onChange={(e) => updateField('meetingContext', e.target.value)}
                             className="input-field min-h-[80px] text-sm"
-                            placeholder="VD: Gặp qua app hẹn hò Tinder, mới match 1 tuần / Đồng nghiệp mới vào công ty / Bạn thời đại học, mất liên lạc 5 năm..."
+                            placeholder={t.charSettings.meetingContextExample}
                         />
                         <p className="text-xs text-gray-400 mt-2">
                             💡 Thông tin này giúp AI hiểu mối quan hệ của bạn để xưng hô và cư xử phù hợp.

@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { authFetch } from '@/lib/firebase/auth-fetch'
+import { uploadAvatar } from '@/lib/supabase/storage'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 
 interface CharacterFormData {
@@ -45,6 +47,8 @@ export default function CharacterFormModal({
 }: CharacterFormModalProps) {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
+    const [isUploading, setIsUploading] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
     const [formData, setFormData] = useState<CharacterFormData>(
         initialData || {
             name: '',
@@ -60,6 +64,46 @@ export default function CharacterFormModal({
             relationshipStatus: 'đang hẹn hò',
         }
     )
+
+    // Handle avatar file upload
+    const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+        if (!file) return
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Vui lòng chọn file hình ảnh')
+            return
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Kích thước file tối đa 5MB')
+            return
+        }
+
+        setIsUploading(true)
+        try {
+            // Use characterId if editing, or 'new' for new character
+            const uploadId = characterId || 'new-' + Date.now()
+            const publicUrl = await uploadAvatar(file, uploadId)
+
+            if (publicUrl) {
+                updateField('avatarUrl', publicUrl)
+            } else {
+                alert('Không thể upload ảnh. Vui lòng thử lại hoặc dùng URL.')
+            }
+        } catch (error) {
+            console.error('Avatar upload error:', error)
+            alert('Lỗi upload ảnh')
+        } finally {
+            setIsUploading(false)
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = ''
+            }
+        }
+    }
 
     // Determine initial preset state
     const initialIsPreset = () => {
@@ -87,7 +131,7 @@ export default function CharacterFormModal({
         try {
             if (mode === 'create' || mode === 'duplicate') {
                 // Create new character
-                const res = await fetch('/api/characters', {
+                const res = await authFetch('/api/characters', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData),
@@ -107,7 +151,7 @@ export default function CharacterFormModal({
                 router.refresh()
             } else if (mode === 'edit' && characterId) {
                 // Update existing character
-                const res = await fetch(`/api/characters/${characterId}`, {
+                const res = await authFetch(`/api/characters/${characterId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData),
@@ -150,11 +194,12 @@ export default function CharacterFormModal({
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="min-h-screen px-4 py-8 flex items-center justify-center">
-                <div className="card max-w-3xl w-full animate-slide-up">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-bold gradient-text">
+        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+                <div className="card max-w-3xl w-full max-h-[90vh] flex flex-col animate-slide-up">
+                    {/* Sticky Header */}
+                    <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
+                        <h2 className="text-xl sm:text-2xl font-bold gradient-text">
                             {mode === 'create' ? '✨ Tạo Nhân Vật Mới' : mode === 'duplicate' ? '📋 Nhân bản Nhân Vật' : '✏️ Chỉnh sửa Nhân Vật'}
                         </h2>
                         <button
@@ -165,7 +210,69 @@ export default function CharacterFormModal({
                         </button>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Scrollable Content */}
+                    <form id="character-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto py-4 space-y-5 min-h-0">
+                        {/* Avatar Section - FIRST for visibility */}
+                        <div className="bg-white/5 rounded-xl p-4">
+                            <label className="block text-sm font-semibold mb-3">🖼️ Avatar</label>
+
+                            {/* Avatar Preview + Upload */}
+                            <div className="flex flex-col sm:flex-row gap-4 items-center">
+                                {/* Preview */}
+                                <div className="w-24 h-24 rounded-full overflow-hidden ring-2 ring-primary bg-gray-800 shrink-0">
+                                    <img
+                                        src={formData.avatarUrl}
+                                        alt="Avatar preview"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATARS[0] }}
+                                    />
+                                </div>
+
+                                <div className="flex-1 space-y-3 w-full">
+                                    {/* Preset avatars */}
+                                    <div className="flex gap-2 flex-wrap justify-center sm:justify-start">
+                                        {DEFAULT_AVATARS.map((url) => (
+                                            <button
+                                                key={url}
+                                                type="button"
+                                                onClick={() => updateField('avatarUrl', url)}
+                                                className={`w-10 h-10 rounded-full overflow-hidden ring-2 transition-all ${formData.avatarUrl === url ? 'ring-primary scale-110' : 'ring-gray-600 hover:ring-primary/50'
+                                                    }`}
+                                            >
+                                                <img src={url} alt="Avatar" className="w-full h-full object-cover" />
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Upload + URL input */}
+                                    <div className="flex gap-2">
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleAvatarUpload}
+                                            className="hidden"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isUploading}
+                                            className="px-3 py-2 text-sm rounded-lg border border-dashed border-gray-500 hover:border-primary hover:bg-primary/10 transition-colors disabled:opacity-50 shrink-0"
+                                        >
+                                            {isUploading ? '⏳' : '📷'} Upload
+                                        </button>
+                                        <input
+                                            type="text"
+                                            value={formData.avatarUrl}
+                                            onChange={(e) => updateField('avatarUrl', e.target.value)}
+                                            className="input-field text-sm flex-1 min-w-0"
+                                            placeholder="Hoặc dán URL..."
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Basic Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -193,31 +300,6 @@ export default function CharacterFormModal({
                                     <option value="non-binary">Phi nhị nguyên</option>
                                 </select>
                             </div>
-                        </div>
-
-                        {/* Avatar */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Avatar</label>
-                            <div className="flex gap-3 mb-2">
-                                {DEFAULT_AVATARS.map((url) => (
-                                    <button
-                                        key={url}
-                                        type="button"
-                                        onClick={() => updateField('avatarUrl', url)}
-                                        className={`w-16 h-16 rounded-full overflow-hidden ring-2 transition-all ${formData.avatarUrl === url ? 'ring-primary' : 'ring-gray-600 hover:ring-primary/50'
-                                            }`}
-                                    >
-                                        <img src={url} alt="Avatar" className="w-full h-full object-cover" />
-                                    </button>
-                                ))}
-                            </div>
-                            <input
-                                type="text"
-                                value={formData.avatarUrl}
-                                onChange={(e) => updateField('avatarUrl', e.target.value)}
-                                className="input-field text-sm"
-                                placeholder="Hoặc dán URL hình ảnh tùy chỉnh"
-                            />
                         </div>
 
                         {/* Short Description */}
@@ -417,17 +499,22 @@ export default function CharacterFormModal({
                                 </span>
                             </p>
                         </div>
-
-                        {/* Actions */}
-                        <div className="flex gap-3 pt-4 border-t border-white/10">
-                            <button type="button" onClick={onClose} className="btn-secondary flex-1" disabled={isLoading}>
-                                Hủy
-                            </button>
-                            <button type="submit" className="btn-primary flex-1" disabled={isLoading}>
-                                {isLoading ? 'Đang lưu...' : mode === 'create' ? 'Tạo nhân vật' : mode === 'duplicate' ? 'Tạo bản sao' : 'Lưu thay đổi'}
-                            </button>
-                        </div>
                     </form>
+
+                    {/* Sticky Footer Actions */}
+                    <div className="flex gap-3 pt-4 border-t border-white/10 shrink-0 bg-inherit">
+                        <button type="button" onClick={onClose} className="btn-secondary flex-1" disabled={isLoading || isUploading}>
+                            Hủy
+                        </button>
+                        <button
+                            type="submit"
+                            form="character-form"
+                            className="btn-primary flex-1"
+                            disabled={isLoading || isUploading}
+                        >
+                            {isLoading ? 'Đang lưu...' : mode === 'create' ? '✨ Tạo nhân vật' : mode === 'duplicate' ? '📋 Tạo bản sao' : '💾 Lưu thay đổi'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

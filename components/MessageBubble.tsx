@@ -1,4 +1,5 @@
 import { formatRelativeTime } from '@/lib/utils'
+import NarrativeContent from '@/components/NarrativeContent'
 
 interface ReplyToData {
     id: string
@@ -27,6 +28,7 @@ interface MessageBubbleProps {
     theme?: ThemeColors
     onScrollToMessage?: (id: string) => void
     reactionType?: string | null // NONE | LIKE | HEARTBEAT
+    userName?: string // For narrative placeholder replacement
 }
 
 export default function MessageBubble({
@@ -40,6 +42,7 @@ export default function MessageBubble({
     theme,
     onScrollToMessage,
     reactionType,
+    userName = 'Bạn',
 }: MessageBubbleProps) {
     const isUser = role === 'user'
 
@@ -59,7 +62,7 @@ export default function MessageBubble({
 
     return (
         <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-            <div className={`max-w-[75%] space-y-1`}>
+            <div className={`max-w-[85%] sm:max-w-[75%] space-y-1 break-words min-w-0`}>
                 {/* Quoted reply block - Messenger/ChatGPT style */}
                 {replyTo && (
                     <button
@@ -86,7 +89,13 @@ export default function MessageBubble({
                         {!isUser && characterName && (
                             <p className="text-xs opacity-70 mb-1 font-medium">{characterName}</p>
                         )}
-                        <p className="text-sm sm:text-base whitespace-pre-wrap break-words">{content}</p>
+                        <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
+                            <NarrativeContent
+                                content={content}
+                                userName={userName}
+                                characterName={characterName}
+                            />
+                        </p>
                     </div>
 
                     {/* Heart reaction icon (Messenger-style) - only for user messages */}

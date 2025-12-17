@@ -2,6 +2,31 @@
 
 import { useState, useEffect } from 'react'
 import { chatThemes, TEXT_MODE_OPTIONS, ChatThemeId, ChatTextMode } from '@/lib/ui/chatThemes'
+import { authFetch } from '@/lib/firebase/auth-fetch'
+import { setGlobalTheme, setGlobalTextMode, THEME_STORAGE_KEY, TEXT_MODE_STORAGE_KEY } from '@/components/ThemeProvider'
+import BackButton from '@/components/BackButton'
+import { useLanguage, Language } from '@/lib/i18n'
+
+// Language Button Component
+function LanguageButton({ lang, icon, label }: { lang: Language; icon: string; label: string }) {
+    const { lang: currentLang, setLang } = useLanguage()
+    const isActive = currentLang === lang
+
+    return (
+        <button
+            type="button"
+            onClick={() => setLang(lang)}
+            className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all ${isActive
+                ? 'bg-primary-600 border-2 border-primary-400 text-white'
+                : 'glass glass-hover border-2 border-transparent'
+                }`}
+        >
+            <span className="text-xl">{icon}</span>
+            <span className="font-medium">{label}</span>
+            {isActive && <span className="ml-1">✓</span>}
+        </button>
+    )
+}
 
 interface UserProfile {
     id: string
@@ -33,10 +58,27 @@ interface RelationshipConfig {
 const RELATIONSHIP_STATUSES = ['crush', 'dating', 'engaged', 'married', 'living_together']
 
 export default function SettingsPage() {
+    const { t } = useLanguage()
     const [profile, setProfile] = useState<UserProfile | null>(null)
     const [relationships, setRelationships] = useState<RelationshipConfig[]>([])
     const [isLoading, setIsLoading] = useState(false)
+    const [loadError, setLoadError] = useState(false)
     const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null)
+
+    // Default profile for graceful fallback
+    const defaultProfile: UserProfile = {
+        id: '',
+        displayName: 'Bạn',
+        nicknameForUser: 'em',
+        gender: null,
+        age: null,
+        occupation: null,
+        personalityDescription: null,
+        likes: null,
+        dislikes: null,
+        chatTheme: null,
+        chatTextTone: null,
+    }
 
     useEffect(() => {
         loadProfile()
@@ -45,21 +87,44 @@ export default function SettingsPage() {
 
     const loadProfile = async () => {
         try {
-            const res = await fetch('/api/user-profile')
+            const res = await authFetch('/api/user-profile')
+            if (!res.ok) {
+                console.error('Failed to load profile:', res.status)
+                setProfile(defaultProfile)
+                setLoadError(true)
+                return
+            }
             const data = await res.json()
-            setProfile(data.profile)
+            const loadedProfile = data.profile || defaultProfile
+            setProfile(loadedProfile)
+
+            // Sync profile theme/textMode to localStorage for global application
+            if (loadedProfile.chatTheme) {
+                setGlobalTheme(loadedProfile.chatTheme)
+            }
+            if (loadedProfile.chatTextTone) {
+                setGlobalTextMode(loadedProfile.chatTextTone)
+            }
         } catch (error) {
             console.error('Error loading profile:', error)
+            setProfile(defaultProfile)
+            setLoadError(true)
         }
     }
 
     const loadRelationships = async () => {
         try {
-            const res = await fetch('/api/relationship')
+            const res = await authFetch('/api/relationship')
+            if (!res.ok) {
+                console.error('Failed to load relationships:', res.status)
+                setRelationships([])
+                return
+            }
             const data = await res.json()
-            setRelationships(data.configs)
+            setRelationships(data.configs || [])
         } catch (error) {
             console.error('Error loading relationships:', error)
+            setRelationships([])
         }
     }
 
@@ -69,12 +134,16 @@ export default function SettingsPage() {
 
         setIsLoading(true)
         try {
-            await fetch('/api/user-profile', {
+            const res = await authFetch('/api/user-profile', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(profile),
             })
-            alert('Profile saved successfully!')
+            if (res.ok) {
+                alert('Profile saved successfully!')
+            } else {
+                alert('Failed to save profile')
+            }
         } catch (error) {
             console.error('Error saving profile:', error)
             alert('Failed to save profile')
@@ -85,7 +154,7 @@ export default function SettingsPage() {
 
     const saveRelationship = async (config: RelationshipConfig) => {
         try {
-            await fetch('/api/relationship', {
+            const res = await authFetch('/api/relationship', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -95,8 +164,12 @@ export default function SettingsPage() {
                     specialNotes: config.specialNotes,
                 }),
             })
-            alert('Relationship updated!')
-            await loadRelationships()
+            if (res.ok) {
+                alert('Relationship updated!')
+                await loadRelationships()
+            } else {
+                alert('Failed to update relationship')
+            }
         } catch (error) {
             console.error('Error updating relationship:', error)
             alert('Failed to update relationship')
@@ -113,19 +186,36 @@ export default function SettingsPage() {
 
     return (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <h1 className="text-3xl font-bold gradient-text mb-8">Settings</h1>
+            {/* Back Button */}
+            <div className="mb-4">
+                <BackButton fallbackUrl="/characters" />
+            </div>
+
+            <h1 className="text-3xl font-bold gradient-text mb-8">{t.settings.title}</h1>
+
+            {/* Language Selector */}
+            <div className="card mb-8">
+                <h2 className="text-xl font-semibold mb-4">🌐 {t.settings.language}</h2>
+                <p className="text-sm text-gray-400 mb-4">
+                    {t.settings.languageDesc}
+                </p>
+                <div className="flex gap-3">
+                    <LanguageButton lang="en" icon="🇬🇧" label="English" />
+                    <LanguageButton lang="vi" icon="🇻🇳" label="Tiếng Việt" />
+                </div>
+            </div>
 
             {/* User Profile */}
             <div className="card mb-8">
-                <h2 className="text-xl font-semibold mb-4">Your Profile</h2>
+                <h2 className="text-xl font-semibold mb-4">{t.settings.profile}</h2>
                 <p className="text-sm text-gray-400 mb-6">
-                    This information helps characters understand and relate to you better.
+                    {t.settings.profileDesc}
                 </p>
 
                 <form onSubmit={saveProfile} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium mb-2">Display Name</label>
+                            <label className="block text-sm font-medium mb-2">{t.settings.displayName}</label>
                             <input
                                 type="text"
                                 value={profile.displayName}
@@ -137,7 +227,7 @@ export default function SettingsPage() {
 
                         <div>
                             <label className="block text-sm font-medium mb-2">
-                                Nickname (how they call you)
+                                {t.settings.nickname}
                             </label>
                             <input
                                 type="text"
@@ -149,21 +239,21 @@ export default function SettingsPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2">Gender</label>
+                            <label className="block text-sm font-medium mb-2">{t.settings.gender}</label>
                             <select
                                 value={profile.gender || ''}
                                 onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
                                 className="input-field"
                             >
-                                <option value="">Prefer not to say</option>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="non-binary">Non-binary</option>
+                                <option value="">{t.settings.genderOptions.none}</option>
+                                <option value="male">{t.settings.genderOptions.male}</option>
+                                <option value="female">{t.settings.genderOptions.female}</option>
+                                <option value="non-binary">{t.settings.genderOptions.nonBinary}</option>
                             </select>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2">Age</label>
+                            <label className="block text-sm font-medium mb-2">{t.settings.age}</label>
                             <input
                                 type="number"
                                 value={profile.age || ''}
@@ -178,57 +268,57 @@ export default function SettingsPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-2">Occupation</label>
+                        <label className="block text-sm font-medium mb-2">{t.settings.occupation}</label>
                         <input
                             type="text"
                             value={profile.occupation || ''}
                             onChange={(e) => setProfile({ ...profile, occupation: e.target.value })}
                             className="input-field"
-                            placeholder="e.g., Student, Software Engineer, etc."
+                            placeholder={t.settings.occupationPlaceholder}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-2">Personality Description</label>
+                        <label className="block text-sm font-medium mb-2">{t.settings.personality}</label>
                         <textarea
                             value={profile.personalityDescription || ''}
                             onChange={(e) => setProfile({ ...profile, personalityDescription: e.target.value })}
                             className="input-field min-h-[80px] resize-none"
-                            placeholder="Describe yourself in a few words..."
+                            placeholder={t.settings.personalityPlaceholder}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-2">Likes</label>
+                        <label className="block text-sm font-medium mb-2">{t.settings.likes}</label>
                         <textarea
                             value={profile.likes || ''}
                             onChange={(e) => setProfile({ ...profile, likes: e.target.value })}
                             className="input-field min-h-[60px] resize-none"
-                            placeholder="Things you enjoy..."
+                            placeholder={t.settings.likesPlaceholder}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-2">Dislikes</label>
+                        <label className="block text-sm font-medium mb-2">{t.settings.dislikes}</label>
                         <textarea
                             value={profile.dislikes || ''}
                             onChange={(e) => setProfile({ ...profile, dislikes: e.target.value })}
                             className="input-field min-h-[60px] resize-none"
-                            placeholder="Things you don't like..."
+                            placeholder={t.settings.dislikesPlaceholder}
                         />
                     </div>
 
                     <button type="submit" disabled={isLoading} className="btn-primary w-full">
-                        {isLoading ? 'Saving...' : 'Save Profile'}
+                        {isLoading ? t.settings.saving : t.settings.saveProfile}
                     </button>
                 </form>
             </div>
 
             {/* Chat Theme */}
             <div className="card mb-8">
-                <h2 className="text-xl font-semibold mb-4">🎨 Giao diện Chat</h2>
+                <h2 className="text-xl font-semibold mb-4">🎨 {t.settings.theme}</h2>
                 <p className="text-sm text-gray-400 mb-6">
-                    Chọn theme cho trang chat của bạn.
+                    {t.settings.themeDesc}
                 </p>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -238,8 +328,10 @@ export default function SettingsPage() {
                             onClick={async () => {
                                 const updatedProfile = { ...profile, chatTheme: theme.id }
                                 setProfile(updatedProfile)
+                                // Apply theme globally immediately
+                                setGlobalTheme(theme.id)
                                 try {
-                                    const res = await fetch('/api/user-profile', {
+                                    const res = await authFetch('/api/user-profile', {
                                         method: 'PUT',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify(updatedProfile),
@@ -252,8 +344,8 @@ export default function SettingsPage() {
                                 }
                             }}
                             className={`p-4 rounded-xl border-2 transition-all text-left ${profile.chatTheme === theme.id
-                                    ? 'border-primary ring-2 ring-primary/30'
-                                    : 'border-white/10 hover:border-white/30'
+                                ? 'border-primary ring-2 ring-primary/30'
+                                : 'border-white/10 hover:border-white/30'
                                 }`}
                         >
                             {/* Preview colors */}
@@ -266,15 +358,15 @@ export default function SettingsPage() {
                                     />
                                 ))}
                             </div>
-                            <h3 className="font-medium text-sm mb-1">{theme.name}</h3>
-                            <p className="text-xs text-gray-400">{theme.description}</p>
+                            <h3 className="font-medium text-sm mb-1">{(t.themes as any)[theme.id]?.name || theme.name}</h3>
+                            <p className="text-xs text-gray-400">{(t.themes as any)[theme.id]?.desc || theme.description}</p>
                         </button>
                     ))}
                 </div>
 
                 {/* Text Tone Selector */}
                 <div className="mt-6 pt-6 border-t border-white/10">
-                    <h3 className="font-medium text-sm mb-3">📝 Màu chữ trong chat</h3>
+                    <h3 className="font-medium text-sm mb-3">📝 {t.settings.textMode}</h3>
                     <div className="flex flex-wrap gap-3">
                         {TEXT_MODE_OPTIONS.map((option) => (
                             <label
@@ -292,8 +384,10 @@ export default function SettingsPage() {
                                     onChange={async (e) => {
                                         const updatedProfile = { ...profile, chatTextTone: e.target.value }
                                         setProfile(updatedProfile)
+                                        // Apply text mode globally immediately
+                                        setGlobalTextMode(e.target.value)
                                         try {
-                                            const res = await fetch('/api/user-profile', {
+                                            const res = await authFetch('/api/user-profile', {
                                                 method: 'PUT',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify(updatedProfile),
@@ -307,7 +401,11 @@ export default function SettingsPage() {
                                     }}
                                     className="hidden"
                                 />
-                                <span className="text-sm">{option.label}</span>
+                                <span className="text-sm">
+                                    {option.value === 'auto' ? t.settings.textModeAuto :
+                                        option.value === 'light' ? t.settings.textModeLight :
+                                            t.settings.textModeDark}
+                                </span>
                             </label>
                         ))}
                     </div>
@@ -316,9 +414,9 @@ export default function SettingsPage() {
 
             {/* Relationships */}
             <div className="card">
-                <h2 className="text-xl font-semibold mb-4">Relationship Settings</h2>
+                <h2 className="text-xl font-semibold mb-4">{t.settings.relationships}</h2>
                 <p className="text-sm text-gray-400 mb-6">
-                    Configure your relationship with each character.
+                    {t.settings.relationshipsDesc}
                 </p>
 
                 <div className="space-y-3">
@@ -342,7 +440,10 @@ export default function SettingsPage() {
                                     </div>
                                     <div className="text-left">
                                         <p className="font-medium">{rel.character.name}</p>
-                                        <p className="text-sm text-gray-400">{rel.status}</p>
+                                        <p className="text-sm text-gray-400">
+                                            {(t.relationship as any)[rel.status.replace('_', '')] ||
+                                                (t.relationship as any)[rel.status] || rel.status}
+                                        </p>
                                     </div>
                                 </div>
                                 <span className="text-gray-400">{expandedCharacterId === rel.characterId ? '▼' : '▶'}</span>

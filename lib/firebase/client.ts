@@ -83,12 +83,27 @@ export async function signOut(): Promise<void> {
 /**
  * Get current ID token (for API calls)
  * Returns null if not signed in
+ * Waits for auth state to initialize before checking
  */
 export async function getIdToken(): Promise<string | null> {
     const auth = getFirebaseAuth()
-    const user = auth.currentUser
-    if (!user) return null
-    return user.getIdToken()
+
+    // If currentUser is already available, return token immediately
+    if (auth.currentUser) {
+        return auth.currentUser.getIdToken()
+    }
+
+    // Wait for auth state to initialize (first onAuthStateChanged callback)
+    return new Promise((resolve) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            unsubscribe()
+            if (user) {
+                user.getIdToken().then(resolve).catch(() => resolve(null))
+            } else {
+                resolve(null)
+            }
+        })
+    })
 }
 
 /**

@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext, isAuthError, ANONYMOUS_USER_ID } from '@/lib/auth/require-auth'
-import { getPrismaForSchema } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * Migrate guest data to authenticated user
  * 
- * Copies characters, relationships, messages, and memories from 
- * guest account (userId="me") to the authenticated user's account.
+ * Updates ownership of characters, relationships, messages, and memories
+ * from guest account (userId="me") to the authenticated user's account.
  * 
- * Always reads from 'public' schema (where guest data lives)
- * Writes to user's target schema (based on role)
+ * With single-database architecture, this just changes the userId field
+ * instead of copying data between schemas.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -25,18 +24,14 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const { uid, prisma: prismaTarget, schema: targetSchema } = ctx
+        const { uid, prisma } = ctx
 
-        // Read guest data from public schema (where "me" data lives)
-        const prismaPublic = getPrismaForSchema('public')
-
-        // Read guest profile
-        const guestProfile = await prismaPublic.userProfile.findUnique({
+        // Check if there's guest data to migrate
+        const guestProfile = await prisma.userProfile.findUnique({
             where: { id: ANONYMOUS_USER_ID },
         })
 
-        // Read guest characters with their relationships
-        const guestRelationships = await prismaPublic.relationshipConfig.findMany({
+        const guestRelationships = await prisma.relationshipConfig.findMany({
             where: { userId: ANONYMOUS_USER_ID },
             include: {
                 character: true,
@@ -52,7 +47,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if user already has data (avoid double migration)
-        const existingUserRelationships = await prismaTarget.relationshipConfig.count({
+        const existingUserRelationships = await prisma.relationshipConfig.count({
             where: { userId: uid },
         })
 
@@ -64,14 +59,11 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        let importedCharacters = 0
-        let importedRelationships = 0
-        let importedMessages = 0
-        let importedMemories = 0
+        let migratedRelationships = 0
 
         // 1. Migrate/Create user profile
         if (guestProfile) {
-            await prismaTarget.userProfile.upsert({
+            await prisma.userProfile.upsert({
                 where: { id: uid },
                 create: {
                     id: uid,
@@ -90,131 +82,22 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        // 2. Migrate each character with relationships
+        // 2. Transfer ownership of relationships from "me" to authenticated user
         for (const rel of guestRelationships) {
-            const guestCharacter = rel.character
-
-            // Check if character already exists in target schema
-            const existingChar = await prismaTarget.character.findUnique({
-                where: { id: guestCharacter.id },
+            await prisma.relationshipConfig.update({
+                where: { id: rel.id },
+                data: { userId: uid },
             })
-
-            let targetCharId = guestCharacter.id
-
-            if (!existingChar) {
-                // Copy character to target schema
-                await prismaTarget.character.create({
-                    data: {
-                        id: guestCharacter.id,
-                        name: guestCharacter.name,
-                        avatarUrl: guestCharacter.avatarUrl,
-                        gender: guestCharacter.gender,
-                        shortDescription: guestCharacter.shortDescription,
-                        persona: guestCharacter.persona,
-                        speakingStyle: guestCharacter.speakingStyle,
-                        boundaries: guestCharacter.boundaries,
-                        tags: guestCharacter.tags,
-                        provider: guestCharacter.provider,
-                        modelName: guestCharacter.modelName,
-                    },
-                })
-                importedCharacters++
-            }
-
-            // Create relationship for new user
-            await prismaTarget.relationshipConfig.upsert({
-                where: { characterId: targetCharId },
-                create: {
-                    characterId: targetCharId,
-                    userId: uid,
-                    status: rel.status,
-                    startDate: rel.startDate,
-                    specialNotes: rel.specialNotes,
-                    intimacyLevel: rel.intimacyLevel,
-                    affectionPoints: rel.affectionPoints,
-                    stage: rel.stage,
-                    lastActiveAt: rel.lastActiveAt,
-                    messageCount: rel.messageCount,
-                    lastStageChangeAt: rel.lastStageChangeAt,
-                    trustDebt: rel.trustDebt,
-                    emotionalMomentum: rel.emotionalMomentum,
-                    apologyCount: rel.apologyCount,
-                    lastMessageHash: rel.lastMessageHash,
-                },
-                update: {}, // Don't overwrite if exists
-            })
-            importedRelationships++
-
-            // 3. Migrate messages for this character
-            const guestMessages = await prismaPublic.message.findMany({
-                where: { characterId: guestCharacter.id },
-                orderBy: { createdAt: 'asc' },
-            })
-
-            for (const msg of guestMessages) {
-                const existingMsg = await prismaTarget.message.findUnique({
-                    where: { id: msg.id },
-                })
-
-                if (!existingMsg) {
-                    await prismaTarget.message.create({
-                        data: {
-                            id: msg.id,
-                            characterId: targetCharId,
-                            role: msg.role,
-                            content: msg.content,
-                            sceneState: msg.sceneState,
-                            replyToMessageId: msg.replyToMessageId,
-                            reactionType: msg.reactionType,
-                            createdAt: msg.createdAt,
-                        },
-                    })
-                    importedMessages++
-                }
-            }
-
-            // 4. Migrate memories for this character
-            const guestMemories = await prismaPublic.memory.findMany({
-                where: { characterId: guestCharacter.id },
-            })
-
-            for (const mem of guestMemories) {
-                const existingMem = await prismaTarget.memory.findUnique({
-                    where: { id: mem.id },
-                })
-
-                if (!existingMem) {
-                    await prismaTarget.memory.create({
-                        data: {
-                            id: mem.id,
-                            characterId: targetCharId,
-                            type: mem.type,
-                            content: mem.content,
-                            importanceScore: mem.importanceScore,
-                            sourceMessageId: mem.sourceMessageId,
-                            category: mem.category,
-                            visibility: mem.visibility,
-                            createdAt: mem.createdAt,
-                        },
-                    })
-                    importedMemories++
-                }
-            }
+            migratedRelationships++
         }
 
-        console.log(`[Migrate] Imported for user ${uid.substring(0, 8)}...: ` +
-            `${importedCharacters} characters, ${importedRelationships} relationships, ` +
-            `${importedMessages} messages, ${importedMemories} memories → schema "${targetSchema}"`)
+        console.log(`[Migrate] Transferred ${migratedRelationships} relationships from "me" to ${uid.substring(0, 8)}...`)
 
         return NextResponse.json({
             imported: true,
             counts: {
-                characters: importedCharacters,
-                relationships: importedRelationships,
-                messages: importedMessages,
-                memories: importedMemories,
+                relationships: migratedRelationships,
             },
-            targetSchema,
             userId: uid,
         })
 

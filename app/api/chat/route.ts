@@ -9,7 +9,18 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
     try {
-        const { uid, prisma } = await getAuthContext(request)
+        const authContext = await getAuthContext(request)
+        const { uid, prisma, isAuthed } = authContext
+
+        // Block guest users from chatting
+        if (!isAuthed) {
+            console.log('[Auth] Guest cannot chat - login required')
+            return NextResponse.json(
+                { error: 'Vui lòng đăng nhập để nhắn tin', requiresAuth: true },
+                { status: 403 }
+            )
+        }
+
         const body = await request.json()
         const { characterId, message, sceneState, replyToMessageId } = body
 
@@ -238,6 +249,80 @@ ${message}`
 
         // Update relationship stats (pass user message for apology detection)
         const updatedRelationship = await updateRelationshipStats(prisma, characterId, impactScore, message)
+
+        // PHONE CONTENT AUTO-UPDATE: Increment counter and trigger if threshold reached
+        try {
+            const character = await prisma.character.findUnique({
+                where: { id: characterId },
+                select: {
+                    phoneMessageCount: true,
+                    phoneUpdateFrequency: true,
+                    phoneAutoUpdate: true,
+                    phoneLastUpdated: true,
+                    name: true
+                }
+            })
+
+            console.log(`[PhoneContent] Auto-update check for ${character?.name}:`, {
+                autoUpdate: character?.phoneAutoUpdate,
+                currentCount: character?.phoneMessageCount,
+                frequency: character?.phoneUpdateFrequency,
+                lastUpdated: character?.phoneLastUpdated
+            })
+
+            if (character && character.phoneAutoUpdate) {
+                const newCount = (character.phoneMessageCount || 0) + 1
+
+                // Check if message is trivial (skip increment for very short messages)
+                const isTrivial = message.trim().length < 5 ||
+                    /^(ok|okay|yes|no|yeah|yep|nope|ừ|à|ờ|ô|ồ|ừm|uhm|hm|hmm|lol|haha|hihi)$/i.test(message.trim())
+
+                console.log(`[PhoneContent] Message trivial check: "${message.substring(0, 20)}..." = ${isTrivial}`)
+
+                if (!isTrivial) {
+                    // Increment counter
+                    await prisma.character.update({
+                        where: { id: characterId },
+                        data: { phoneMessageCount: newCount }
+                    })
+                    console.log(`[PhoneContent] Counter incremented: ${newCount}`)
+
+                    // Check if threshold reached
+                    const threshold = character.phoneUpdateFrequency || 20
+                    console.log(`[PhoneContent] Threshold check: ${newCount} >= ${threshold} = ${newCount >= threshold}`)
+
+                    if (newCount >= threshold) {
+                        // Check 5-minute cooldown
+                        const timeSinceLastUpdate = character.phoneLastUpdated
+                            ? Date.now() - new Date(character.phoneLastUpdated).getTime()
+                            : Infinity
+                        const fiveMinutes = 5 * 60 * 1000
+
+                        console.log(`[PhoneContent] Cooldown check: ${timeSinceLastUpdate}ms since last update (need ${fiveMinutes}ms)`)
+
+                        if (timeSinceLastUpdate >= fiveMinutes) {
+                            console.log(`[PhoneContent] ✅ Auto-trigger for ${character.name} (${newCount} messages)`)
+
+                            // Trigger background generation (fire-and-forget)
+                            fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/phone-content/generate`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ characterId, forceRefresh: false })
+                            }).catch(err => console.error('[PhoneContent] Auto-trigger failed:', err))
+                        } else {
+                            console.log(`[PhoneContent] ⏳ Cooldown not passed, skipping auto-trigger`)
+                        }
+                    }
+                } else {
+                    console.log(`[PhoneContent] Skipped increment for trivial message`)
+                }
+            } else {
+                console.log(`[PhoneContent] Auto-update disabled for this character`)
+            }
+        } catch (phoneError) {
+            // Don't fail the chat if phone content update fails
+            console.error('[PhoneContent] Auto-trigger error:', phoneError)
+        }
 
         return NextResponse.json({
             reply: cleanedReply,

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import CharacterCard from '@/components/CharacterCard'
 import CharacterFormModal from '@/components/CharacterFormModal'
+import { authFetch } from '@/lib/firebase/auth-fetch'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 
 const MAX_CHARACTERS = 10
@@ -34,7 +35,7 @@ export default function CharactersPage() {
 
     const loadCharacters = async () => {
         try {
-            const res = await fetch('/api/characters')
+            const res = await authFetch('/api/characters')
             const data = await res.json()
             setCharacters(data.characters || [])
         } catch (error) {
@@ -46,7 +47,7 @@ export default function CharactersPage() {
 
     const loadSiliconPresets = async () => {
         try {
-            const res = await fetch('/api/silicon-presets')
+            const res = await authFetch('/api/silicon-presets')
             const data = await res.json()
             setSiliconPresets(data.presets || [])
         } catch (error) {
@@ -56,13 +57,13 @@ export default function CharactersPage() {
 
     return (
         <>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-12 overflow-hidden">
                 {/* Header */}
-                <div className="text-center mb-12">
-                    <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+                <div className="text-center mb-6 sm:mb-12">
+                    <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-2 sm:mb-4">
                         <span className="gradient-text">Nhân Vật Của Bạn</span>
                     </h1>
-                    <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-6">
+                    <p className="text-sm sm:text-lg text-gray-300 max-w-2xl mx-auto mb-4 sm:mb-6 px-2">
                         Tạo và tùy chỉnh người yêu AI của riêng bạn. Mỗi nhân vật đều có tính cách, cách nói chuyện và ranh giới độc đáo.
                     </p>
                 </div>
@@ -96,9 +97,9 @@ export default function CharactersPage() {
                     /* Has Characters */
                     <>
                         {/* Counter Bar */}
-                        <div className="flex items-center justify-between mb-8 glass rounded-lg px-6 py-4">
-                            <div className="flex items-center gap-4">
-                                <span className="text-gray-500 text-sm">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 sm:mb-8 glass rounded-lg px-4 sm:px-6 py-3 sm:py-4">
+                            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+                                <span className="text-gray-500 text-xs sm:text-sm">
                                     Nhân vật của bạn: <span className="font-medium">{characterCount} / {MAX_CHARACTERS}</span>
                                 </span>
                                 {hasReachedLimit && (
@@ -110,15 +111,15 @@ export default function CharactersPage() {
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
                                 disabled={hasReachedLimit}
-                                className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                 title={hasReachedLimit ? 'Xoá bớt hoặc chỉnh sửa nhân vật cũ nếu muốn thay đổi.' : 'Tạo nhân vật mới'}
                             >
                                 ✨ Tạo nhân vật mới
                             </button>
                         </div>
 
-                        {/* Character Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Character Grid - Instagram Style */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                             {characters.map((character) => (
                                 <CharacterCard
                                     key={character.id}

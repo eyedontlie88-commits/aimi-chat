@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { getSiliconPresets } from '@/lib/llm/silicon-presets'
 import Image from 'next/image'
 import CharacterFormModal from '@/components/CharacterFormModal'
+import { authFetch } from '@/lib/firebase/auth-fetch'
+import BackButton from '@/components/BackButton'
 
 interface Character {
     id: string
@@ -45,8 +47,8 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
     const loadCharacter = async () => {
         try {
             const [charRes, presetsRes] = await Promise.all([
-                fetch(`/api/characters/${params.id}`),
-                fetch('/api/config/presets')
+                authFetch(`/api/characters/${params.id}`),
+                authFetch('/api/config/presets')
             ])
 
             const charData = await charRes.json()
@@ -68,7 +70,7 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
 
         setIsDeleting(true)
         try {
-            await fetch(`/api/characters/${params.id}`, { method: 'DELETE' })
+            await authFetch(`/api/characters/${params.id}`, { method: 'DELETE' })
             router.push('/characters')
             router.refresh()
         } catch (error) {
@@ -90,12 +92,17 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
 
     return (
         <>
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="card">
-                    <div className="flex flex-col md:flex-row gap-8">
+            <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-12 min-w-0">
+                {/* Back Button */}
+                <div className="mb-4">
+                    <BackButton fallbackUrl="/characters" />
+                </div>
+
+                <div className="card overflow-hidden min-w-0">
+                    <div className="flex flex-col md:flex-row gap-4 sm:gap-8 min-w-0">
                         {/* Avatar */}
                         <div className="flex-shrink-0">
-                            <div className="relative w-48 h-48 rounded-full overflow-hidden ring-4 ring-primary/50 mx-auto md:mx-0">
+                            <div className="relative w-32 h-32 sm:w-48 sm:h-48 rounded-full overflow-hidden ring-4 ring-primary/50 mx-auto md:mx-0">
                                 <Image
                                     src={character.avatarUrl}
                                     alt={character.name}
@@ -107,10 +114,10 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
                         </div>
 
                         {/* Info */}
-                        <div className="flex-1 space-y-4">
-                            <div>
-                                <h1 className="text-3xl font-bold gradient-text mb-2">{character.name}</h1>
-                                <p className="text-gray-300">{character.shortDescription}</p>
+                        <div className="flex-1 space-y-3 sm:space-y-4 min-w-0 overflow-hidden">
+                            <div className="min-w-0">
+                                <h1 className="text-xl sm:text-3xl font-bold gradient-text mb-1 sm:mb-2 truncate">{character.name}</h1>
+                                <p className="text-sm sm:text-base text-gray-300 break-words">{character.shortDescription}</p>
                             </div>
 
                             {/* Tags */}
@@ -128,10 +135,10 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
                             )}
 
                             {/* Stats */}
-                            <div className="flex gap-6 text-sm">
-                                <div>
+                            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm">
+                                <div className="min-w-0">
                                     <span className="text-gray-400">Relationship:</span>{' '}
-                                    <span className="text-primary font-medium">
+                                    <span className="text-primary font-medium truncate">
                                         {character.relationshipConfig?.status || 'Not set'}
                                     </span>
                                 </div>
@@ -144,9 +151,9 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
                                     <span className="text-white font-medium">{character._count.memories}</span>
                                 </div>
                                 {character.modelName && (
-                                    <div>
+                                    <div className="col-span-2 sm:col-span-1 truncate min-w-0">
                                         <span className="text-gray-400">Model:</span>{' '}
-                                        <span className="text-primary font-mono text-xs">{character.modelName}</span>
+                                        <span className="text-primary font-mono text-xs truncate">{character.modelName}</span>
                                     </div>
                                 )}
                                 {character.provider && character.provider !== 'default' && (
@@ -166,29 +173,29 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
                             </div>
 
                             {/* Actions */}
-                            <div className="flex flex-wrap gap-3">
+                            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
                                 <Link
                                     href={`/chat/${character.id}`}
-                                    className="btn-primary flex-1 flex items-center justify-center"
+                                    className="btn-primary col-span-2 sm:flex-1 flex items-center justify-center text-sm"
                                 >
                                     💬 Start Chat
                                 </Link>
                                 <button
                                     onClick={() => setIsEditModalOpen(true)}
-                                    className="btn-secondary"
+                                    className="btn-secondary text-sm"
                                 >
                                     ✏️ Edit
                                 </button>
                                 <button
                                     onClick={() => setIsDuplicateModalOpen(true)}
-                                    className="btn-secondary"
+                                    className="btn-secondary text-sm"
                                 >
                                     📋 Duplicate
                                 </button>
                                 <button
                                     onClick={handleDelete}
                                     disabled={isDeleting}
-                                    className="btn-secondary text-red-400 hover:text-red-300 disabled:opacity-50"
+                                    className="btn-secondary text-red-400 hover:text-red-300 disabled:opacity-50 col-span-2 sm:col-span-1 text-sm"
                                 >
                                     🗑️ {isDeleting ? 'Deleting...' : 'Delete'}
                                 </button>

@@ -20,6 +20,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             where: { id: params.id },
             include: {
                 relationshipConfig: true,
+                _count: {
+                    select: {
+                        messages: true,
+                        memories: true,
+                    },
+                },
             },
         })
 
