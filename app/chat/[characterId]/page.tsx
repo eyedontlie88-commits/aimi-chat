@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { authFetch } from '@/lib/firebase/auth-fetch'
 import Image from 'next/image'
 import MessageBubble from '@/components/MessageBubble'
 import PhoneCheckModal, { type PhoneCheckData } from '@/components/PhoneCheckModal'
@@ -120,7 +121,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
     useEffect(() => {
         scrollToBottom()
-    }, [messages.length])
+    }, [messages?.length])
 
     // Scroll handler for helper buttons
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -190,7 +191,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
     const loadCharacter = async () => {
         try {
-            const res = await fetch(`/api/characters/${params.characterId}`)
+            const res = await authFetch(`/api/characters/${params.characterId}`)
             const data = await res.json()
             setCharacter(data.character)
 
@@ -207,7 +208,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
     const loadSiliconPresets = async () => {
         try {
-            const res = await fetch('/api/silicon-presets')
+            const res = await authFetch('/api/silicon-presets')
             const data = await res.json()
             setSiliconPresets(data.presets || [])
         } catch (error) {
@@ -217,7 +218,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
     const loadTheme = async () => {
         try {
-            const res = await fetch('/api/user-profile')
+            const res = await authFetch('/api/user-profile')
             const data = await res.json()
             if (data.profile?.chatTheme) {
                 setThemeId(data.profile.chatTheme as ChatThemeId)
@@ -233,7 +234,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
     const loadMessages = async () => {
         try {
-            const res = await fetch(`/api/messages?characterId=${params.characterId}&limit=50`)
+            const res = await authFetch(`/api/messages?characterId=${params.characterId}&limit=50`)
             const data = await res.json()
             setMessages(data.messages)
         } catch (error) {
@@ -243,7 +244,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
     const loadMemories = async () => {
         try {
-            const res = await fetch(`/api/memories?characterId=${params.characterId}`)
+            const res = await authFetch(`/api/memories?characterId=${params.characterId}`)
             const data = await res.json()
             setMemories(data.memories)
         } catch (error) {
@@ -258,7 +259,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
         const userMessage = inputMessage
 
         try {
-            const res = await fetch('/api/chat', {
+            const res = await authFetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

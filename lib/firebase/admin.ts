@@ -50,16 +50,21 @@ export interface VerifiedToken {
  * Returns null if no token or invalid token
  */
 export async function verifyIdToken(authHeader: string | null): Promise<VerifiedToken | null> {
+    console.log('[verifyIdToken] Called with header:', authHeader ? 'EXISTS (length=' + authHeader.length + ')' : 'NULL')
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log('[verifyIdToken] No valid Bearer token found')
         return null
     }
 
     const token = authHeader.substring(7) // Remove "Bearer "
+    console.log('[verifyIdToken] Extracted token length:', token.length)
 
     try {
         const app = getAdminApp()
         const auth = getAuth(app)
         const decoded = await auth.verifyIdToken(token)
+        console.log('[verifyIdToken] Token verified successfully, uid:', decoded.uid)
 
         // Extract role from custom claims, default to 'user'
         const role = decoded.role === 'dev' ? 'dev' : 'user'
@@ -72,7 +77,7 @@ export async function verifyIdToken(authHeader: string | null): Promise<Verified
         }
     } catch (error) {
         // Don't log full token for security
-        console.warn('[Firebase Admin] Token verification failed:',
+        console.warn('[verifyIdToken] Token verification FAILED:',
             error instanceof Error ? error.message : 'Unknown error')
         return null
     }

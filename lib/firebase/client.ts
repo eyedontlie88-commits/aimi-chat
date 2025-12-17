@@ -87,19 +87,34 @@ export async function signOut(): Promise<void> {
  */
 export async function getIdToken(): Promise<string | null> {
     const auth = getFirebaseAuth()
+    console.log('[getIdToken] Called, currentUser exists:', !!auth.currentUser)
 
     // If currentUser is already available, return token immediately
     if (auth.currentUser) {
-        return auth.currentUser.getIdToken()
+        console.log('[getIdToken] User already available, getting token...')
+        const token = await auth.currentUser.getIdToken()
+        console.log('[getIdToken] Token obtained:', token ? token.substring(0, 20) + '...' : 'NULL')
+        return token
     }
 
     // Wait for auth state to initialize (first onAuthStateChanged callback)
+    console.log('[getIdToken] Waiting for auth state change...')
     return new Promise((resolve) => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             unsubscribe()
+            console.log('[getIdToken] Auth state changed, user exists:', !!user)
             if (user) {
-                user.getIdToken().then(resolve).catch(() => resolve(null))
+                user.getIdToken()
+                    .then((token) => {
+                        console.log('[getIdToken] Token from promise:', token ? token.substring(0, 20) + '...' : 'NULL')
+                        resolve(token)
+                    })
+                    .catch((err) => {
+                        console.error('[getIdToken] Error getting token:', err)
+                        resolve(null)
+                    })
             } else {
+                console.log('[getIdToken] No user, returning null')
                 resolve(null)
             }
         })

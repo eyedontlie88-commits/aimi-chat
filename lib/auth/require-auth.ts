@@ -44,7 +44,11 @@ function isAuthRequired(): boolean {
  */
 export async function getAuthContext(request: NextRequest): Promise<AuthContext> {
     const authHeader = request.headers.get('authorization')
+    console.log('[getAuthContext] Authorization header:', authHeader ? 'EXISTS (length=' + authHeader.length + ')' : 'MISSING')
+    console.log('[getAuthContext] First 30 chars:', authHeader ? authHeader.substring(0, 30) + '...' : 'N/A')
+
     const verified = await verifyIdToken(authHeader)
+    console.log('[getAuthContext] Verified:', !!verified)
 
     if (verified) {
         // Authenticated user

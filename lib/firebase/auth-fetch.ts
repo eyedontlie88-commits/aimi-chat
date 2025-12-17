@@ -8,18 +8,26 @@ export async function authFetch(
     input: RequestInfo | URL,
     init?: RequestInit
 ): Promise<Response> {
+    console.log('[authFetch] Starting request to:', input)
     const token = await getIdToken()
+    console.log('[authFetch] Token received:', token ? 'YES (' + token.substring(0, 15) + '...)' : 'NO (null)')
 
     const headers = new Headers(init?.headers)
 
     if (token) {
         headers.set('Authorization', `Bearer ${token}`)
+        console.log('[authFetch] Authorization header set')
+    } else {
+        console.warn('[authFetch] No token, proceeding without auth')
     }
 
-    return fetch(input, {
+    const response = await fetch(input, {
         ...init,
         headers,
     })
+
+    console.log('[authFetch] Response status:', response.status, response.statusText)
+    return response
 }
 
 /**
