@@ -29,6 +29,12 @@ interface MessageBubbleProps {
     onScrollToMessage?: (id: string) => void
     reactionType?: string | null // NONE | LIKE | HEARTBEAT
     userName?: string // For narrative placeholder replacement
+    // Custom color support (overrides theme classes)
+    useCustomColors?: boolean
+    customUserBg?: string  // hex color
+    customUserText?: string // hex color  
+    customAiBg?: string // hex color
+    customAiText?: string // hex color
 }
 
 export default function MessageBubble({
@@ -43,17 +49,28 @@ export default function MessageBubble({
     onScrollToMessage,
     reactionType,
     userName = 'Bạn',
+    useCustomColors = false,
+    customUserBg,
+    customUserText,
+    customAiBg,
+    customAiText,
 }: MessageBubbleProps) {
     const isUser = role === 'user'
 
-    // Theme-based or default colors
+    // Theme-based or default colors (Tailwind classes)
     const bubbleClasses = theme
         ? isUser
-            ? `${theme.userBubbleBg} ${theme.userBubbleText} rounded-br-sm`
-            : `${theme.aiBubbleBg} ${theme.aiBubbleText} rounded-bl-sm`
+            ? `${useCustomColors ? '' : theme.userBubbleBg} ${useCustomColors ? '' : theme.userBubbleText} rounded-br-sm`
+            : `${useCustomColors ? '' : theme.aiBubbleBg} ${useCustomColors ? '' : theme.aiBubbleText} rounded-bl-sm`
         : isUser
             ? 'message-user rounded-br-sm'
             : 'message-assistant rounded-bl-sm'
+
+    // Inline styles for custom colors
+    const bubbleStyle = useCustomColors ? {
+        backgroundColor: isUser ? customUserBg : customAiBg,
+        color: isUser ? customUserText : customAiText,
+    } : undefined
 
     // Reply quote classes
     const replyClasses = theme
@@ -85,7 +102,7 @@ export default function MessageBubble({
 
                 {/* Message bubble */}
                 <div className="relative">
-                    <div className={`px-4 py-3 rounded-2xl ${bubbleClasses}`}>
+                    <div className={`px-4 py-3 rounded-2xl ${bubbleClasses}`} style={bubbleStyle}>
                         {!isUser && characterName && (
                             <p className="text-xs opacity-70 mb-1 font-medium">{characterName}</p>
                         )}

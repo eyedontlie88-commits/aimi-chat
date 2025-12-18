@@ -13,6 +13,7 @@ import HeartToast from '@/components/HeartToast'
 import DevRelationshipTools from '@/components/DevRelationshipTools'
 import ParseToolbar from '@/components/ParseToolbar'
 import PlusDropdownModal from '@/components/PlusDropdownModal'
+import { useColors } from '@/lib/ColorContext'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
 
@@ -120,6 +121,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     // Collapse menu state for mobile
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const [showPlusModal, setShowPlusModal] = useState(false)
+
+    // Get user's custom colors from ColorContext (must be before any conditional returns)
+    const { textColor, backgroundColor } = useColors()
 
     useEffect(() => {
         loadCharacter()
@@ -438,6 +442,20 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     // Get resolved theme with all text classes computed
     const theme = getResolvedTheme(themeId, textMode)
 
+    // Check if user has custom colors (not defaults)
+    const hasCustomColors = textColor !== '#F9D47E' || backgroundColor !== '#1A1A1A'
+
+    // Helper function to darken a color for AI bubbles
+    const darkenColor = (hex: string, percent: number = 20): string => {
+        // Remove # if present
+        const h = hex.replace('#', '')
+        // Parse RGB
+        const r = Math.max(0, parseInt(h.substring(0, 2), 16) - Math.round(2.55 * percent))
+        const g = Math.max(0, parseInt(h.substring(2, 4), 16) - Math.round(2.55 * percent))
+        const b = Math.max(0, parseInt(h.substring(4, 6), 16) - Math.round(2.55 * percent))
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+    }
+
     return (
         <>
             {/* Fixed container covering viewport from nav to bottom - hides footer */}
@@ -565,6 +583,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                             replyBorder: theme.bubbles.replyPreviewBorder,
                                             replyText: theme.resolvedReplyText,
                                         }}
+                                        // Custom color support from user settings
+                                        useCustomColors={hasCustomColors}
+                                        customUserBg={backgroundColor}
+                                        customUserText={textColor}
+                                        customAiBg={darkenColor(backgroundColor, 15)}
+                                        customAiText={textColor}
                                     />
                                 </div>
                             ))
