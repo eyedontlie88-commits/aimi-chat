@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { use, useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import Image from 'next/image'
@@ -60,7 +60,10 @@ interface Memory {
     visibility: string
 }
 
-export default function ChatPage({ params }: { params: { characterId: string } }) {
+export default function ChatPage({ params }: { params: Promise<{ characterId: string }> }) {
+    // Unwrap params Promise (Next.js 16 requirement)
+    const { characterId } = use(params)
+
     const router = useRouter()
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -120,7 +123,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
         loadMemories()
         loadSiliconPresets()
         loadTheme()
-    }, [params.characterId])
+    }, [characterId])
 
     useEffect(() => {
         scrollToBottom()
@@ -194,7 +197,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
     const loadCharacter = async () => {
         try {
-            const res = await authFetch(`/api/characters/${params.characterId}`)
+            const res = await authFetch(`/api/characters/${characterId}`)
             const data = await res.json()
             setCharacter(data.character)
 
@@ -237,7 +240,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
     const loadMessages = async () => {
         try {
-            const res = await authFetch(`/api/messages?characterId=${params.characterId}&limit=50`)
+            const res = await authFetch(`/api/messages?characterId=${characterId}&limit=50`)
             const data = await res.json()
             setMessages(data.messages)
         } catch (error) {
@@ -247,7 +250,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
     const loadMemories = async () => {
         try {
-            const res = await authFetch(`/api/memories?characterId=${params.characterId}`)
+            const res = await authFetch(`/api/memories?characterId=${characterId}`)
             const data = await res.json()
             setMemories(data.memories)
         } catch (error) {
@@ -266,7 +269,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    characterId: params.characterId,
+                    characterId: characterId,
                     message: sceneState
                         ? `[Phone check scene] ${sceneState.description}`
                         : userMessage,
@@ -346,7 +349,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
 
         setIsResetting(true)
         try {
-            const res = await fetch(`/api/messages?characterId=${params.characterId}`, {
+            const res = await fetch(`/api/messages?characterId=${characterId}`, {
                 method: 'DELETE',
             })
             if (!res.ok) throw new Error('Failed to reset')
@@ -408,7 +411,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    characterId: params.characterId,
+                    characterId: characterId,
                     ...data,
                 }),
             })
@@ -582,7 +585,7 @@ export default function ChatPage({ params }: { params: { characterId: string } }
                         {/* TASK C: Dev Relationship Tools (dev mode only) */}
                         {isDev && (
                             <DevRelationshipTools
-                                characterId={params.characterId}
+                                characterId={characterId}
                                 currentStage={relationshipStage}
                                 currentAffection={affectionPoints}
                                 onUpdate={(data) => {

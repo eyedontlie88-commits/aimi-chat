@@ -3,13 +3,15 @@ import { getAuthContext, isAuthError } from '@/lib/auth/require-auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        // Unwrap params Promise (Next.js 16 requirement)
+        const { id } = await params
         const { uid, prisma } = await getAuthContext(request)
 
         // Verify character belongs to this user
         const relationship = await prisma.relationshipConfig.findFirst({
-            where: { characterId: params.id, userId: uid },
+            where: { characterId: id, userId: uid },
         })
 
         if (!relationship) {
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         }
 
         const character = await prisma.character.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             include: {
                 relationshipConfig: true,
                 _count: {
@@ -43,14 +45,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        // Unwrap params Promise (Next.js 16 requirement)
+        const { id } = await params
         const { uid, prisma } = await getAuthContext(request)
         const body = await request.json()
 
         // Verify character belongs to this user
         const relationship = await prisma.relationshipConfig.findFirst({
-            where: { characterId: params.id, userId: uid },
+            where: { characterId: id, userId: uid },
         })
 
         if (!relationship) {
@@ -72,7 +76,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         } = body
 
         const character = await prisma.character.update({
-            where: { id: params.id },
+            where: { id: id },
             data: {
                 ...(name && { name }),
                 ...(avatarUrl && { avatarUrl }),
@@ -94,7 +98,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         if (meetingContext !== undefined) {
             const hasContext = meetingContext?.trim().length > 0
             await prisma.relationshipConfig.update({
-                where: { characterId: params.id },
+                where: { characterId: id },
                 data: {
                     specialNotes: meetingContext,
                     // If user provides any context, upgrade from UNDEFINED to STRANGER
@@ -105,7 +109,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
         // Fetch updated character with relationshipConfig
         const updatedCharacter = await prisma.character.findUnique({
-            where: { id: params.id },
+            where: { id: id },
             include: { relationshipConfig: true },
         })
 
@@ -119,13 +123,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        // Unwrap params Promise (Next.js 16 requirement)
+        const { id } = await params
         const { uid, prisma } = await getAuthContext(request)
 
         // Verify character belongs to this user
         const relationship = await prisma.relationshipConfig.findFirst({
-            where: { characterId: params.id, userId: uid },
+            where: { characterId: id, userId: uid },
         })
 
         if (!relationship) {
@@ -133,13 +139,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         }
 
         // Delete related data first (in case cascade doesn't work)
-        await prisma.memory.deleteMany({ where: { characterId: params.id } })
-        await prisma.message.deleteMany({ where: { characterId: params.id } })
-        await prisma.relationshipConfig.deleteMany({ where: { characterId: params.id } })
+        await prisma.memory.deleteMany({ where: { characterId: id } })
+        await prisma.message.deleteMany({ where: { characterId: id } })
+        await prisma.relationshipConfig.deleteMany({ where: { characterId: id } })
 
         // Delete character
         await prisma.character.delete({
-            where: { id: params.id },
+            where: { id: id },
         })
 
         return NextResponse.json({ success: true })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { use, useState, useEffect } from 'react'
 import { useRouter, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSiliconPresets } from '@/lib/llm/silicon-presets'
@@ -30,7 +30,10 @@ interface Character {
     }
 }
 
-export default function CharacterPage({ params }: { params: { id: string } }) {
+export default function CharacterPage({ params }: { params: Promise<{ id: string }> }) {
+    // Unwrap params Promise (Next.js 16 requirement)
+    const { id } = use(params)
+
     const router = useRouter()
     const [character, setCharacter] = useState<Character | null>(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -42,12 +45,12 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
 
     useEffect(() => {
         loadCharacter()
-    }, [params.id])
+    }, [id])
 
     const loadCharacter = async () => {
         try {
             const [charRes, presetsRes] = await Promise.all([
-                authFetch(`/api/characters/${params.id}`),
+                authFetch(`/api/characters/${id}`),
                 authFetch('/api/config/presets')
             ])
 
@@ -70,7 +73,7 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
 
         setIsDeleting(true)
         try {
-            await authFetch(`/api/characters/${params.id}`, { method: 'DELETE' })
+            await authFetch(`/api/characters/${id}`, { method: 'DELETE' })
             router.push('/characters')
             router.refresh()
         } catch (error) {
