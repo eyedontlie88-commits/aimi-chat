@@ -12,6 +12,7 @@ import CharacterSettingsModal from '@/components/CharacterSettingsModal'
 import HeartToast from '@/components/HeartToast'
 import DevRelationshipTools from '@/components/DevRelationshipTools'
 import ParseToolbar from '@/components/ParseToolbar'
+import PlusDropdownModal from '@/components/PlusDropdownModal'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
 
@@ -118,6 +119,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
     // Collapse menu state for mobile
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [showPlusModal, setShowPlusModal] = useState(false)
 
     useEffect(() => {
         loadCharacter()
@@ -491,98 +493,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-1 justify-end flex-shrink-0 relative z-[9999]">
-                            {/* Hamburger button - visible on all devices */}
-                            <button
-                                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                                title={isMenuOpen ? 'Ẩn menu' : 'Hiện menu'}
-                            >
-                                {isMenuOpen ? '✕' : '☰'}
-                            </button>
-
-                            {/* Buttons container - dropdown on mobile, row on desktop */}
-                            {isMenuOpen || (typeof window !== 'undefined' && window.innerWidth >= 768) ? (
-                                <div className={`flex gap-1 ${isMenuOpen ? 'flex-col absolute top-14 right-2 bg-slate-900/95 rounded-lg p-2 z-[9999] shadow-xl' : 'hidden md:flex flex-row'}`}>
-                                    {/* Settings button */}
-                                    <button
-                                        onClick={() => {
-                                            setIsSettingsOpen(true)
-                                            setIsMenuOpen(false)
-                                        }}
-                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                                        title="Cài đặt"
-                                    >
-                                        <span>⚙️</span>
-                                        <span className="hidden md:inline">Settings</span>
-                                    </button>
-
-                                    {/* Search button */}
-                                    <button
-                                        onClick={() => {
-                                            setIsSearchOpen(true)
-                                            setIsMenuOpen(false)
-                                        }}
-                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                                        title="Tìm kiếm"
-                                    >
-                                        <span>🔍</span>
-                                        <span className="hidden md:inline">Tìm</span>
-                                    </button>
-
-                                    {/* Memory button */}
-                                    <button
-                                        onClick={() => {
-                                            setIsMemoryViewerOpen(true)
-                                            setIsMenuOpen(false)
-                                        }}
-                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                                        title="Ký ức"
-                                    >
-                                        <span>💭</span>
-                                        <span className="hidden md:inline">Ký ức ({memories.length})</span>
-                                    </button>
-
-                                    {/* Phone Check button */}
-                                    <button
-                                        onClick={() => {
-                                            setIsPhoneCheckOpen(true)
-                                            setIsMenuOpen(false)
-                                        }}
-                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                                        title="Phone Check"
-                                    >
-                                        <span>📱</span>
-                                        <span className="hidden md:inline">Phone Check</span>
-                                    </button>
-
-                                    {/* Reset button */}
-                                    <button
-                                        onClick={handleResetChat}
-                                        disabled={isResetting}
-                                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition disabled:opacity-50 w-full sm:w-auto justify-center sm:justify-start ${theme.buttons.dangerBg} ${theme.resolvedDangerText}`}
-                                        title="Reset"
-                                    >
-                                        <span>{isResetting ? '⏳' : '🗑️'}</span>
-                                        <span className="hidden md:inline">{isResetting ? 'Đang xoá...' : 'Reset'}</span>
-                                    </button>
-
-                                    {/* Dev Force Reaction (dev mode only) */}
-                                    {isDev && (
-                                        <select
-                                            value={devForceReaction}
-                                            onChange={(e) => setDevForceReaction(e.target.value as 'OFF' | 'LIKE' | 'HEARTBEAT')}
-                                            className={`px-2 py-1.5 rounded-lg text-xs font-mono border w-full sm:w-auto ${theme.layout.inputBorder} ${theme.layout.inputBg} ${theme.input.text}`}
-                                            title="🧪 Dev: Force Reaction"
-                                        >
-                                            <option value="OFF">🧪 OFF</option>
-                                            <option value="LIKE">🧪 LIKE</option>
-                                            <option value="HEARTBEAT">🧪 HEARTBEAT</option>
-                                        </select>
-                                    )}
-                                </div>
-                            ) : null}
-                        </div>
+                        {/* Header cleaned - menu moved to Plus modal in input area */}
 
                         {/* TASK C: Dev Relationship Tools (dev mode only) */}
                         {isDev && (
@@ -768,12 +679,21 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                 rows={1}
                                 style={{ minHeight: '40px', maxHeight: '120px' }}
                             />
+                            {/* Plus button - opens Plus modal */}
+                            <button
+                                type="button"
+                                onClick={() => setShowPlusModal(true)}
+                                className={`flex items-center justify-center w-10 h-10 rounded-xl text-lg transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                title="Menu"
+                            >
+                                ➕
+                            </button>
                             <button
                                 type="submit"
                                 disabled={isLoading || !inputMessage.trim()}
-                                className="btn-primary px-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="btn-primary px-6 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Gửi
+                                ➤
                             </button>
                         </form>
                     </div>
@@ -894,6 +814,27 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 onHide={() => setHeartToast({ show: false, charName: '' })}
                 bgClass={theme.notice.bg}
                 textClass={theme.notice.text}
+            />
+
+            {/* Plus Dropdown Modal */}
+            <PlusDropdownModal
+                isOpen={showPlusModal}
+                onClose={() => setShowPlusModal(false)}
+                characterId={characterId}
+                devMode={isDev}
+                onPhoneCheck={() => {
+                    setIsPhoneCheckOpen(true)
+                }}
+                onMemory={() => {
+                    setIsMemoryViewerOpen(true)
+                }}
+                onSettings={() => {
+                    setIsSettingsOpen(true)
+                }}
+                onSearch={() => {
+                    setIsSearchOpen(true)
+                }}
+                onReset={handleResetChat}
             />
         </>
     )
