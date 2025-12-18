@@ -24,12 +24,22 @@ interface CharacterData {
     } | null
 }
 
+interface ThemeBubbles {
+    userBg: string
+    userText: string
+    aiBg: string
+    aiText: string
+}
+
 interface CharacterSettingsModalProps {
     isOpen: boolean
     onClose: () => void
     character: CharacterData
     siliconPresets?: SiliconPresetModel[]
     onUpdated: () => void
+    theme?: {
+        bubbles: ThemeBubbles
+    }
 }
 
 export default function CharacterSettingsModal({
@@ -38,6 +48,7 @@ export default function CharacterSettingsModal({
     character,
     siliconPresets = [],
     onUpdated,
+    theme,
 }: CharacterSettingsModalProps) {
     const router = useRouter()
     const { t } = useLanguage()
@@ -451,14 +462,14 @@ export default function CharacterSettingsModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="btn-secondary flex-1"
+                            className={theme ? `flex-1 py-2 px-4 rounded-xl transition ${theme.bubbles.aiBg} ${theme.bubbles.aiText} hover:opacity-80` : 'btn-secondary flex-1'}
                             disabled={isLoading}
                         >
                             Hủy
                         </button>
                         <button
                             type="submit"
-                            className="btn-primary flex-1"
+                            className={theme ? `flex-1 py-2 px-4 rounded-xl transition ${theme.bubbles.userBg} ${theme.bubbles.userText} hover:opacity-90` : 'btn-primary flex-1'}
                             disabled={isLoading}
                         >
                             {isLoading ? 'Đang lưu...' : '💾 Lưu thay đổi'}

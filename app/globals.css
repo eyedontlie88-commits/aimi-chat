@@ -21,6 +21,10 @@
   --background: #0a0a0f;
   --foreground: #ededed;
 
+  /* User custom colors (set by ColorApplier, with defaults) */
+  --user-text-color: #F9D47E;
+  --user-bg-color: #1A1A1A;
+
   /* Font system */
   --font-family: var(--font-inter);
   --font-size: 14px;
@@ -82,7 +86,8 @@ html[data-font-size="18"] {
   }
 
   body {
-    @apply bg-background text-foreground;
+    /* Text color from user settings, background applied to #viewport-wrapper by ColorApplier */
+    color: var(--user-text-color);
     font-family: var(--font-family);
     font-size: var(--font-size);
     word-wrap: break-word;
@@ -141,6 +146,17 @@ html[data-font-size="18"] {
 
   .card {
     @apply glass rounded-xl p-6;
+  }
+
+  /* Helper text that follows user text color */
+  .text-secondary {
+    color: var(--user-text-color);
+    opacity: 0.7;
+  }
+
+  .text-hint {
+    color: var(--user-text-color);
+    opacity: 0.6;
   }
 }
 

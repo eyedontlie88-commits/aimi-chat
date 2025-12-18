@@ -100,7 +100,7 @@ export default function PhoneCheckModal({
                     <div>
                         <h2 className="text-xl font-bold gradient-text">📱 Điện thoại của {characterName}</h2>
                         {lastUpdated && (
-                            <p className="text-xs text-gray-400 mt-1">
+                            <p className="text-xs text-secondary mt-1">
                                 Cập nhật: {formatTimestamp(lastUpdated)}
                             </p>
                         )}
@@ -127,7 +127,7 @@ export default function PhoneCheckModal({
                         )}
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-white transition-colors text-2xl leading-none"
+                            className="text-secondary hover:text-white transition-colors text-2xl leading-none"
                         >
                             ×
                         </button>
@@ -139,7 +139,7 @@ export default function PhoneCheckModal({
                     {isLoading && !phoneContent && (
                         <div className="flex flex-col items-center justify-center py-12">
                             <div className="animate-spin text-4xl mb-4">⏳</div>
-                            <p className="text-gray-400">Đang tải nội dung điện thoại...</p>
+                            <p className="text-secondary">Đang tải nội dung điện thoại...</p>
                         </div>
                     )}
 
@@ -154,8 +154,8 @@ export default function PhoneCheckModal({
 
                     {!isLoading && !error && !phoneContent && (
                         <div className="text-center py-12">
-                            <p className="text-gray-400 mb-4">Chưa có nội dung điện thoại</p>
-                            <p className="text-sm text-gray-500 mb-4">
+                            <p className="text-secondary mb-4">Chưa có nội dung điện thoại</p>
+                            <p className="text-sm text-hint mb-4">
                                 Trò chuyện thêm để tạo nội dung tự động, hoặc nhấn Refresh để tạo ngay.
                             </p>
                             <button onClick={handleRefresh} className="btn-primary">
@@ -212,7 +212,7 @@ export default function PhoneCheckModal({
                                 {activeTab === 'calls' && (
                                     <div className="space-y-2">
                                         {phoneContent.callLogs?.length === 0 && (
-                                            <p className="text-center text-gray-500 py-8">Không có cuộc gọi nào</p>
+                                            <p className="text-center text-hint py-8">Không có cuộc gọi nào</p>
                                         )}
                                         {phoneContent.callLogs?.map((call, idx) => (
                                             <div key={idx} className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors">
@@ -223,12 +223,12 @@ export default function PhoneCheckModal({
                                                         </span>
                                                         <div>
                                                             <p className="font-medium">{call.contact}</p>
-                                                            <p className="text-xs text-gray-400">
+                                                            <p className="text-xs text-secondary">
                                                                 {call.type === 'missed' ? 'Nhỡ' : call.duration}
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <span className="text-xs text-gray-500">
+                                                    <span className="text-xs text-hint">
                                                         {formatTimestamp(call.timestamp)}
                                                     </span>
                                                 </div>
@@ -241,7 +241,7 @@ export default function PhoneCheckModal({
                                 {activeTab === 'messages' && (
                                     <div className="space-y-2">
                                         {phoneContent.messages?.length === 0 && (
-                                            <p className="text-center text-gray-500 py-8">Không có tin nhắn nào</p>
+                                            <p className="text-center text-hint py-8">Không có tin nhắn nào</p>
                                         )}
                                         {phoneContent.messages?.map((msg, idx) => (
                                             <div key={idx} className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors">
@@ -256,8 +256,8 @@ export default function PhoneCheckModal({
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <p className="text-sm text-gray-300 line-clamp-2">{msg.preview}</p>
-                                                        <span className="text-xs text-gray-500 mt-1 block">
+                                                        <p className="text-sm text-secondary line-clamp-2">{msg.preview}</p>
+                                                        <span className="text-xs text-hint mt-1 block">
                                                             {formatTimestamp(msg.timestamp)}
                                                         </span>
                                                     </div>
@@ -271,7 +271,7 @@ export default function PhoneCheckModal({
                                 {activeTab === 'notes' && (
                                     <div className="space-y-2">
                                         {phoneContent.notes?.length === 0 && (
-                                            <p className="text-center text-gray-500 py-8">Không có ghi chú nào</p>
+                                            <p className="text-center text-hint py-8">Không có ghi chú nào</p>
                                         )}
                                         {phoneContent.notes?.map((note, idx) => (
                                             <div key={idx} className="bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-colors">
@@ -283,8 +283,8 @@ export default function PhoneCheckModal({
                                                     </span>
                                                     <div className="flex-1">
                                                         <p className="font-medium mb-1">{note.title}</p>
-                                                        <p className="text-sm text-gray-300 whitespace-pre-wrap">{note.content}</p>
-                                                        <span className="text-xs text-gray-500 mt-2 block">
+                                                        <p className="text-sm text-secondary whitespace-pre-wrap">{note.content}</p>
+                                                        <span className="text-xs text-hint mt-2 block">
                                                             {formatTimestamp(note.timestamp)}
                                                         </span>
                                                     </div>
@@ -298,7 +298,7 @@ export default function PhoneCheckModal({
                                 {activeTab === 'calendar' && (
                                     <div className="space-y-2">
                                         {phoneContent.calendar?.length === 0 && (
-                                            <p className="text-center text-gray-500 py-8">Không có lịch nào</p>
+                                            <p className="text-center text-hint py-8">Không có lịch nào</p>
                                         )}
                                         {phoneContent.calendar?.map((event, idx) => (
                                             <div key={idx} className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors">
@@ -308,12 +308,12 @@ export default function PhoneCheckModal({
                                                     </span>
                                                     <div className="flex-1">
                                                         <p className="font-medium">{event.title}</p>
-                                                        <p className="text-sm text-gray-400">
+                                                        <p className="text-sm text-secondary">
                                                             {new Date(event.date).toLocaleDateString('vi-VN')}
                                                             {event.time && ` • ${event.time}`}
                                                         </p>
                                                         {event.description && (
-                                                            <p className="text-sm text-gray-300 mt-1">{event.description}</p>
+                                                            <p className="text-sm text-secondary mt-1">{event.description}</p>
                                                         )}
                                                     </div>
                                                 </div>

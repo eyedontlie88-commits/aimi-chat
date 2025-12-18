@@ -61,6 +61,8 @@ export async function PUT(request: NextRequest) {
                 chatTextTone: body.chatTextTone,
                 chatFont: body.chatFont,
                 chatFontSize: body.chatFontSize,
+                textColor: body.textColor,
+                backgroundColor: body.backgroundColor,
             },
             update: {
                 displayName: body.displayName,
@@ -75,6 +77,8 @@ export async function PUT(request: NextRequest) {
                 chatTextTone: body.chatTextTone,
                 chatFont: body.chatFont,
                 chatFontSize: body.chatFontSize,
+                textColor: body.textColor,
+                backgroundColor: body.backgroundColor,
             },
         })
 

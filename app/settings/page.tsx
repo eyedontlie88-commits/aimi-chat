@@ -6,6 +6,7 @@ import { authFetch } from '@/lib/firebase/auth-fetch'
 import { setGlobalTheme, setGlobalTextMode, THEME_STORAGE_KEY, TEXT_MODE_STORAGE_KEY } from '@/components/ThemeProvider'
 import BackButton from '@/components/BackButton'
 import { useLanguage, Language } from '@/lib/i18n'
+import { useColors } from '@/lib/ColorContext'
 
 // Language Button Component
 function LanguageButton({ lang, icon, label }: { lang: Language; icon: string; label: string }) {
@@ -40,6 +41,8 @@ interface UserProfile {
     dislikes: string | null
     chatTheme: string | null
     chatTextTone: string | null
+    textColor: string | null
+    backgroundColor: string | null
 }
 
 interface RelationshipConfig {
@@ -59,11 +62,13 @@ const RELATIONSHIP_STATUSES = ['crush', 'dating', 'engaged', 'married', 'living_
 
 export default function SettingsPage() {
     const { t } = useLanguage()
+    const { setColors } = useColors()
     const [profile, setProfile] = useState<UserProfile | null>(null)
     const [relationships, setRelationships] = useState<RelationshipConfig[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [loadError, setLoadError] = useState(false)
     const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null)
+    const [showAIColorPopup, setShowAIColorPopup] = useState(false)
 
     // Default profile for graceful fallback
     const defaultProfile: UserProfile = {
@@ -78,6 +83,8 @@ export default function SettingsPage() {
         dislikes: null,
         chatTheme: null,
         chatTextTone: null,
+        textColor: '#F9D47E',
+        backgroundColor: '#1A1A1A',
     }
 
     useEffect(() => {
@@ -179,7 +186,7 @@ export default function SettingsPage() {
     if (!profile) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="animate-pulse text-gray-400">Loading...</div>
+                <div className="animate-pulse text-secondary">Loading...</div>
             </div>
         )
     }
@@ -196,7 +203,7 @@ export default function SettingsPage() {
             {/* Language Selector */}
             <div className="card mb-8">
                 <h2 className="text-xl font-semibold mb-4">🌐 {t.settings.language}</h2>
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-secondary mb-4">
                     {t.settings.languageDesc}
                 </p>
                 <div className="flex gap-3">
@@ -208,7 +215,7 @@ export default function SettingsPage() {
             {/* User Profile */}
             <div className="card mb-8">
                 <h2 className="text-xl font-semibold mb-4">{t.settings.profile}</h2>
-                <p className="text-sm text-gray-400 mb-6">
+                <p className="text-sm text-secondary mb-6">
                     {t.settings.profileDesc}
                 </p>
 
@@ -314,108 +321,200 @@ export default function SettingsPage() {
                 </form>
             </div>
 
-            {/* Chat Theme */}
+            {/* Custom Color Picker */}
             <div className="card mb-8">
-                <h2 className="text-xl font-semibold mb-4">🎨 {t.settings.theme}</h2>
-                <p className="text-sm text-gray-400 mb-6">
-                    {t.settings.themeDesc}
+                <h2 className="text-xl font-semibold mb-4">🎨 Màu chữ & Nền</h2>
+                <p className="text-sm text-secondary mb-6">
+                    Tùy chỉnh màu chữ và màu nền cho tin nhắn chat
                 </p>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Object.values(chatThemes).map((theme) => (
-                        <button
-                            key={theme.id}
-                            onClick={async () => {
-                                const updatedProfile = { ...profile, chatTheme: theme.id }
-                                setProfile(updatedProfile)
-                                // Apply theme globally immediately
-                                setGlobalTheme(theme.id)
-                                try {
-                                    const res = await authFetch('/api/user-profile', {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(updatedProfile),
-                                    })
-                                    if (res.ok) {
-                                        console.log('[Settings] Updated chatTheme to', theme.id)
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Text Color */}
+                    <div>
+                        <label className="block text-sm font-medium mb-2">Màu chữ</label>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="color"
+                                value={profile.textColor || '#F9D47E'}
+                                onChange={async (e) => {
+                                    const newTextColor = e.target.value
+                                    const updatedProfile = { ...profile, textColor: newTextColor }
+                                    setProfile(updatedProfile)
+                                    // Update global colors immediately
+                                    setColors(newTextColor, profile.backgroundColor || '#1A1A1A')
+                                    try {
+                                        await authFetch('/api/user-profile', {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(updatedProfile),
+                                        })
+                                    } catch (error) {
+                                        console.error('Error saving text color:', error)
                                     }
-                                } catch (error) {
-                                    console.error('Error saving theme:', error)
-                                }
-                            }}
-                            className={`p-4 rounded-xl border-2 transition-all text-left ${profile.chatTheme === theme.id
-                                ? 'border-primary ring-2 ring-primary/30'
-                                : 'border-white/10 hover:border-white/30'
-                                }`}
-                        >
-                            {/* Preview colors */}
-                            <div className="flex gap-1 mb-3">
-                                {theme.previewColors.map((color: string, i: number) => (
-                                    <div
-                                        key={i}
-                                        className="w-6 h-6 rounded-full border border-white/20"
-                                        style={{ backgroundColor: color }}
-                                    />
-                                ))}
-                            </div>
-                            <h3 className="font-medium text-sm mb-1">{(t.themes as any)[theme.id]?.name || theme.name}</h3>
-                            <p className="text-xs text-gray-400">{(t.themes as any)[theme.id]?.desc || theme.description}</p>
-                        </button>
-                    ))}
-                </div>
+                                }}
+                                className="w-12 h-12 rounded-lg cursor-pointer border-2 border-white/20"
+                            />
+                            <span className="font-mono text-sm bg-white/10 px-3 py-1.5 rounded-lg">
+                                {profile.textColor || '#F9D47E'}
+                            </span>
+                        </div>
+                    </div>
 
-                {/* Text Tone Selector */}
-                <div className="mt-6 pt-6 border-t border-white/10">
-                    <h3 className="font-medium text-sm mb-3">📝 {t.settings.textMode}</h3>
-                    <div className="flex flex-wrap gap-3">
-                        {TEXT_MODE_OPTIONS.map((option) => (
-                            <label
-                                key={option.value}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl border cursor-pointer transition ${profile.chatTextTone === option.value || (!profile.chatTextTone && option.value === 'auto')
-                                    ? 'border-primary bg-primary/10'
-                                    : 'border-white/10 hover:border-white/30'
-                                    }`}
-                            >
-                                <input
-                                    type="radio"
-                                    name="chatTextTone"
-                                    value={option.value}
-                                    checked={profile.chatTextTone === option.value || (!profile.chatTextTone && option.value === 'auto')}
-                                    onChange={async (e) => {
-                                        const updatedProfile = { ...profile, chatTextTone: e.target.value }
-                                        setProfile(updatedProfile)
-                                        // Apply text mode globally immediately
-                                        setGlobalTextMode(e.target.value)
-                                        try {
-                                            const res = await authFetch('/api/user-profile', {
-                                                method: 'PUT',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify(updatedProfile),
-                                            })
-                                            if (res.ok) {
-                                                console.log('[Settings] Updated chatTextTone to', e.target.value)
-                                            }
-                                        } catch (error) {
-                                            console.error('Error saving text tone:', error)
-                                        }
-                                    }}
-                                    className="hidden"
-                                />
-                                <span className="text-sm">
-                                    {option.value === 'auto' ? t.settings.textModeAuto :
-                                        option.value === 'light' ? t.settings.textModeLight :
-                                            t.settings.textModeDark}
-                                </span>
-                            </label>
-                        ))}
+                    {/* Background Color */}
+                    <div>
+                        <label className="block text-sm font-medium mb-2">Màu nền</label>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="color"
+                                value={profile.backgroundColor || '#1A1A1A'}
+                                onChange={async (e) => {
+                                    const newBgColor = e.target.value
+                                    const updatedProfile = { ...profile, backgroundColor: newBgColor }
+                                    setProfile(updatedProfile)
+                                    // Update global colors immediately
+                                    setColors(profile.textColor || '#F9D47E', newBgColor)
+                                    try {
+                                        await authFetch('/api/user-profile', {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(updatedProfile),
+                                        })
+                                    } catch (error) {
+                                        console.error('Error saving background color:', error)
+                                    }
+                                }}
+                                className="w-12 h-12 rounded-lg cursor-pointer border-2 border-white/20"
+                            />
+                            <span className="font-mono text-sm bg-white/10 px-3 py-1.5 rounded-lg">
+                                {profile.backgroundColor || '#1A1A1A'}
+                            </span>
+                        </div>
                     </div>
                 </div>
+
+                {/* Live Preview */}
+                <div className="mt-6">
+                    <label className="block text-sm font-medium mb-2">Xem trước</label>
+                    <div
+                        className="p-6 rounded-xl border border-white/20 text-center"
+                        style={{
+                            backgroundColor: profile.backgroundColor || '#1A1A1A',
+                            color: profile.textColor || '#F9D47E',
+                        }}
+                    >
+                        <p className="text-lg font-medium mb-2">Đây là tin nhắn mẫu</p>
+                        <p className="text-sm opacity-80">The quick brown fox jumps over the lazy dog</p>
+                    </div>
+                </div>
+
+                {/* AI Suggestion Button */}
+                <div className="mt-6">
+                    <button
+                        type="button"
+                        onClick={() => setShowAIColorPopup(true)}
+                        className="btn-primary w-full md:w-auto"
+                    >
+                        🤖 AI Gợi ý màu
+                    </button>
+                </div>
+
+                {/* AI Color Suggestion Popup */}
+                {showAIColorPopup && (
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="glass rounded-2xl p-6 max-w-md w-full">
+                            <h3 className="text-xl font-semibold mb-4">🤖 AI Gợi ý Màu</h3>
+                            <p className="text-sm text-secondary mb-6">
+                                Chọn một bảng màu được tối ưu cho trải nghiệm đọc
+                            </p>
+
+                            <div className="space-y-4">
+                                {/* Suggestion 1: Light Mode */}
+                                <div className="p-4 rounded-xl border border-white/20 hover:border-primary/50 transition cursor-pointer">
+                                    <h4 className="font-medium text-sm mb-2">✨ Tối ưu cho nền sáng</h4>
+                                    <div
+                                        className="p-4 rounded-lg mb-3 text-center"
+                                        style={{ backgroundColor: '#F5F5F5', color: '#1A1A1A' }}
+                                    >
+                                        <p className="text-sm font-medium">Preview Text</p>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs text-secondary mb-3">
+                                        <span>Màu chữ: #1A1A1A</span>
+                                        <span>Màu nền: #F5F5F5</span>
+                                    </div>
+                                    <button
+                                        onClick={async () => {
+                                            const updatedProfile = { ...profile, textColor: '#1A1A1A', backgroundColor: '#F5F5F5' }
+                                            setProfile(updatedProfile)
+                                            setColors('#1A1A1A', '#F5F5F5') // Update global colors
+                                            setShowAIColorPopup(false)
+                                            try {
+                                                await authFetch('/api/user-profile', {
+                                                    method: 'PUT',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify(updatedProfile),
+                                                })
+                                            } catch (error) {
+                                                console.error('Error saving colors:', error)
+                                            }
+                                        }}
+                                        className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm transition"
+                                    >
+                                        Chọn
+                                    </button>
+                                </div>
+
+                                {/* Suggestion 2: Dark Mode */}
+                                <div className="p-4 rounded-xl border border-white/20 hover:border-primary/50 transition cursor-pointer">
+                                    <h4 className="font-medium text-sm mb-2">✨ Tối ưu cho nền tối</h4>
+                                    <div
+                                        className="p-4 rounded-lg mb-3 text-center"
+                                        style={{ backgroundColor: '#1A1A1A', color: '#F9D47E' }}
+                                    >
+                                        <p className="text-sm font-medium">Preview Text</p>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs text-secondary mb-3">
+                                        <span>Màu chữ: #F9D47E</span>
+                                        <span>Màu nền: #1A1A1A</span>
+                                    </div>
+                                    <button
+                                        onClick={async () => {
+                                            const updatedProfile = { ...profile, textColor: '#F9D47E', backgroundColor: '#1A1A1A' }
+                                            setProfile(updatedProfile)
+                                            setColors('#F9D47E', '#1A1A1A') // Update global colors
+                                            setShowAIColorPopup(false)
+                                            try {
+                                                await authFetch('/api/user-profile', {
+                                                    method: 'PUT',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify(updatedProfile),
+                                                })
+                                            } catch (error) {
+                                                console.error('Error saving colors:', error)
+                                            }
+                                        }}
+                                        className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm transition"
+                                    >
+                                        Chọn
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Close Button */}
+                            <button
+                                onClick={() => setShowAIColorPopup(false)}
+                                className="w-full mt-6 py-2 rounded-lg border border-white/20 hover:bg-white/10 text-sm transition"
+                            >
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Relationships */}
             <div className="card">
                 <h2 className="text-xl font-semibold mb-4">{t.settings.relationships}</h2>
-                <p className="text-sm text-gray-400 mb-6">
+                <p className="text-sm text-secondary mb-6">
                     {t.settings.relationshipsDesc}
                 </p>
 
@@ -440,13 +539,13 @@ export default function SettingsPage() {
                                     </div>
                                     <div className="text-left">
                                         <p className="font-medium">{rel.character.name}</p>
-                                        <p className="text-sm text-gray-400">
+                                        <p className="text-sm text-secondary">
                                             {(t.relationship as any)[rel.status.replace('_', '')] ||
                                                 (t.relationship as any)[rel.status] || rel.status}
                                         </p>
                                     </div>
                                 </div>
-                                <span className="text-gray-400">{expandedCharacterId === rel.characterId ? '▼' : '▶'}</span>
+                                <span className="text-secondary">{expandedCharacterId === rel.characterId ? '▼' : '▶'}</span>
                             </button>
 
                             {expandedCharacterId === rel.characterId && (

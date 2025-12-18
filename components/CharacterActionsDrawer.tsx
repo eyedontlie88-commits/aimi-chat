@@ -161,7 +161,7 @@ export default function CharacterActionsDrawer({
                             </h3>
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center rounded-full text-secondary hover:text-white hover:bg-white/10 transition-colors"
                             >
                                 ✕
                             </button>
@@ -175,7 +175,7 @@ export default function CharacterActionsDrawer({
                                     onClick={action.onClick}
                                     disabled={action.disabled}
                                     className={`relative flex flex-col items-center gap-2 p-3 sm:p-4 rounded-2xl transition-all ${action.disabled
-                                        ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                                        ? 'bg-white/5 text-hint cursor-not-allowed'
                                         : 'bg-white/10 hover:bg-white/20 text-white active:scale-95'
                                         }`}
                                 >
@@ -196,7 +196,7 @@ export default function CharacterActionsDrawer({
 
                                     {/* Disabled overlay */}
                                     {action.disabled && (
-                                        <span className="absolute bottom-1 text-[8px] text-gray-500">
+                                        <span className="absolute bottom-1 text-[8px] text-hint">
                                             {t.actions.comingSoon}
                                         </span>
                                     )}

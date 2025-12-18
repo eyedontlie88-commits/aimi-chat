@@ -106,7 +106,7 @@ export default function NarrativeSyntaxButtons({
     `
 
     const buttonStyle = showButtons
-        ? 'bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white opacity-60 hover:opacity-100'
+        ? 'bg-white/10 hover:bg-white/20 text-secondary hover:text-white opacity-60 hover:opacity-100'
         : 'opacity-0 pointer-events-none'
 
     // LOCK MODE: Show inline input when syntax is selected
@@ -117,19 +117,19 @@ export default function NarrativeSyntaxButtons({
                 <div className="w-full max-w-md bg-slate-800 border-t border-white/20 rounded-t-2xl p-4 space-y-3 animate-in slide-in-from-bottom duration-300">
                     {/* Header */}
                     <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">
+                        <span className="text-sm text-secondary">
                             {t.narrative.enterContent} <span className="text-primary font-medium">{syntax.label}</span>
                         </span>
                         <button
                             onClick={handleCancel}
-                            className="text-gray-500 hover:text-white transition-colors"
+                            className="text-hint hover:text-white transition-colors"
                         >
                             ✕
                         </button>
                     </div>
 
                     {/* Preview */}
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-hint">
                         <span className="text-primary">{syntax.before}</span>
                         <span className="text-white">{syntaxContent || '...'}</span>
                         <span className="text-primary">{syntax.after}</span>
@@ -161,7 +161,7 @@ export default function NarrativeSyntaxButtons({
                     <div className="flex gap-2 pt-2">
                         <button
                             onClick={handleCancel}
-                            className="flex-1 py-2 px-4 bg-white/10 hover:bg-white/20 text-gray-300 rounded-lg transition-colors"
+                            className="flex-1 py-2 px-4 bg-white/10 hover:bg-white/20 text-secondary rounded-lg transition-colors"
                         >
                             {t.common.cancel}
                         </button>
@@ -174,7 +174,7 @@ export default function NarrativeSyntaxButtons({
                     </div>
 
                     {/* Hint */}
-                    <p className="text-xs text-gray-500 text-center">
+                    <p className="text-xs text-hint text-center">
                         Enter để xác nhận • Esc để hủy
                     </p>
                 </div>
@@ -189,7 +189,7 @@ export default function NarrativeSyntaxButtons({
                 type="button"
                 onClick={() => setIsExpanded(true)}
                 disabled={disabled}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all duration-200 shrink-0"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-hint hover:text-white hover:bg-white/10 transition-all duration-200 shrink-0"
                 title="Thêm kỹ thuật kể chuyện"
             >
                 <span className="text-sm">✎</span>
@@ -208,7 +208,7 @@ export default function NarrativeSyntaxButtons({
                 title="Thêm mô tả cảnh [text]"
             >
                 <span className="font-mono text-sm">[ ]</span>
-                <span className="text-[10px] text-gray-500">Cảnh</span>
+                <span className="text-[10px] text-hint">Cảnh</span>
             </button>
 
             {/* Action button * * */}
@@ -220,7 +220,7 @@ export default function NarrativeSyntaxButtons({
                 title="Thêm hành động *text*"
             >
                 <span className="font-mono text-sm">*</span>
-                <span className="text-[10px] text-gray-500">Hành động</span>
+                <span className="text-[10px] text-hint">Hành động</span>
             </button>
 
             {/* Thought button ( ) */}
@@ -232,7 +232,7 @@ export default function NarrativeSyntaxButtons({
                 title="Thêm suy nghĩ (text)"
             >
                 <span className="font-mono text-sm">( )</span>
-                <span className="text-[10px] text-gray-500">Suy nghĩ</span>
+                <span className="text-[10px] text-hint">Suy nghĩ</span>
             </button>
 
             {/* Placeholder dropdown { } */}
@@ -245,7 +245,7 @@ export default function NarrativeSyntaxButtons({
                     title="Chèn tên {user} / {char}"
                 >
                     <span className="font-mono text-sm">{ }</span>
-                    <span className="text-[10px] text-gray-500">Tên</span>
+                    <span className="text-[10px] text-hint">Tên</span>
                 </button>
 
                 {/* Dropdown menu */}
@@ -257,7 +257,7 @@ export default function NarrativeSyntaxButtons({
                             className="w-full px-4 py-2 text-left text-sm hover:bg-white/10 transition-colors"
                         >
                             <span className="text-yellow-400">{'{user}'}</span>
-                            <span className="text-gray-400 ml-2">Người dùng</span>
+                            <span className="text-secondary ml-2">Người dùng</span>
                         </button>
                         <button
                             type="button"
@@ -265,7 +265,7 @@ export default function NarrativeSyntaxButtons({
                             className="w-full px-4 py-2 text-left text-sm hover:bg-white/10 transition-colors border-t border-white/10"
                         >
                             <span className="text-yellow-400">{'{char}'}</span>
-                            <span className="text-gray-400 ml-2">Nhân vật</span>
+                            <span className="text-secondary ml-2">Nhân vật</span>
                         </button>
                     </div>
                 )}
@@ -278,7 +278,7 @@ export default function NarrativeSyntaxButtons({
                     setIsExpanded(false)
                     setShowPlaceholders(false)
                 }}
-                className="w-6 h-6 flex items-center justify-center rounded text-gray-500 hover:text-white hover:bg-white/10 transition-all"
+                className="w-6 h-6 flex items-center justify-center rounded text-hint hover:text-white hover:bg-white/10 transition-all"
                 title="Ẩn"
             >
                 <span className="text-xs">✕</span>

@@ -86,7 +86,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     if (!character) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="animate-pulse text-gray-400">Loading...</div>
+                <div className="animate-pulse text-secondary">Loading...</div>
             </div>
         )
     }
@@ -120,7 +120,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                         <div className="flex-1 space-y-3 sm:space-y-4 min-w-0 overflow-hidden">
                             <div className="min-w-0">
                                 <h1 className="text-xl sm:text-3xl font-bold gradient-text mb-1 sm:mb-2 truncate">{character.name}</h1>
-                                <p className="text-sm sm:text-base text-gray-300 break-words">{character.shortDescription}</p>
+                                <p className="text-sm sm:text-base text-secondary break-words">{character.shortDescription}</p>
                             </div>
 
                             {/* Tags */}
@@ -140,28 +140,28 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                             {/* Stats */}
                             <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm">
                                 <div className="min-w-0">
-                                    <span className="text-gray-400">Relationship:</span>{' '}
+                                    <span className="text-secondary">Relationship:</span>{' '}
                                     <span className="text-primary font-medium truncate">
                                         {character.relationshipConfig?.status || 'Not set'}
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-gray-400">Messages:</span>{' '}
+                                    <span className="text-secondary">Messages:</span>{' '}
                                     <span className="text-white font-medium">{character._count.messages}</span>
                                 </div>
                                 <div>
-                                    <span className="text-gray-400">Memories:</span>{' '}
+                                    <span className="text-secondary">Memories:</span>{' '}
                                     <span className="text-white font-medium">{character._count.memories}</span>
                                 </div>
                                 {character.modelName && (
                                     <div className="col-span-2 sm:col-span-1 truncate min-w-0">
-                                        <span className="text-gray-400">Model:</span>{' '}
+                                        <span className="text-secondary">Model:</span>{' '}
                                         <span className="text-primary font-mono text-xs truncate">{character.modelName}</span>
                                     </div>
                                 )}
                                 {character.provider && character.provider !== 'default' && (
                                     <div>
-                                        <span className="text-gray-400">Provider:</span>{' '}
+                                        <span className="text-secondary">Provider:</span>{' '}
                                         <span className="text-primary font-mono text-xs uppercase">{character.provider}</span>
                                     </div>
                                 )}
@@ -170,7 +170,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                             {/* Persona Preview */}
                             <div className="glass p-4 rounded-lg">
                                 <h3 className="text-sm font-semibold text-primary mb-2">Persona</h3>
-                                <p className="text-sm text-gray-300 line-clamp-6 whitespace-pre-wrap">
+                                <p className="text-sm text-secondary line-clamp-6 whitespace-pre-wrap">
                                     {character.persona}
                                 </p>
                             </div>

@@ -11,6 +11,7 @@ import CreateMemoryModal, { type MemoryData } from '@/components/CreateMemoryMod
 import CharacterSettingsModal from '@/components/CharacterSettingsModal'
 import HeartToast from '@/components/HeartToast'
 import DevRelationshipTools from '@/components/DevRelationshipTools'
+import ParseToolbar from '@/components/ParseToolbar'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
 
@@ -68,6 +69,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
     const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
 
     const [character, setCharacter] = useState<Character | null>(null)
     const [messages, setMessages] = useState<Message[]>([])
@@ -426,7 +428,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     if (!character) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="animate-pulse text-gray-400">Đang tải...</div>
+                <div className="animate-pulse text-secondary">Đang tải...</div>
             </div>
         )
     }
@@ -453,13 +455,13 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                 <Image src={character.avatarUrl} alt={character.name} fill unoptimized />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <h2 className="font-semibold text-white text-sm sm:text-base truncate">{character.name}</h2>
+                                <h2 className={`font-semibold text-sm sm:text-base truncate ${theme.bubbles.userText}`}>{character.name}</h2>
                                 {/* Affection Bar */}
-                                <div className="text-xs text-slate-300 space-y-0.5">
+                                <div className={`text-xs space-y-0.5 ${theme.bubbles.aiText}`}>
                                     <div className="flex items-center gap-1">
                                         <span className="text-[10px]">{LEVEL_EMOJIS[intimacyLevel]}</span>
                                         <span className="truncate text-[10px]">{LEVEL_LABELS[intimacyLevel]}</span>
-                                        <span className="text-[9px] text-slate-400 whitespace-nowrap">
+                                        <span className="text-[9px] opacity-70 whitespace-nowrap">
                                             {affectionPoints}/100
                                         </span>
                                         {/* TASK B: Micro-feedback (+6❤️ / -3💔) */}
@@ -474,16 +476,16 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                     </div>
                                     <div className="w-full max-w-32 h-1 bg-white/20 rounded-full overflow-hidden mt-1">
                                         <div
-                                            className="h-full bg-pink-400 transition-all duration-500"
+                                            className={`h-full ${theme.bubbles.userBg} transition-all duration-500`}
                                             style={{ width: `${Math.min(100, affectionPoints)}%` }}
                                         />
                                     </div>
-                                    <div className="mt-1 text-[9px] uppercase font-bold tracking-wider text-pink-300 truncate">
+                                    <div className={`mt-1 text-[9px] uppercase font-bold tracking-wider truncate ${theme.bubbles.userText}`}>
                                         STAGE: {relationshipStage}
                                     </div>
                                 </div>
                                 {/* Model Info */}
-                                <div className="hidden sm:block text-[9px] text-slate-400 truncate">
+                                <div className={`hidden sm:block text-[9px] truncate opacity-60 ${theme.bubbles.aiText}`}>
                                     {character.provider || 'mặc định'} · {character.modelName || 'default'}
                                 </div>
                             </div>
@@ -617,7 +619,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                             </div>
                         )}
                         {messages.length === 0 ? (
-                            <div className="text-center py-12 text-gray-400">
+                            <div className="text-center py-12 text-secondary">
                                 <p className="text-lg mb-2">Bắt đầu cuộc trò chuyện!</p>
                                 <p className="text-sm">
                                     {character.name} đang chờ nghe từ bạn 💕
@@ -735,7 +737,14 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                             >
                                 💾
                             </button>
+                            <ParseToolbar
+                                textareaRef={textareaRef}
+                                textValue={inputMessage}
+                                onChange={setInputMessage}
+                                theme={{ bubbles: theme.bubbles }}
+                            />
                             <textarea
+                                ref={textareaRef}
                                 value={inputMessage}
                                 onChange={(e) => {
                                     setInputMessage(e.target.value)
@@ -814,6 +823,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 character={character as any}
                 siliconPresets={siliconPresets}
                 onUpdated={loadCharacter}
+                theme={{ bubbles: theme.bubbles }}
             />
 
             {/* Search Modal */}
@@ -836,13 +846,13 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                             </button>
                         </div>
 
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-secondary">
                             Tìm trong {messages.length} tin nhắn gần đây.
                         </div>
 
                         <div className="mt-2 space-y-2 overflow-y-auto flex-1">
                             {searchResults.length === 0 ? (
-                                <div className="text-sm text-gray-400 text-center py-4">
+                                <div className="text-sm text-secondary text-center py-4">
                                     {searchQuery ? 'Không tìm thấy kết quả nào.' : 'Nhập từ khoá để bắt đầu tìm.'}
                                 </div>
                             ) : (
@@ -852,7 +862,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                         onClick={() => jumpToMessage(m.id)}
                                         className="w-full text-left text-sm p-2 rounded-lg hover:bg-white/5 border border-white/10"
                                     >
-                                        <div className="text-[11px] text-gray-400 mb-1">
+                                        <div className="text-[11px] text-secondary mb-1">
                                             {m.role === 'user' ? 'Bạn' : character.name} • {new Date(m.createdAt).toLocaleString('vi-VN')}
                                         </div>
                                         <div className="line-clamp-2 whitespace-pre-wrap">

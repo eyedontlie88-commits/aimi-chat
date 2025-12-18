@@ -63,13 +63,13 @@ export default function CharactersPage() {
                     <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-2 sm:mb-4">
                         <span className="gradient-text">Nhân Vật Của Bạn</span>
                     </h1>
-                    <p className="text-sm sm:text-lg text-gray-300 max-w-2xl mx-auto mb-4 sm:mb-6 px-2">
+                    <p className="text-sm sm:text-lg text-secondary max-w-2xl mx-auto mb-4 sm:mb-6 px-2">
                         Tạo và tùy chỉnh người yêu AI của riêng bạn. Mỗi nhân vật đều có tính cách, cách nói chuyện và ranh giới độc đáo.
                     </p>
                 </div>
 
                 {isLoading ? (
-                    <div className="text-center py-20 text-gray-400">
+                    <div className="text-center py-20 text-secondary">
                         <div className="animate-pulse">Đang tải...</div>
                     </div>
                 ) : characters.length === 0 ? (
@@ -78,7 +78,7 @@ export default function CharactersPage() {
                         <div className="card glass p-8">
                             <div className="text-6xl mb-4">🥺</div>
                             <h2 className="text-2xl font-bold text-white mb-4">Bạn chưa có nhân vật nào</h2>
-                            <p className="text-gray-300 mb-6">
+                            <p className="text-secondary mb-6">
                                 Bắt đầu bằng cách tạo người yêu AI đầu tiên của bạn.
                                 Hãy mô tả tính cách, cách nói chuyện và ranh giới để AI hiểu đúng con người đó.
                             </p>
@@ -88,7 +88,7 @@ export default function CharactersPage() {
                             >
                                 ✨ Tạo nhân vật mới
                             </button>
-                            <p className="text-xs text-gray-500 mt-6">
+                            <p className="text-xs text-hint mt-6">
                                 Bạn có thể tạo tối đa {MAX_CHARACTERS} nhân vật.
                             </p>
                         </div>
@@ -99,7 +99,7 @@ export default function CharactersPage() {
                         {/* Counter Bar */}
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 sm:mb-8 glass rounded-lg px-4 sm:px-6 py-3 sm:py-4">
                             <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                                <span className="text-gray-500 text-xs sm:text-sm">
+                                <span className="text-hint text-xs sm:text-sm">
                                     Nhân vật của bạn: <span className="font-medium">{characterCount} / {MAX_CHARACTERS}</span>
                                 </span>
                                 {hasReachedLimit && (
@@ -135,7 +135,7 @@ export default function CharactersPage() {
 
                         {/* Limit Info */}
                         {hasReachedLimit && (
-                            <div className="text-center mt-8 text-sm text-gray-400">
+                            <div className="text-center mt-8 text-sm text-secondary">
                                 <p>Giới hạn này chỉ áp dụng cho bản cá nhân. Sau này mở rộng, chúng ta sẽ nâng giới hạn lên.</p>
                             </div>
                         )}
