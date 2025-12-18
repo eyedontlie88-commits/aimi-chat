@@ -144,9 +144,9 @@ export default function ParseToolbar({ textareaRef, textValue, onChange, theme }
                 <span className="text-lg">✏️</span>
             </button>
 
-            {/* Dropdown Menu */}
+            {/* Dropdown Menu - positioned above button */}
             {isOpen && (
-                <div className={`absolute bottom-full right-0 mb-2 min-w-[140px] rounded-xl shadow-xl border overflow-hidden z-50 ${theme ? `${theme.bubbles.aiBg} border-white/20` : 'bg-slate-800 border-slate-600/50'}`}>
+                <div className={`absolute bottom-full left-0 mb-2 min-w-[140px] max-w-[200px] rounded-xl shadow-2xl border overflow-hidden z-[9999] ${theme ? `${theme.bubbles.aiBg} border-white/20` : 'bg-slate-800 border-slate-600/50'}`}>
                     <button
                         type="button"
                         onClick={() => handleWrap('bracket')}
