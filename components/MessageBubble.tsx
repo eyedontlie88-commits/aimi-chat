@@ -115,12 +115,14 @@ export default function MessageBubble({
                         </p>
                     </div>
 
-                    {/* Heart reaction icon (Messenger-style) - only for user messages */}
+                    {/* Heart reaction bubble (Messenger-style) - only for user messages */}
                     {isUser && (reactionType === 'HEARTBEAT' || reactionType === 'LIKE') && (
-                        <div className="absolute -bottom-2 left-2">
+                        <div
+                            className="absolute -bottom-3 left-2 flex items-center justify-center w-7 h-7 rounded-full bg-white shadow-md border border-gray-100"
+                            title={reactionType === 'HEARTBEAT' ? 'Thình thịch!' : 'Thích'}
+                        >
                             <span
-                                className={`text-lg drop-shadow-md ${reactionType === 'HEARTBEAT' ? 'animate-heartbeat' : ''}`}
-                                title={reactionType === 'HEARTBEAT' ? 'Thình thịch!' : 'Thích'}
+                                className={`text-sm ${reactionType === 'HEARTBEAT' ? 'animate-heartbeat' : ''}`}
                             >
                                 {reactionType === 'HEARTBEAT' ? '❤️' : '💕'}
                             </span>
