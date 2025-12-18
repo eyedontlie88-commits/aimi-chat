@@ -159,10 +159,10 @@ export const chatThemes: Record<ChatThemeId, ChatThemeDefinition> = {
         bubbles: {
             userBg: 'bg-pink-600',               // #D81B60 - Hồng đậm
             userText: 'text-black',              // #1A1A1A - Đen
-            aiBg: 'bg-white',
-            aiText: 'text-gray-800',             // #1f2937 - Good contrast
-            replyPreviewBg: 'bg-gray-200/70',
-            replyPreviewBorder: 'border-gray-300',
+            aiBg: 'bg-pink-700',                 // Darker pink for AI
+            aiText: 'text-black',                // #1A1A1A - Đen
+            replyPreviewBg: 'bg-pink-200/70',
+            replyPreviewBorder: 'border-pink-300',
             replyPreviewText: 'text-gray-700',   // #374151
         },
         helpers: {
