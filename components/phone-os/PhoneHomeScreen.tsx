@@ -7,8 +7,10 @@ import MessagesApp from './apps/MessagesApp'
 interface PhoneHomeScreenProps {
     isOpen: boolean
     onClose: () => void
+    characterId: string           // For caching
     characterName: string
     characterDescription?: string  // For AI-generated content
+    messageCount?: number         // Current chat message count for smart caching
     onAppClick?: (appId: string) => void
 }
 
@@ -24,8 +26,10 @@ const apps = [
 export default function PhoneHomeScreen({
     isOpen,
     onClose,
+    characterId,
     characterName,
     characterDescription,
+    messageCount,
     onAppClick
 }: PhoneHomeScreenProps) {
     const [currentTime, setCurrentTime] = useState(new Date())
@@ -115,8 +119,10 @@ export default function PhoneHomeScreen({
                 return (
                     <MessagesApp
                         onBack={() => setActiveApp(null)}
+                        characterId={characterId}
                         characterName={characterName}
                         characterDescription={characterDescription}
+                        messageCount={messageCount}
                     />
                 )
             default:

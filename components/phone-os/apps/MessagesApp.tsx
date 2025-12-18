@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { ChevronLeft, Loader2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ChevronLeft, Loader2, RotateCw } from 'lucide-react'
 
 interface MessagesAppProps {
     onBack: () => void
+    characterId?: string
     characterName?: string
     characterDescription?: string
+    messageCount?: number  // Current number of messages in chat
 }
 
 interface ConversationItem {
@@ -27,43 +29,131 @@ const fallbackConversations: ConversationItem[] = [
     { id: 5, name: 'Shopee', avatar: '🛒', lastMessage: 'Đơn hàng của bạn đang được giao...', time: 'T5', unread: 0 },
 ]
 
-export default function MessagesApp({ onBack, characterName, characterDescription }: MessagesAppProps) {
+// Cache keys
+const getCacheKey = (characterId: string) => `phone_cached_messages_${characterId}`
+const getCountKey = (characterId: string) => `phone_last_fetch_count_${characterId}`
+const getCooldownKey = (characterId: string) => `phone_refresh_cooldown_${characterId}`
+
+// Threshold: regenerate only if 10+ new messages
+const MESSAGE_THRESHOLD = 10
+// Cooldown: 60 seconds
+const REFRESH_COOLDOWN = 60
+
+export default function MessagesApp({
+    onBack,
+    characterId = 'default',
+    characterName,
+    characterDescription,
+    messageCount = 0
+}: MessagesAppProps) {
     const [conversations, setConversations] = useState<ConversationItem[]>([])
     const [loading, setLoading] = useState(true)
-    const [source, setSource] = useState<'ai' | 'fallback'>('fallback')
+    const [source, setSource] = useState<'ai' | 'cached' | 'fallback'>('fallback')
+    const [cooldownRemaining, setCooldownRemaining] = useState(0)
+    const [isRefreshing, setIsRefreshing] = useState(false)
 
-    // Fetch AI-generated messages on mount
+    // Check cooldown on mount
     useEffect(() => {
-        const fetchMessages = async () => {
-            setLoading(true)
-            try {
-                const response = await fetch('/api/phone/generate-messages', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        characterName: characterName || 'Nhân vật',
-                        characterDescription: characterDescription || '',
-                    }),
-                })
-
-                if (!response.ok) {
-                    throw new Error('API request failed')
-                }
-
-                const data = await response.json()
-                setConversations(data.messages || fallbackConversations)
-                setSource(data.source || 'fallback')
-            } catch (error) {
-                console.error('[MessagesApp] Failed to fetch:', error)
-                setConversations(fallbackConversations)
-                setSource('fallback')
-            } finally {
-                setLoading(false)
+        const cooldownEnd = sessionStorage.getItem(getCooldownKey(characterId))
+        if (cooldownEnd) {
+            const remaining = Math.max(0, Math.ceil((parseInt(cooldownEnd) - Date.now()) / 1000))
+            if (remaining > 0) {
+                setCooldownRemaining(remaining)
             }
         }
+    }, [characterId])
 
-        fetchMessages()
-    }, [characterName, characterDescription])
+    // Cooldown timer
+    useEffect(() => {
+        if (cooldownRemaining <= 0) return
+        const timer = setInterval(() => {
+            setCooldownRemaining(prev => Math.max(0, prev - 1))
+        }, 1000)
+        return () => clearInterval(timer)
+    }, [cooldownRemaining])
+
+    // Fetch messages (with caching logic)
+    const fetchMessages = useCallback(async (forceRefresh = false) => {
+        setLoading(true)
+
+        try {
+            // Check cache first (unless force refresh)
+            if (!forceRefresh) {
+                const cachedData = sessionStorage.getItem(getCacheKey(characterId))
+                const lastFetchCount = parseInt(sessionStorage.getItem(getCountKey(characterId)) || '0')
+                const messageDiff = messageCount - lastFetchCount
+
+                // Use cached data if threshold not met
+                if (cachedData && messageDiff < MESSAGE_THRESHOLD) {
+                    console.log(`[MessagesApp] Using cached data (diff: ${messageDiff} < ${MESSAGE_THRESHOLD})`)
+                    setConversations(JSON.parse(cachedData))
+                    setSource('cached')
+                    setLoading(false)
+                    return
+                }
+            }
+
+            // Fetch new data from API
+            console.log(`[MessagesApp] Fetching new messages from API...`)
+            const response = await fetch('/api/phone/generate-messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    characterName: characterName || 'Nhân vật',
+                    characterDescription: characterDescription || '',
+                }),
+            })
+
+            if (!response.ok) {
+                throw new Error('API request failed')
+            }
+
+            const data = await response.json()
+            const messages = data.messages || fallbackConversations
+
+            // Update cache
+            sessionStorage.setItem(getCacheKey(characterId), JSON.stringify(messages))
+            sessionStorage.setItem(getCountKey(characterId), messageCount.toString())
+
+            setConversations(messages)
+            setSource(data.source === 'ai' ? 'ai' : 'fallback')
+
+        } catch (error) {
+            console.error('[MessagesApp] Failed to fetch:', error)
+            // Try to use cache on error
+            const cachedData = sessionStorage.getItem(getCacheKey(characterId))
+            if (cachedData) {
+                setConversations(JSON.parse(cachedData))
+                setSource('cached')
+            } else {
+                setConversations(fallbackConversations)
+                setSource('fallback')
+            }
+        } finally {
+            setLoading(false)
+            setIsRefreshing(false)
+        }
+    }, [characterId, characterName, characterDescription, messageCount])
+
+    // Initial fetch on mount
+    useEffect(() => {
+        fetchMessages(false)
+    }, [fetchMessages])
+
+    // Manual refresh with cooldown
+    const handleRefresh = () => {
+        if (cooldownRemaining > 0 || loading) return
+
+        setIsRefreshing(true)
+
+        // Set cooldown
+        const cooldownEnd = Date.now() + (REFRESH_COOLDOWN * 1000)
+        sessionStorage.setItem(getCooldownKey(characterId), cooldownEnd.toString())
+        setCooldownRemaining(REFRESH_COOLDOWN)
+
+        // Force refresh
+        fetchMessages(true)
+    }
 
     return (
         <div className="flex flex-col h-full bg-white">
@@ -76,12 +166,47 @@ export default function MessagesApp({ onBack, characterName, characterDescriptio
                     <ChevronLeft className="w-6 h-6 text-gray-600" />
                 </button>
                 <h2 className="text-lg font-semibold text-gray-800">Tin nhắn</h2>
+
+                {/* Source badge */}
                 {source === 'ai' && (
-                    <span className="ml-auto text-[10px] text-green-500 bg-green-50 px-2 py-0.5 rounded-full">
-                        AI
+                    <span className="text-[10px] text-green-500 bg-green-50 px-2 py-0.5 rounded-full">
+                        Mới
                     </span>
                 )}
+                {source === 'cached' && (
+                    <span className="text-[10px] text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">
+                        Đã lưu
+                    </span>
+                )}
+
+                {/* Refresh button */}
+                <button
+                    onClick={handleRefresh}
+                    disabled={cooldownRemaining > 0 || loading}
+                    className={`ml-auto w-8 h-8 flex items-center justify-center rounded-full transition-all ${cooldownRemaining > 0 || loading
+                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                            : 'hover:bg-white/50 text-gray-500 hover:text-gray-700'
+                        }`}
+                    title={cooldownRemaining > 0 ? `Chờ ${cooldownRemaining}s` : 'Làm mới tin nhắn'}
+                >
+                    {isRefreshing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : cooldownRemaining > 0 ? (
+                        <span className="text-[10px] font-medium">{cooldownRemaining}</span>
+                    ) : (
+                        <RotateCw className="w-4 h-4" />
+                    )}
+                </button>
             </div>
+
+            {/* Cached data notice */}
+            {source === 'cached' && !loading && (
+                <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
+                    <p className="text-xs text-amber-600 text-center">
+                        📋 Đang hiển thị tin nhắn đã lưu (Chat thêm {MESSAGE_THRESHOLD - (messageCount - parseInt(sessionStorage.getItem(getCountKey(characterId)) || '0'))} tin để cập nhật)
+                    </p>
+                </div>
+            )}
 
             {/* Loading State */}
             {loading ? (
@@ -135,10 +260,13 @@ export default function MessagesApp({ onBack, characterName, characterDescriptio
                 <p className="text-[10px] text-gray-400">
                     {source === 'ai'
                         ? `Tin nhắn được tạo bởi AI dựa trên ${characterName || 'nhân vật'}`
-                        : 'Đây là tin nhắn mô phỏng trong điện thoại của nhân vật'}
+                        : source === 'cached'
+                            ? 'Tin nhắn đã được lưu trong phiên này'
+                            : 'Đây là tin nhắn mô phỏng trong điện thoại của nhân vật'}
                 </p>
             </div>
         </div>
     )
 }
+
 

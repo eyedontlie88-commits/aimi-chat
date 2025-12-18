@@ -866,7 +866,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             <PhoneHomeScreen
                 isOpen={showPhoneOS}
                 onClose={() => setShowPhoneOS(false)}
+                characterId={characterId}
                 characterName={character.name}
+                messageCount={messages.length}
                 onAppClick={(appId) => {
                     console.log('Phone app clicked:', appId)
                 }}
