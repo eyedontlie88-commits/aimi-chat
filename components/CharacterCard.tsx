@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 
 interface CharacterCardProps {
     id: string
@@ -22,6 +23,7 @@ export default function CharacterCard({
     tags,
     relationshipStatus,
 }: CharacterCardProps) {
+    const router = useRouter()
     return (
         <Link
             href={`/chat/${id}`}
@@ -74,15 +76,18 @@ export default function CharacterCard({
                 </div>
             </div>
 
-            {/* Top-right Edit Link */}
-            <Link
-                href={`/characters/${id}`}
-                onClick={(e) => e.stopPropagation()}
+            {/* Top-right Edit Button */}
+            <button
+                onClick={(e) => {
+                    e.stopPropagation()
+                    router.push(`/characters/${id}`)
+                }}
                 className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
                 title="Chỉnh sửa"
+                type="button"
             >
                 <span className="text-sm">✏️</span>
-            </Link>
+            </button>
         </Link>
     )
 }
