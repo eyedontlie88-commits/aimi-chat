@@ -466,7 +466,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
                             <button
                                 onClick={() => router.back()}
-                                className={`opacity-80 hover:opacity-100 transition-opacity ${theme.resolvedHeaderText} flex-shrink-0`}
+                                className={`opacity-80 hover:opacity-100 transition-opacity ${hasCustomColors ? '' : theme.resolvedHeaderText} flex-shrink-0 text-xl`}
+                                style={hasCustomColors ? { color: textColor } : undefined}
                                 title="Quay lại"
                             >
                                 ←

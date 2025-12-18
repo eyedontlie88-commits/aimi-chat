@@ -128,25 +128,40 @@ export default function AuthButton() {
     }
 
     if (user) {
+        // Get initials from email for avatar
+        const initials = user.email ? user.email.charAt(0).toUpperCase() : '?'
+
         return (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 md:gap-3 min-w-0">
                 {role === 'dev' && (
-                    <span className="px-2 py-0.5 text-xs font-bold bg-purple-600 text-white rounded">
+                    <span className="px-1 py-0.5 text-[9px] md:text-xs font-bold bg-purple-600 text-white rounded shrink-0">
                         DEV
                     </span>
                 )}
                 {migrationStatus === 'migrating' && (
-                    <span className="text-xs text-yellow-400 animate-pulse">
+                    <span className="text-xs text-yellow-400 animate-pulse hidden md:inline">
                         {t.auth.migratingData}
                     </span>
                 )}
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-300 hidden sm:inline">
+
+                {/* Mobile: Avatar circle with initials */}
+                <div className="md:hidden flex items-center gap-1">
+                    <div
+                        className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center text-xs font-bold text-white"
+                        title={user.email || 'User'}
+                    >
+                        {initials}
+                    </div>
+                </div>
+
+                {/* Desktop: Full email and sign out */}
+                <div className="hidden md:flex items-center gap-2 min-w-0">
+                    <span className="text-sm text-gray-300 truncate max-w-[150px]">
                         {user.email}
                     </span>
                     <button
                         onClick={handleSignOut}
-                        className="text-sm text-gray-400 hover:text-white transition-colors"
+                        className="text-sm text-gray-400 hover:text-white transition-colors shrink-0"
                     >
                         {t.auth.signOut}
                     </button>
