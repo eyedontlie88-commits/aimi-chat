@@ -615,7 +615,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         <button
                             type="button"
                             onClick={scrollToTop}
-                            className={`pointer-events-auto w-9 h-9 rounded-full backdrop-blur border flex items-center justify-center text-lg shadow-lg transition ${theme.helpers.scrollButtonBg} ${theme.resolvedScrollIcon} ${theme.helpers.scrollButtonBorder}`}
+                            className={`pointer-events-auto w-9 h-9 rounded-full backdrop-blur border flex items-center justify-center text-lg shadow-lg transition ${hasCustomColors ? '' : theme.helpers.scrollButtonBg} ${hasCustomColors ? '' : theme.resolvedScrollIcon} ${hasCustomColors ? 'border-white/30' : theme.helpers.scrollButtonBorder}`}
+                            style={hasCustomColors ? { backgroundColor: darkenColor(backgroundColor, 10), color: textColor } : undefined}
                             title="Lên đầu"
                         >
                             ↑
@@ -626,7 +627,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         <button
                             type="button"
                             onClick={scrollToBottom}
-                            className={`pointer-events-auto w-9 h-9 rounded-full backdrop-blur border flex items-center justify-center text-lg shadow-lg transition ${theme.helpers.scrollButtonBg} ${theme.resolvedScrollIcon} ${theme.helpers.scrollButtonBorder}`}
+                            className={`pointer-events-auto w-9 h-9 rounded-full backdrop-blur border flex items-center justify-center text-lg shadow-lg transition ${hasCustomColors ? '' : theme.helpers.scrollButtonBg} ${hasCustomColors ? '' : theme.resolvedScrollIcon} ${hasCustomColors ? 'border-white/30' : theme.helpers.scrollButtonBorder}`}
+                            style={hasCustomColors ? { backgroundColor: darkenColor(backgroundColor, 10), color: textColor } : undefined}
                             title="Xuống cuối"
                         >
                             ↓
