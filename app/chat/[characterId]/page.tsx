@@ -13,6 +13,7 @@ import HeartToast from '@/components/HeartToast'
 import DevRelationshipTools from '@/components/DevRelationshipTools'
 import ParseToolbar from '@/components/ParseToolbar'
 import PlusDropdownModal from '@/components/PlusDropdownModal'
+import PhoneHomeScreen from '@/components/phone-os/PhoneHomeScreen'
 import { useColors } from '@/lib/ColorContext'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
@@ -121,6 +122,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     // Collapse menu state for mobile
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const [showPlusModal, setShowPlusModal] = useState(false)
+    const [showPhoneOS, setShowPhoneOS] = useState(false)
 
     // Get user's custom colors from ColorContext (must be before any conditional returns)
     const { textColor, backgroundColor } = useColors()
@@ -841,7 +843,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 characterId={characterId}
                 devMode={isDev}
                 onPhoneCheck={() => {
+                    // ⏰ Clock - opens narrative phone check scenario
                     setIsPhoneCheckOpen(true)
+                }}
+                onPhone={() => {
+                    // 📱 Phone - opens new Phone OS screen
+                    setShowPhoneOS(true)
                 }}
                 onMemory={() => {
                     setIsMemoryViewerOpen(true)
@@ -853,6 +860,17 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     setIsSearchOpen(true)
                 }}
                 onReset={handleResetChat}
+            />
+
+            {/* Phone OS Home Screen */}
+            <PhoneHomeScreen
+                isOpen={showPhoneOS}
+                onClose={() => setShowPhoneOS(false)}
+                characterName={character.name}
+                onAppClick={(appId) => {
+                    console.log('Phone app clicked:', appId)
+                    // TODO: Handle app navigation in Phase 7.2
+                }}
             />
         </>
     )

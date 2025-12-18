@@ -6,7 +6,8 @@ interface PlusDropdownModalProps {
     isOpen: boolean
     onClose: () => void
     characterId: string
-    onPhoneCheck?: () => void
+    onPhoneCheck?: () => void  // ⏰ Clock - narrative phone check scenario
+    onPhone?: () => void       // 📱 Phone - opens Phone OS screen
     onMemory?: () => void
     onSettings?: () => void
     onSearch?: () => void
@@ -28,6 +29,7 @@ export default function PlusDropdownModal({
     onClose,
     characterId,
     onPhoneCheck,
+    onPhone,
     onMemory,
     onSettings,
     onSearch,
@@ -95,11 +97,11 @@ export default function PlusDropdownModal({
             },
         },
         {
-            id: 'settings',
+            id: 'phone',
             icon: '📱',
             label: 'Phone',
             onClick: () => {
-                onSettings?.()
+                onPhone?.()  // Opens Phone OS screen
                 onClose()
             },
         },
@@ -162,8 +164,8 @@ export default function PlusDropdownModal({
                                 onClick={item.onClick}
                                 disabled={item.placeholder}
                                 className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-all ${item.placeholder
-                                        ? 'opacity-40 cursor-not-allowed bg-gray-50'
-                                        : 'hover:bg-gray-100 active:scale-95 cursor-pointer'
+                                    ? 'opacity-40 cursor-not-allowed bg-gray-50'
+                                    : 'hover:bg-gray-100 active:scale-95 cursor-pointer'
                                     }`}
                             >
                                 <span className="text-2xl sm:text-3xl">{item.icon}</span>
