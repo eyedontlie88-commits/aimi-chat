@@ -65,10 +65,10 @@ export const chatThemes: Record<ChatThemeId, ChatThemeDefinition> = {
             inputBorder: 'border-neutral-700',   // #3f3f3f
         },
         bubbles: {
-            userBg: 'bg-blue-600',               // #2563eb - Eye-friendly blue
-            userText: 'text-gray-50',            // #f9fafb - Soft white
-            aiBg: 'bg-neutral-800',              // #262626
-            aiText: 'text-gray-100',             // #f3f4f6 - Soft light text
+            userBg: 'bg-gray-700',               // #383838 - Xám đậm
+            userText: 'text-yellow-200',         // #F9D47E - Vàng ấm
+            aiBg: 'bg-gray-800',                 // #262626
+            aiText: 'text-yellow-200',           // #F9D47E - Vàng ấm
             replyPreviewBg: 'bg-neutral-800/70',
             replyPreviewBorder: 'border-neutral-600',
             replyPreviewText: 'text-gray-200',   // #e5e7eb
@@ -111,10 +111,10 @@ export const chatThemes: Record<ChatThemeId, ChatThemeDefinition> = {
             inputBorder: 'border-violet-700',
         },
         bubbles: {
-            userBg: 'bg-fuchsia-600',
-            userText: 'text-white',
-            aiBg: 'bg-violet-800',
-            aiText: 'text-violet-100',
+            userBg: 'bg-purple-700',             // #6A4C93 - Tím đậm
+            userText: 'text-gray-100',           // #F5F5F5 - Trắng kem
+            aiBg: 'bg-purple-800',
+            aiText: 'text-gray-100',             // #F5F5F5 - Trắng kem
             replyPreviewBg: 'bg-violet-800/70',
             replyPreviewBorder: 'border-violet-600',
             replyPreviewText: 'text-violet-200',
@@ -157,8 +157,8 @@ export const chatThemes: Record<ChatThemeId, ChatThemeDefinition> = {
             inputBorder: 'border-gray-300',      // #d1d5db
         },
         bubbles: {
-            userBg: 'bg-pink-500',               // #ec4899 - Vibrant but not harsh
-            userText: 'text-white',
+            userBg: 'bg-pink-600',               // #D81B60 - Hồng đậm
+            userText: 'text-black',              // #1A1A1A - Đen
             aiBg: 'bg-white',
             aiText: 'text-gray-800',             // #1f2937 - Good contrast
             replyPreviewBg: 'bg-gray-200/70',
@@ -203,10 +203,10 @@ export const chatThemes: Record<ChatThemeId, ChatThemeDefinition> = {
             inputBorder: 'border-cyan-700',
         },
         bubbles: {
-            userBg: 'bg-cyan-500',
-            userText: 'text-white',
-            aiBg: 'bg-blue-900',
-            aiText: 'text-cyan-100',
+            userBg: 'bg-blue-700',               // #1565C0 - Xanh đậm
+            userText: 'text-gray-100',           // #F5F5F5 - Trắng kem
+            aiBg: 'bg-blue-800',
+            aiText: 'text-gray-100',             // #F5F5F5 - Trắng kem
             replyPreviewBg: 'bg-cyan-800/70',
             replyPreviewBorder: 'border-cyan-600',
             replyPreviewText: 'text-cyan-200',

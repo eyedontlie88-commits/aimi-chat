@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
@@ -58,6 +58,54 @@ export default function CharacterSettingsModal({
         modelName: character.modelName || '',
         meetingContext: character.relationshipConfig?.specialNotes || '',
     })
+
+    // Font preferences state
+    const [userFont, setUserFont] = useState<'inter' | 'roboto' | 'poppins'>('inter')
+    const [userFontSize, setUserFontSize] = useState<number>(14)
+
+    // Load font preferences on mount
+    useEffect(() => {
+        loadFontPreferences()
+    }, [])
+
+    const loadFontPreferences = async () => {
+        try {
+            const res = await authFetch('/api/user-profile')
+            const data = await res.json()
+            setUserFont(data.profile?.chatFont || 'inter')
+            setUserFontSize(data.profile?.chatFontSize || 14)
+        } catch (error) {
+            console.error('Failed to load font preferences:', error)
+        }
+    }
+
+    const saveUserFont = async (font: string) => {
+        try {
+            await authFetch('/api/user-profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatFont: font }),
+            })
+            // Apply instantly
+            document.documentElement.setAttribute('data-font', font)
+        } catch (error) {
+            console.error('Failed to save font:', error)
+        }
+    }
+
+    const saveUserFontSize = async (size: number) => {
+        try {
+            await authFetch('/api/user-profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatFontSize: size }),
+            })
+            // Apply instantly
+            document.documentElement.setAttribute('data-font-size', String(size))
+        } catch (error) {
+            console.error('Failed to save font size:', error)
+        }
+    }
 
     // Determine initial preset state
     const initialIsPreset = () => {
@@ -203,6 +251,67 @@ export default function CharacterSettingsModal({
                             💡 Thông tin này giúp AI hiểu mối quan hệ của bạn để xưng hô và cư xử phù hợp.
                             Nếu để trống, AI sẽ không biết nên gọi bạn là "người quen" hay "người lạ".
                         </p>
+                    </div>
+
+                    {/* Font Customization Section */}
+                    <div className="mt-6 pt-6 border-t border-white/10">
+                        <h3 className="text-sm font-semibold text-gray-300 mb-4">🔤 Tùy chỉnh font chữ</h3>
+
+                        {/* Font Family Selector */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium mb-2">Font chữ:</label>
+                            <select
+                                value={userFont}
+                                onChange={(e) => {
+                                    const font = e.target.value as 'inter' | 'roboto' | 'poppins'
+                                    setUserFont(font)
+                                    saveUserFont(font)
+                                }}
+                                className="input-field"
+                            >
+                                <option value="inter">Inter (Mặc định)</option>
+                                <option value="roboto">Roboto (Hiện đại)</option>
+                                <option value="poppins">Poppins (Mềm mại)</option>
+                            </select>
+                        </div>
+
+                        {/* Font Size Slider */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium mb-2">
+                                Cỡ chữ: {userFontSize}px
+                            </label>
+                            <input
+                                type="range"
+                                min="12"
+                                max="18"
+                                step="1"
+                                value={userFontSize}
+                                onChange={(e) => {
+                                    const size = Number(e.target.value)
+                                    setUserFontSize(size)
+                                    saveUserFontSize(size)
+                                }}
+                                className="w-full accent-primary"
+                            />
+                            <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>Nhỏ (12px)</span>
+                                <span>Vừa (14px)</span>
+                                <span>Lớn (18px)</span>
+                            </div>
+                        </div>
+
+                        {/* Preview */}
+                        <div
+                            className="p-4 rounded-lg bg-slate-700 text-center"
+                            style={{
+                                fontFamily: `var(--font-${userFont})`,
+                                fontSize: `${userFontSize}px`
+                            }}
+                        >
+                            <p className="mb-2">Xem trước chữ hiện tại:</p>
+                            <p className="font-medium">The quick brown fox jumps over the lazy dog</p>
+                            <p className="text-xs opacity-70 mt-1">Nhiều chú chồn nâu nhảy qua con chó lười</p>
+                        </div>
                     </div>
 
                     {/* Provider */}

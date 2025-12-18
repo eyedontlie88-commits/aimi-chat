@@ -48,6 +48,8 @@ model UserProfile {
   dislikes               String?
   chatTheme              String?  @default("midnight")
   chatTextTone           String?  @default("auto")
+  chatFont               String?  @default("inter")
+  chatFontSize           Int?     @default(14)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

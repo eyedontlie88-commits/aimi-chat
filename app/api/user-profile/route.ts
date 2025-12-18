@@ -59,6 +59,8 @@ export async function PUT(request: NextRequest) {
                 dislikes: body.dislikes,
                 chatTheme: body.chatTheme,
                 chatTextTone: body.chatTextTone,
+                chatFont: body.chatFont,
+                chatFontSize: body.chatFontSize,
             },
             update: {
                 displayName: body.displayName,
@@ -71,6 +73,8 @@ export async function PUT(request: NextRequest) {
                 dislikes: body.dislikes,
                 chatTheme: body.chatTheme,
                 chatTextTone: body.chatTextTone,
+                chatFont: body.chatFont,
+                chatFontSize: body.chatFontSize,
             },
         })
 
