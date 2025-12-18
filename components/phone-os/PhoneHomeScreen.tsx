@@ -8,6 +8,7 @@ interface PhoneHomeScreenProps {
     isOpen: boolean
     onClose: () => void
     characterName: string
+    characterDescription?: string  // For AI-generated content
     onAppClick?: (appId: string) => void
 }
 
@@ -24,6 +25,7 @@ export default function PhoneHomeScreen({
     isOpen,
     onClose,
     characterName,
+    characterDescription,
     onAppClick
 }: PhoneHomeScreenProps) {
     const [currentTime, setCurrentTime] = useState(new Date())
@@ -110,7 +112,13 @@ export default function PhoneHomeScreen({
 
         switch (activeApp) {
             case 'messages':
-                return <MessagesApp onBack={() => setActiveApp(null)} />
+                return (
+                    <MessagesApp
+                        onBack={() => setActiveApp(null)}
+                        characterName={characterName}
+                        characterDescription={characterDescription}
+                    />
+                )
             default:
                 // Coming Soon placeholder for unimplemented apps
                 return (

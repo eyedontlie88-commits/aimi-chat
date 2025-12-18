@@ -359,7 +359,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
         setIsResetting(true)
         try {
-            const res = await fetch(`/api/messages?characterId=${characterId}`, {
+            const res = await authFetch(`/api/messages?characterId=${characterId}`, {
                 method: 'DELETE',
             })
             if (!res.ok) throw new Error('Failed to reset')
@@ -869,7 +869,6 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 characterName={character.name}
                 onAppClick={(appId) => {
                     console.log('Phone app clicked:', appId)
-                    // TODO: Handle app navigation in Phase 7.2
                 }}
             />
         </>
