@@ -160,6 +160,12 @@ html[data-font-size="18"] {
   }
 }
 
+/* Textarea placeholder uses user text color */
+textarea::placeholder {
+  color: var(--user-text-color);
+  opacity: 0.5;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

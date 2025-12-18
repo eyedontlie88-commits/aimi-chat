@@ -493,21 +493,25 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                             </div>
                         </div>
 
-                        {/* Header cleaned - menu moved to Plus modal in input area */}
-
-                        {/* TASK C: Dev Relationship Tools (dev mode only) */}
-                        {isDev && (
-                            <DevRelationshipTools
-                                characterId={characterId}
-                                currentStage={relationshipStage}
-                                currentAffection={affectionPoints}
-                                onUpdate={(data) => {
-                                    setAffectionPoints(data.affectionPoints)
-                                    setIntimacyLevel(data.intimacyLevel)
-                                    setRelationshipStage(data.stage)
-                                }}
-                            />
-                        )}
+                        {/* Header buttons: Memory + Plus */}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                            {/* Memory button */}
+                            <button
+                                onClick={() => openCreateMemory()}
+                                className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                title="Tạo ký ức mới"
+                            >
+                                💾
+                            </button>
+                            {/* Plus button - opens Plus modal */}
+                            <button
+                                onClick={() => setShowPlusModal(true)}
+                                className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
+                                title="Menu"
+                            >
+                                ➕
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -640,14 +644,6 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                             }}
                             className="flex gap-3"
                         >
-                            <button
-                                type="button"
-                                onClick={() => openCreateMemory()}
-                                className={`px-4 py-2 rounded-xl transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                                title="Tạo ký ức mới"
-                            >
-                                💾
-                            </button>
                             <ParseToolbar
                                 textareaRef={textareaRef}
                                 textValue={inputMessage}
@@ -673,21 +669,16 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                         }
                                     }
                                 }}
-                                placeholder={`Nhắn cho ${character.name}... (Shift+Enter để xuống dòng)`}
-                                className={`flex-1 px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none overflow-y-auto ${theme.layout.inputBg} ${theme.resolvedInputText} ${theme.input.placeholder} ${theme.layout.inputBorder}`}
+                                placeholder={`Nhắn cho ${character.name}...`}
+                                className={`flex-1 px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none overflow-y-auto ${theme.layout.inputBg} ${theme.layout.inputBorder}`}
                                 disabled={isLoading}
                                 rows={1}
-                                style={{ minHeight: '40px', maxHeight: '120px' }}
+                                style={{
+                                    minHeight: '40px',
+                                    maxHeight: '120px',
+                                    color: 'var(--user-text-color)',
+                                }}
                             />
-                            {/* Plus button - opens Plus modal */}
-                            <button
-                                type="button"
-                                onClick={() => setShowPlusModal(true)}
-                                className={`flex items-center justify-center w-10 h-10 rounded-xl text-lg transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                                title="Menu"
-                            >
-                                ➕
-                            </button>
                             <button
                                 type="submit"
                                 disabled={isLoading || !inputMessage.trim()}
