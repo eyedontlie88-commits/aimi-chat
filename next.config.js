@@ -1,11 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // 👇 Bỏ qua lỗi TypeScript và ESLint khi build production
+    // Bỏ qua lỗi TypeScript khi build production
     typescript: {
         ignoreBuildErrors: true,
-    },
-    eslint: {
-        ignoreDuringBuilds: true,
     },
 
     // Transpile Supabase packages to fix ESM compatibility
