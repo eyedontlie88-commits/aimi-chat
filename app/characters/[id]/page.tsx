@@ -42,6 +42,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [siliconPresets, setSiliconPresets] = useState<any[]>([])
+    const [googlePresets, setGooglePresets] = useState<any[]>([])
 
     useEffect(() => {
         loadCharacter()
@@ -49,17 +50,22 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
     const loadCharacter = async () => {
         try {
-            const [charRes, presetsRes] = await Promise.all([
+            const [charRes, presetsRes, googlePresetsRes] = await Promise.all([
                 authFetch(`/api/characters/${id}`),
-                authFetch('/api/config/presets')
+                authFetch('/api/config/presets'),
+                authFetch('/api/google-presets')
             ])
 
             const charData = await charRes.json()
             const presetsData = await presetsRes.json()
+            const googlePresetsData = await googlePresetsRes.json()
 
             setCharacter(charData.character)
             if (presetsData.presets) {
                 setSiliconPresets(presetsData.presets)
+            }
+            if (googlePresetsData.presets) {
+                setGooglePresets(googlePresetsData.presets)
             }
         } catch (error) {
             console.error('Error loading data:', error)
@@ -230,6 +236,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     provider: character.provider || 'default',
                 }}
                 siliconPresets={siliconPresets}
+                googlePresets={googlePresets}
             />
 
             {/* Duplicate Modal */}
@@ -253,6 +260,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     relationshipStatus: 'crush',
                 }}
                 siliconPresets={siliconPresets}
+                googlePresets={googlePresets}
             />
         </>
     )

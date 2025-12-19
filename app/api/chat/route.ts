@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext, isAuthError } from '@/lib/auth/require-auth'
-import { generateWithProviders } from '@/lib/llm'
+import { generateWithFallback } from '@/lib/llm/fallback'
 import { buildChatPrompt } from '@/lib/prompt/builder'
 import { updateRelationshipStats } from '@/lib/relationship'
 import type { SceneState, LLMProviderId } from '@/lib/llm/types'
@@ -59,22 +59,53 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        // Load recent messages (last 20 for context)
+        // ============================================
+        // ADAPTIVE CONTEXT WINDOW
+        // Different providers have different context capacities
+        // ============================================
+        const getContextLimits = (provider: string): { historyLimit: number; memoryLimit: number } => {
+            // Normalize provider name
+            const p = (provider || 'default').toLowerCase()
+
+            // HIGH CONTEXT TIER: Google Gemini (1M+ tokens)
+            if (p === 'gemini' || p === 'google') {
+                return { historyLimit: 100, memoryLimit: 30 }
+            }
+
+            // STANDARD CONTEXT TIER: SiliconFlow, DeepSeek, Qwen, Moonshot (32k-128k tokens)
+            if (['silicon', 'siliconflow', 'deepseek', 'qwen', 'moonshot'].includes(p)) {
+                return { historyLimit: 50, memoryLimit: 15 }
+            }
+
+            // DEFAULT TIER: Unknown or fallback providers
+            return { historyLimit: 30, memoryLimit: 10 }
+        }
+
+        // Determine effective provider
+        const rawProvider = (character.provider || 'default') as LLMProviderId | 'default'
+        const defaultProviderEnv = (process.env.LLM_DEFAULT_PROVIDER as LLMProviderId) || 'silicon'
+        const effectiveProvider = rawProvider === 'default' ? defaultProviderEnv : rawProvider
+
+        // Get adaptive limits based on provider
+        const { historyLimit, memoryLimit } = getContextLimits(effectiveProvider)
+        console.log(`[Chat API] Adaptive Context: provider=${effectiveProvider}, history=${historyLimit}, memories=${memoryLimit}`)
+
+        // Load recent messages (adaptive limit for context)
         const recentMessages = await prisma.message.findMany({
             where: { characterId },
             orderBy: { createdAt: 'desc' },
-            take: 20,
+            take: historyLimit,
         })
         const messagesForContext = recentMessages.reverse() // Chronological order
 
-        // Load relevant memories (only public ones for prompt)
+        // Load relevant memories (adaptive limit, only public ones for prompt)
         const memories = await prisma.memory.findMany({
             where: {
                 characterId,
                 visibility: 'public', // Only include public memories in prompt
             },
             orderBy: [{ importanceScore: 'desc' }, { createdAt: 'desc' }],
-            take: 10,
+            take: memoryLimit,
         })
 
 
@@ -88,12 +119,9 @@ export async function POST(request: NextRequest) {
             sceneState: sceneState as SceneState | undefined,
         })
 
-        // Determine effective provider and model
-        const rawProvider = (character.provider || 'default') as LLMProviderId | 'default'
+        // Determine effective model (provider already determined above for context limits)
         const rawModel = character.modelName && character.modelName !== 'default' ? character.modelName : undefined
-
-        const defaultProviderEnv = (process.env.LLM_DEFAULT_PROVIDER as LLMProviderId) || 'silicon'
-        const preferredProvider: LLMProviderId = rawProvider === 'default' ? defaultProviderEnv : rawProvider
+        const preferredProvider: LLMProviderId = effectiveProvider as LLMProviderId
 
         const defaultModelEnv = process.env.LLM_DEFAULT_MODEL
         const preferredModel = rawModel || defaultModelEnv || undefined
@@ -125,11 +153,17 @@ ${message}`
             },
         ]
 
-        // Generate AI response
-        const { reply: aiResponse, providerUsed, modelUsed } = await generateWithProviders(promptMessages, {
-            provider: preferredProvider,
-            model: preferredModel,
-        })
+        // Generate AI response with Smart Fallback Chain
+        // "Không bỏ lại User phía sau" - tries multiple models if primary fails
+        const { reply: aiResponse, providerUsed, modelUsed, attemptCount, fallbackUsed } = await generateWithFallback(
+            promptMessages,
+            preferredProvider,
+            preferredModel
+        )
+
+        if (fallbackUsed) {
+            console.log(`[Chat API] ⚠️ Fallback used: ${providerUsed}/${modelUsed} (attempt ${attemptCount})`)
+        }
 
         // ============================================
         // TASK A: Parse and ALWAYS strip [METADATA]

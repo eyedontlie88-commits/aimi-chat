@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import { uploadAvatar } from '@/lib/supabase/storage'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
+import type { GooglePresetModel } from '@/lib/llm/google-presets'
 
 interface CharacterFormData {
     name: string
@@ -27,6 +28,7 @@ interface CharacterFormModalProps {
     characterId?: string
     mode: 'create' | 'edit' | 'duplicate'
     siliconPresets?: SiliconPresetModel[]
+    googlePresets?: GooglePresetModel[]
 }
 
 const DEFAULT_AVATARS = [
@@ -44,6 +46,7 @@ export default function CharacterFormModal({
     characterId,
     mode,
     siliconPresets = [],
+    googlePresets = [],
 }: CharacterFormModalProps) {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
@@ -110,16 +113,25 @@ export default function CharacterFormModal({
         const currentModel = initialData?.modelName || ''
         const currentProvider = initialData?.provider || 'default'
 
-        if (currentProvider !== 'silicon') return true // Default view state
-
-        // If silicon and model matches a preset (or empty/default), use preset mode
-        if (!currentModel || currentModel === 'default') return true
-        return siliconPresets.some(p => p.id === currentModel)
+        if (currentProvider === 'silicon') {
+            if (!currentModel || currentModel === 'default') return true
+            return siliconPresets.some(p => p.id === currentModel)
+        }
+        if (currentProvider === 'gemini') {
+            if (!currentModel || currentModel === 'default') return true
+            return googlePresets.some(p => p.id === currentModel)
+        }
+        return true // Default view state
     }
 
     const [usePresetModel, setUsePresetModel] = useState<boolean>(initialIsPreset())
     const [selectedPresetId, setSelectedPresetId] = useState<string>(
         (initialData?.provider === 'silicon' && initialData?.modelName && siliconPresets.some(p => p.id === initialData.modelName))
+            ? initialData.modelName
+            : ''
+    )
+    const [selectedGooglePresetId, setSelectedGooglePresetId] = useState<string>(
+        (initialData?.provider === 'gemini' && initialData?.modelName && googlePresets.some(p => p.id === initialData.modelName))
             ? initialData.modelName
             : ''
     )
@@ -479,6 +491,72 @@ export default function CharacterFormModal({
                                         />
                                     )}
                                 </div>
+                            ) : formData.provider === 'gemini' ? (
+                                /* ========== GOOGLE GEMINI DROPDOWN ========== */
+                                <div className="space-y-3">
+                                    <div className="flex gap-4 text-sm">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                checked={usePresetModel}
+                                                onChange={() => {
+                                                    setUsePresetModel(true)
+                                                }}
+                                                className="radio-input"
+                                            />
+                                            <span>Model có sẵn</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                checked={!usePresetModel}
+                                                onChange={() => setUsePresetModel(false)}
+                                                className="radio-input"
+                                            />
+                                            <span>Nhập Model ID tùy chỉnh</span>
+                                        </label>
+                                    </div>
+
+                                    {usePresetModel ? (
+                                        <select
+                                            value={selectedGooglePresetId}
+                                            onChange={(e) => {
+                                                const newId = e.target.value
+                                                setSelectedGooglePresetId(newId)
+                                                updateField('modelName', newId)
+                                            }}
+                                            className="input-field mb-1"
+                                        >
+                                            <option value="">-- Chọn model Gemini --</option>
+
+                                            {/* Nhóm đề xuất trước */}
+                                            {googlePresets.filter(p => p.recommended).map(preset => (
+                                                <option key={preset.key} value={preset.id}>
+                                                    {preset.label}
+                                                </option>
+                                            ))}
+
+                                            {/* Divider và các model khác */}
+                                            {googlePresets.some(p => !p.recommended) && (
+                                                <optgroup label="── Các model khác ──">
+                                                    {googlePresets.filter(p => !p.recommended).map(preset => (
+                                                        <option key={preset.key} value={preset.id}>
+                                                            {preset.label}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value={formData.modelName || ''}
+                                            onChange={(e) => updateField('modelName', e.target.value)}
+                                            className="input-field mb-1"
+                                            placeholder="Ví dụ: gemini-2.5-flash"
+                                        />
+                                    )}
+                                </div>
                             ) : (
                                 <input
                                     type="text"
@@ -490,8 +568,8 @@ export default function CharacterFormModal({
                             )}
 
                             <p className="text-xs text-gray-400 mt-2">
-                                {formData.provider === 'silicon' && usePresetModel
-                                    ? "Chọn từ các model SiliconFlow đã cấu hình."
+                                {(formData.provider === 'silicon' || formData.provider === 'gemini') && usePresetModel
+                                    ? `Chọn từ các model ${formData.provider === 'silicon' ? 'SiliconFlow' : 'Gemini'} đã cấu hình.`
                                     : "Nhập model ID cụ thể hoặc để trống để dùng mặc định."}
                                 <br />
                                 <span className="text-primary">

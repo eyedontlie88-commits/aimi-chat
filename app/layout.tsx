@@ -32,8 +32,8 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en" className={`${inter.variable} ${roboto.variable} ${poppins.variable} h-full`}>
-            <body className={`${inter.className} h-full`}>
+        <html lang="en" className={`${inter.variable} ${roboto.variable} ${poppins.variable} h-full`} suppressHydrationWarning>
+            <body className={`${inter.className} h-full`} suppressHydrationWarning>
                 <ClientLayoutWrapper>{children}</ClientLayoutWrapper>
             </body>
         </html>

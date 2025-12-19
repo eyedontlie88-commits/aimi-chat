@@ -191,10 +191,15 @@ Trả về CHỈ JSON, không có text khác.`
         // Use existing LLM infrastructure
         console.log('[PhoneContent] Calling LLM...')
         const { generateWithProviders } = await import('@/lib/llm')
+        const { parseJsonObject } = await import('@/lib/llm/json-parser')
 
         const response = await generateWithProviders(
             [
-                { role: 'system', content: `Bạn là ${characterName}. Tạo nội dung điện thoại thực tế trong JSON.` },
+                {
+                    role: 'system',
+                    content: `Bạn là ${characterName}. Tạo nội dung điện thoại thực tế.
+QUAN TRỌNG: Trả về CHỈ raw JSON - KHÔNG markdown, KHÔNG giải thích, KHÔNG code blocks.`
+                },
                 { role: 'user', content: prompt }
             ],
             {
@@ -209,19 +214,10 @@ Trả về CHỈ JSON, không có text khác.`
         console.log('[PhoneContent] Generated text length:', generatedText.length)
         console.log('[PhoneContent] Generated text preview:', generatedText.substring(0, 300))
 
-        // Extract JSON from response (handle markdown code blocks)
-        const jsonMatch = generatedText.match(/```json\n?([\s\S]*?)\n?```/) ||
-            generatedText.match(/\{[\s\S]*\}/)
+        // Use robust JSON parser
+        const fallbackData = generateFallbackContent(characterName, userName)
+        let phoneContent = parseJsonObject<PhoneContent>(generatedText, fallbackData)
 
-        if (!jsonMatch) {
-            console.error('[PhoneContent] No JSON found in response')
-            throw new Error('No valid JSON found in response')
-        }
-
-        const jsonString = jsonMatch[1] || jsonMatch[0]
-        console.log('[PhoneContent] Extracted JSON length:', jsonString.length)
-
-        let phoneContent = JSON.parse(jsonString)
         console.log('[PhoneContent] Parsed successfully:', {
             calls: phoneContent.callLogs?.length || 0,
             messages: phoneContent.messages?.length || 0,

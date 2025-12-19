@@ -5,6 +5,7 @@ import CharacterCard from '@/components/CharacterCard'
 import CharacterFormModal from '@/components/CharacterFormModal'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
+import type { GooglePresetModel } from '@/lib/llm/google-presets'
 
 const MAX_CHARACTERS = 10
 
@@ -24,6 +25,7 @@ export default function CharactersPage() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
     const [siliconPresets, setSiliconPresets] = useState<SiliconPresetModel[]>([])
+    const [googlePresets, setGooglePresets] = useState<GooglePresetModel[]>([])
 
     const characterCount = characters.length
     const hasReachedLimit = characterCount >= MAX_CHARACTERS
@@ -31,6 +33,7 @@ export default function CharactersPage() {
     useEffect(() => {
         loadCharacters()
         loadSiliconPresets()
+        loadGooglePresets()
     }, [])
 
     const loadCharacters = async () => {
@@ -52,6 +55,16 @@ export default function CharactersPage() {
             setSiliconPresets(data.presets || [])
         } catch (error) {
             console.error('Error loading silicon presets:', error)
+        }
+    }
+
+    const loadGooglePresets = async () => {
+        try {
+            const res = await authFetch('/api/google-presets')
+            const data = await res.json()
+            setGooglePresets(data.presets || [])
+        } catch (error) {
+            console.error('Error loading google presets:', error)
         }
     }
 
@@ -169,6 +182,7 @@ export default function CharactersPage() {
                 }}
                 mode="create"
                 siliconPresets={siliconPresets}
+                googlePresets={googlePresets}
             />
         </>
     )

@@ -150,6 +150,8 @@ is_from_character = true nếu nhân vật gửi, false nếu ${senderName} gử
         let generatedMessages: GeneratedMessage[]
 
         try {
+            const { parseJsonArray } = await import('@/lib/llm/json-parser')
+
             const result = await generateWithProviders(
                 [
                     { role: 'system', content: systemPrompt },
@@ -158,23 +160,11 @@ is_from_character = true nếu nhân vật gửi, false nếu ${senderName} gử
                 { provider: 'default' }
             )
 
-            // Clean and parse response
-            let cleanedReply = result.reply.trim()
-            if (cleanedReply.startsWith('```json')) {
-                cleanedReply = cleanedReply.slice(7)
-            }
-            if (cleanedReply.startsWith('```')) {
-                cleanedReply = cleanedReply.slice(3)
-            }
-            if (cleanedReply.endsWith('```')) {
-                cleanedReply = cleanedReply.slice(0, -3)
-            }
-            cleanedReply = cleanedReply.trim()
+            // Use robust JSON parser
+            generatedMessages = parseJsonArray<GeneratedMessage>(result.reply)
 
-            generatedMessages = JSON.parse(cleanedReply)
-
-            if (!Array.isArray(generatedMessages)) {
-                throw new Error('Response is not an array')
+            if (generatedMessages.length === 0) {
+                throw new Error('Parsed array is empty')
             }
 
             // Validate structure

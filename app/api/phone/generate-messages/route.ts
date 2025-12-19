@@ -62,49 +62,29 @@ QUAN TRỌNG:
             { provider: 'default' }
         )
 
-        // Parse the JSON response
-        let messages: MessageItem[]
-        try {
-            // Clean up response - remove markdown code blocks if present
-            let cleanedReply = result.reply.trim()
-            if (cleanedReply.startsWith('```json')) {
-                cleanedReply = cleanedReply.slice(7)
-            }
-            if (cleanedReply.startsWith('```')) {
-                cleanedReply = cleanedReply.slice(3)
-            }
-            if (cleanedReply.endsWith('```')) {
-                cleanedReply = cleanedReply.slice(0, -3)
-            }
-            cleanedReply = cleanedReply.trim()
+        // Parse the JSON response using robust parser
+        const { parseJsonArray } = await import('@/lib/llm/json-parser')
+        let messages: MessageItem[] = parseJsonArray<MessageItem>(result.reply)
 
-            messages = JSON.parse(cleanedReply)
-
-            // Validate structure
-            if (!Array.isArray(messages)) {
-                throw new Error('Response is not an array')
-            }
-
-            // Ensure each message has required fields
-            messages = messages.map((msg, idx) => ({
-                id: msg.id || idx + 1,
-                name: msg.name || 'Unknown',
-                avatar: msg.avatar || '👤',
-                lastMessage: msg.lastMessage || '...',
-                time: msg.time || 'Hôm nay',
-                unread: typeof msg.unread === 'number' ? msg.unread : 0
-            }))
-
-        } catch (parseError) {
-            console.error('[Phone Messages] Failed to parse AI response:', parseError)
-            console.error('[Phone Messages] Raw response:', result.reply)
-            // Return fallback on parse error
+        // If parsing returned empty array, use fallback
+        if (messages.length === 0) {
+            console.warn('[Phone Messages] JSON parsing returned empty, using fallback')
             return NextResponse.json({
                 messages: fallbackMessages,
                 source: 'fallback',
-                error: 'Parse error'
+                error: 'Parse returned empty'
             })
         }
+
+        // Ensure each message has required fields
+        messages = messages.map((msg, idx) => ({
+            id: msg.id || idx + 1,
+            name: msg.name || 'Unknown',
+            avatar: msg.avatar || '👤',
+            lastMessage: msg.lastMessage || '...',
+            time: msg.time || 'Hôm nay',
+            unread: typeof msg.unread === 'number' ? msg.unread : 0
+        }))
 
         return NextResponse.json({
             messages,

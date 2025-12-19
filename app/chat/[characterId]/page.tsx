@@ -124,6 +124,27 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [showPlusModal, setShowPlusModal] = useState(false)
     const [showPhoneOS, setShowPhoneOS] = useState(false)
 
+    // Comforting Loading Messages (timer-based rotation)
+    const [loadingText, setLoadingText] = useState('')
+    const loadingStartRef = useRef<number>(0)
+    const loadingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+    // Comforting loading messages based on elapsed time
+    const getComfortingMessage = (elapsedMs: number, charName: string): string => {
+        if (elapsedMs < 3000) {
+            return `${charName} đang suy nghĩ...`
+        } else if (elapsedMs < 8000) {
+            return `Đợi em xíu, mạng đang hơi lag...`
+        } else {
+            return `Em đang chạy thật nhanh về phía anh đây... 💨`
+        }
+    }
+
+    // Smart Auto-Memory state
+    const [isAutoSaving, setIsAutoSaving] = useState(false)
+    const [autoSaveToast, setAutoSaveToast] = useState<{ show: boolean; message: string; type: 'loading' | 'success' | 'error' }>({ show: false, message: '', type: 'loading' })
+    const [showExitConfirm, setShowExitConfirm] = useState(false)
+
     // Get user's custom colors from ColorContext (must be before any conditional returns)
     const { textColor, backgroundColor } = useColors()
 
@@ -274,6 +295,16 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         setIsLoading(true)
         const userMessage = inputMessage
 
+        // Start comforting loading timer
+        loadingStartRef.current = Date.now()
+        setLoadingText(getComfortingMessage(0, character?.name || 'AI'))
+
+        // Update loading text every second
+        loadingIntervalRef.current = setInterval(() => {
+            const elapsed = Date.now() - loadingStartRef.current
+            setLoadingText(getComfortingMessage(elapsed, character?.name || 'AI'))
+        }, 1000)
+
         try {
             const res = await authFetch('/api/chat', {
                 method: 'POST',
@@ -329,6 +360,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             console.error('Error sending message:', error)
             alert(`AI không trả lời được (lỗi máy chủ). Bạn thử nhắn lại sau một chút nhé.\n\nChi tiết: ${error?.message || 'Unknown error'}`)
         } finally {
+            // Clear comforting loading timer
+            if (loadingIntervalRef.current) {
+                clearInterval(loadingIntervalRef.current)
+                loadingIntervalRef.current = null
+            }
+            setLoadingText('')
             setIsLoading(false)
         }
     }
@@ -433,6 +470,64 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         }
     }
 
+    // ============================================
+    // SMART AUTO-MEMORY
+    // AI-powered conversation summarization
+    // ============================================
+    const handleAutoSaveMemory = async (trigger: 'button' | 'exit' = 'button') => {
+        if (isAutoSaving) return
+        if (messages.length < 3) {
+            setAutoSaveToast({ show: true, message: 'Cuộc trò chuyện quá ngắn để lưu kỷ niệm.', type: 'error' })
+            setTimeout(() => setAutoSaveToast(prev => ({ ...prev, show: false })), 3000)
+            return
+        }
+
+        setIsAutoSaving(true)
+        setAutoSaveToast({ show: true, message: 'Đang ghi lại khoảnh khắc...', type: 'loading' })
+
+        try {
+            const res = await authFetch('/api/memory/auto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ characterId, trigger })
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.message || 'Không thể lưu kỷ niệm')
+            }
+
+            setAutoSaveToast({ show: true, message: 'Đã lưu kỷ niệm vào nhật ký! 📒', type: 'success' })
+            loadMemories() // Refresh memories list
+            setTimeout(() => setAutoSaveToast(prev => ({ ...prev, show: false })), 3000)
+
+        } catch (error: any) {
+            console.error('[AutoMemory] Error:', error)
+            setAutoSaveToast({ show: true, message: error.message || 'Có lỗi xảy ra', type: 'error' })
+            setTimeout(() => setAutoSaveToast(prev => ({ ...prev, show: false })), 3000)
+        } finally {
+            setIsAutoSaving(false)
+        }
+    }
+
+    // Handle back navigation with exit confirmation
+    const handleBackNavigation = () => {
+        // If conversation has meaningful content, show exit confirmation
+        if (messages.length >= 5) {
+            setShowExitConfirm(true)
+        } else {
+            router.back()
+        }
+    }
+
+    // Goodnight keyword detection
+    const GOODNIGHT_KEYWORDS = ['ngủ ngon', 'bye', 'tạm biệt', 'chúc ngủ ngon', 'good night', 'goodnight', 'bye bye']
+    const checkForGoodnightKeyword = (text: string): boolean => {
+        const lowerText = text.toLowerCase()
+        return GOODNIGHT_KEYWORDS.some(keyword => lowerText.includes(keyword))
+    }
+
     if (!character) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -467,7 +562,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     <div className="max-w-4xl mx-auto flex items-center justify-between">
                         <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
                             <button
-                                onClick={() => router.back()}
+                                onClick={handleBackNavigation}
                                 className={`opacity-80 hover:opacity-100 transition-opacity ${hasCustomColors ? '' : theme.resolvedHeaderText} flex-shrink-0 text-xl`}
                                 style={hasCustomColors ? { color: textColor } : undefined}
                                 title="Quay lại"
@@ -516,13 +611,14 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
                         {/* Header buttons: Memory + Plus */}
                         <div className="flex items-center gap-1 flex-shrink-0">
-                            {/* Memory button */}
+                            {/* Auto-Save Memory button */}
                             <button
-                                onClick={() => openCreateMemory()}
-                                className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover}`}
-                                title="Tạo ký ức mới"
+                                onClick={() => handleAutoSaveMemory('button')}
+                                disabled={isAutoSaving}
+                                className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition ${theme.buttons.primaryBg} ${theme.resolvedButtonText} ${theme.buttons.primaryHover} ${isAutoSaving ? 'opacity-50 cursor-wait' : ''}`}
+                                title="Lưu kỷ niệm (AI tự tóm tắt)"
                             >
-                                💾
+                                {isAutoSaving ? '⏳' : '💾'}
                             </button>
                             {/* Plus button - opens Plus modal */}
                             <button
@@ -601,10 +697,15 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         {isLoading && (
                             <div className="flex justify-start">
                                 <div className="glass px-4 py-3 rounded-2xl rounded-bl-sm">
-                                    <div className="flex gap-1">
-                                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse delay-150"></div>
-                                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse delay-300"></div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex gap-1">
+                                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse delay-150"></div>
+                                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse delay-300"></div>
+                                        </div>
+                                        <span className="text-sm text-secondary italic">
+                                            {loadingText || `${character?.name || 'AI'} đang suy nghĩ...`}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -873,6 +974,66 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     console.log('Phone app clicked:', appId)
                 }}
             />
+
+            {/* Auto-Save Toast */}
+            {autoSaveToast.show && (
+                <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 animate-slide-up">
+                    <div className={`px-4 py-3 rounded-xl backdrop-blur-md shadow-lg flex items-center gap-2 ${autoSaveToast.type === 'loading' ? 'bg-blue-500/90' :
+                        autoSaveToast.type === 'success' ? 'bg-green-500/90' :
+                            'bg-red-500/90'
+                        } text-white`}>
+                        {autoSaveToast.type === 'loading' && (
+                            <span className="animate-spin">⏳</span>
+                        )}
+                        {autoSaveToast.type === 'success' && <span>✅</span>}
+                        {autoSaveToast.type === 'error' && <span>❌</span>}
+                        <span className="text-sm font-medium">{autoSaveToast.message}</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Exit Confirmation Modal */}
+            {showExitConfirm && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+                    <div className="glass p-6 rounded-2xl w-full max-w-sm text-center space-y-4">
+                        <div className="text-4xl">💕</div>
+                        <h3 className="text-lg font-semibold">
+                            Hôm nay tụi mình nói chuyện vui quá!
+                        </h3>
+                        <p className="text-sm text-secondary">
+                            Bạn có muốn lưu lại kỷ niệm ngày hôm nay không?
+                        </p>
+                        <div className="flex flex-col gap-2">
+                            <button
+                                onClick={async () => {
+                                    setShowExitConfirm(false)
+                                    await handleAutoSaveMemory('exit')
+                                    setTimeout(() => router.back(), 1500) // Wait for toast
+                                }}
+                                className="btn-primary w-full flex items-center justify-center gap-2"
+                                disabled={isAutoSaving}
+                            >
+                                {isAutoSaving ? '⏳ Đang lưu...' : '💾 Lưu kỷ niệm & Thoát'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowExitConfirm(false)
+                                    router.back()
+                                }}
+                                className="btn-secondary w-full"
+                            >
+                                Thoát không lưu
+                            </button>
+                            <button
+                                onClick={() => setShowExitConfirm(false)}
+                                className="text-sm text-secondary hover:text-white transition"
+                            >
+                                Ở lại chat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     )
 }
