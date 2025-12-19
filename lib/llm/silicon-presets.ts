@@ -6,15 +6,51 @@ export interface SiliconPresetModel {
     recommended: boolean // có phải model đề xuất không
 }
 
+// Recommended model IDs for starring
+const RECOMMENDED_MODELS = [
+    'deepseek-ai/DeepSeek-V3',
+    'Qwen/Qwen2.5-7B-Instruct',
+    'Qwen/Qwen2.5-14B-Instruct',
+    'Qwen/Qwen2.5-32B-Instruct',
+    'MiniMaxAI/MiniMax-M2',
+]
+
 /**
- * Danh sách SiliconFlow models đã được lọc và đánh giá
- * - Nhóm ĐỀ XUẤT: trả lời tốt, tâm lý, nhớ ngữ cảnh, tiếng Việt ổn
- * - Nhóm KHÁC: dùng được nhưng không ổn định bằng
+ * Danh sách SiliconFlow models
  * 
- * Đã loại bỏ: Z-Image-Turbo, Yi-1.5-9B, DeepSeek-R1-Distill series, Llama 3.1
- * (vì: đa ngôn ngữ, lộ thinking, tiếng Việt yếu)
+ * Priority:
+ * 1. Đọc từ env: SILICON_MODEL_1 đến SILICON_MODEL_20
+ * 2. Nếu không có env, dùng danh sách hardcoded mặc định
  */
 export function getSiliconPresets(): SiliconPresetModel[] {
+    // Try to read from env variables first (SILICON_MODEL_1 to SILICON_MODEL_20)
+    const envModels: SiliconPresetModel[] = []
+
+    for (let i = 1; i <= 20; i++) {
+        const modelId = process.env[`SILICON_MODEL_${i}`]
+        if (modelId) {
+            // Extract short name from model ID for label
+            const parts = modelId.split('/')
+            const shortName = parts.length > 1 ? parts[1] : modelId
+            const isRecommended = RECOMMENDED_MODELS.includes(modelId)
+
+            envModels.push({
+                key: `silicon-model-${i}`,
+                id: modelId,
+                label: isRecommended ? `⭐ ${shortName}` : shortName,
+                recommended: isRecommended,
+            })
+        }
+    }
+
+    // If we found env models, use them
+    if (envModels.length > 0) {
+        console.log(`[SiliconPresets] Loaded ${envModels.length} models from env`)
+        return envModels
+    }
+
+    // Fallback to hardcoded defaults
+    console.log('[SiliconPresets] Using hardcoded defaults')
     return [
         // ⭐ NHÓM ĐỀ XUẤT (recommended = true)
         {

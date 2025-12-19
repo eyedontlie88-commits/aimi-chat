@@ -55,6 +55,23 @@ export default function CharactersPage() {
         }
     }
 
+    const handleDeleteCharacter = async (characterId: string) => {
+        try {
+            const res = await authFetch(`/api/characters/${characterId}`, {
+                method: 'DELETE'
+            })
+            if (res.ok) {
+                // Remove from local state immediately
+                setCharacters(prev => prev.filter(c => c.id !== characterId))
+            } else {
+                alert('Không thể xóa nhân vật. Vui lòng thử lại.')
+            }
+        } catch (error) {
+            console.error('Error deleting character:', error)
+            alert('Lỗi khi xóa nhân vật.')
+        }
+    }
+
     return (
         <>
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-12 overflow-hidden">
@@ -129,6 +146,7 @@ export default function CharactersPage() {
                                     shortDescription={character.shortDescription}
                                     tags={character.tags}
                                     relationshipStatus={character.relationshipConfig?.status}
+                                    onDelete={handleDeleteCharacter}
                                 />
                             ))}
                         </div>

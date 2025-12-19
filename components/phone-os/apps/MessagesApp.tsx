@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, Loader2, RotateCw } from 'lucide-react'
+import MessageDetail from './MessageDetail'
 
 interface MessagesAppProps {
     onBack: () => void
@@ -51,6 +52,9 @@ export default function MessagesApp({
     const [source, setSource] = useState<'ai' | 'cached' | 'fallback'>('fallback')
     const [cooldownRemaining, setCooldownRemaining] = useState(0)
     const [isRefreshing, setIsRefreshing] = useState(false)
+
+    // Selected conversation for detail view
+    const [selectedConversation, setSelectedConversation] = useState<ConversationItem | null>(null)
 
     // Check cooldown on mount
     useEffect(() => {
@@ -155,6 +159,20 @@ export default function MessagesApp({
         fetchMessages(true)
     }
 
+    // If a conversation is selected, show the detail view
+    if (selectedConversation) {
+        return (
+            <MessageDetail
+                onBack={() => setSelectedConversation(null)}
+                senderName={selectedConversation.name}
+                senderAvatar={selectedConversation.avatar}
+                characterId={characterId}
+                characterDescription={characterDescription}
+                lastMessagePreview={selectedConversation.lastMessage}
+            />
+        )
+    }
+
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header */}
@@ -184,8 +202,8 @@ export default function MessagesApp({
                     onClick={handleRefresh}
                     disabled={cooldownRemaining > 0 || loading}
                     className={`ml-auto w-8 h-8 flex items-center justify-center rounded-full transition-all ${cooldownRemaining > 0 || loading
-                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                            : 'hover:bg-white/50 text-gray-500 hover:text-gray-700'
+                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                        : 'hover:bg-white/50 text-gray-500 hover:text-gray-700'
                         }`}
                     title={cooldownRemaining > 0 ? `Chờ ${cooldownRemaining}s` : 'Làm mới tin nhắn'}
                 >
@@ -220,6 +238,7 @@ export default function MessagesApp({
                     {conversations.map((conv) => (
                         <button
                             key={conv.id}
+                            onClick={() => setSelectedConversation(conv)}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-50"
                         >
                             {/* Avatar */}
@@ -268,5 +287,3 @@ export default function MessagesApp({
         </div>
     )
 }
-
-

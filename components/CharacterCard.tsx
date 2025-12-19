@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -9,6 +12,7 @@ interface CharacterCardProps {
     shortDescription: string
     tags: string
     relationshipStatus?: string
+    onDelete?: (id: string) => void
 }
 
 /**
@@ -22,8 +26,36 @@ export default function CharacterCard({
     shortDescription,
     tags,
     relationshipStatus,
+    onDelete,
 }: CharacterCardProps) {
     const router = useRouter()
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    const handleEditClick = (e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        router.push(`/characters/${id}`)
+    }
+
+    const handleDeleteClick = async (e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        if (!confirm(`Bạn có chắc muốn XÓA VĨNH VIỄN nhân vật "${name}"?\n\n⚠️ Hành động này sẽ XÓA:\n- Tất cả tin nhắn chat\n- Tất cả ký ức AI\n- Dữ liệu điện thoại\n\nKhông thể hoàn tác!`)) {
+            return
+        }
+
+        setIsDeleting(true)
+        try {
+            if (onDelete) {
+                onDelete(id)
+            }
+        } catch (error) {
+            console.error('Delete error:', error)
+            setIsDeleting(false)
+        }
+    }
+
     return (
         <Link
             href={`/chat/${id}`}
@@ -76,18 +108,29 @@ export default function CharacterCard({
                 </div>
             </div>
 
-            {/* Top-right Edit Button */}
-            <button
-                onClick={(e) => {
-                    e.stopPropagation()
-                    router.push(`/characters/${id}`)
-                }}
-                className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
-                title="Chỉnh sửa"
-                type="button"
-            >
-                <span className="text-sm">✏️</span>
-            </button>
+            {/* Top-right Action Buttons - Always visible on hover, separated */}
+            <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Edit Button */}
+                <button
+                    onClick={handleEditClick}
+                    className="w-8 h-8 flex items-center justify-center bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                    title="Chỉnh sửa"
+                    type="button"
+                >
+                    <span className="text-sm">✏️</span>
+                </button>
+
+                {/* Delete Button */}
+                <button
+                    onClick={handleDeleteClick}
+                    disabled={isDeleting}
+                    className="w-8 h-8 flex items-center justify-center bg-red-900/50 hover:bg-red-700/70 rounded-full transition-colors disabled:opacity-50"
+                    title="Xóa vĩnh viễn"
+                    type="button"
+                >
+                    <span className="text-sm">{isDeleting ? '⏳' : '🗑️'}</span>
+                </button>
+            </div>
         </Link>
     )
 }

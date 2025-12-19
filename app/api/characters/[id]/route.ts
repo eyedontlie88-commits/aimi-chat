@@ -143,6 +143,39 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         await prisma.message.deleteMany({ where: { characterId: id } })
         await prisma.relationshipConfig.deleteMany({ where: { characterId: id } })
 
+        // Delete phone data from Supabase (if configured)
+        try {
+            const { supabase, isSupabaseConfigured } = await import('@/lib/supabase/client')
+            if (isSupabaseConfigured() && supabase) {
+                // Find all conversations for this character
+                const { data: conversations } = await supabase
+                    .from('phone_conversations')
+                    .select('id')
+                    .eq('character_id', id)
+
+                if (conversations && conversations.length > 0) {
+                    const conversationIds = conversations.map(c => c.id)
+
+                    // Delete messages first (FK constraint)
+                    await supabase
+                        .from('phone_messages')
+                        .delete()
+                        .in('conversation_id', conversationIds)
+
+                    // Delete conversations
+                    await supabase
+                        .from('phone_conversations')
+                        .delete()
+                        .eq('character_id', id)
+
+                    console.log(`[DELETE] Deleted ${conversations.length} phone conversations for character ${id}`)
+                }
+            }
+        } catch (phoneError) {
+            console.warn('[DELETE] Could not delete phone data (Supabase):', phoneError)
+            // Continue with character deletion even if phone data fails
+        }
+
         // Delete character
         await prisma.character.delete({
             where: { id: id },
