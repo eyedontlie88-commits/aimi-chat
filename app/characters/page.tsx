@@ -5,6 +5,7 @@ import CharacterCard from '@/components/CharacterCard'
 import CharacterFormModal from '@/components/CharacterFormModal'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import { useModal } from '@/contexts/ModalContext'
+import { useLanguage } from '@/lib/i18n'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { GooglePresetModel } from '@/lib/llm/google-presets'
 
@@ -30,6 +31,7 @@ export default function CharactersPage() {
 
     // Get user from ModalContext - data depends on this!
     const { user, loading: authLoading } = useModal()
+    const { t } = useLanguage()
 
     const characterCount = characters.length
     const hasReachedLimit = characterCount >= MAX_CHARACTERS
@@ -106,10 +108,10 @@ export default function CharactersPage() {
                 {/* Header */}
                 <div className="text-center mb-6 sm:mb-12">
                     <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-2 sm:mb-4">
-                        <span className="gradient-text">Nhân Vật Của Bạn</span>
+                        <span className="gradient-text">{t.characters.title}</span>
                     </h1>
                     <p className="text-sm sm:text-lg text-secondary max-w-2xl mx-auto mb-4 sm:mb-6 px-2">
-                        Tạo và tùy chỉnh người yêu AI của riêng bạn. Mỗi nhân vật đều có tính cách, cách nói chuyện và ranh giới độc đáo.
+                        {t.characters.subtitle}
                     </p>
                 </div>
 
@@ -122,16 +124,15 @@ export default function CharactersPage() {
                     <div className="max-w-lg mx-auto text-center py-16">
                         <div className="card glass p-8">
                             <div className="text-6xl mb-4">🥺</div>
-                            <h2 className="text-2xl font-bold text-white mb-4">Bạn chưa có nhân vật nào</h2>
+                            <h2 className="text-2xl font-bold text-white mb-4">{t.characters.noCharacters}</h2>
                             <p className="text-secondary mb-6">
-                                Bắt đầu bằng cách tạo người yêu AI đầu tiên của bạn.
-                                Hãy mô tả tính cách, cách nói chuyện và ranh giới để AI hiểu đúng con người đó.
+                                {t.characters.createFirst}
                             </p>
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
                                 className="btn-primary inline-flex items-center gap-2 text-lg px-8 py-3"
                             >
-                                ✨ Tạo nhân vật mới
+                                {t.characters.createNew}
                             </button>
                             <p className="text-xs text-hint mt-6">
                                 Bạn có thể tạo tối đa {MAX_CHARACTERS} nhân vật.
@@ -145,11 +146,11 @@ export default function CharactersPage() {
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 sm:mb-8 glass rounded-lg px-4 sm:px-6 py-3 sm:py-4">
                             <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                                 <span className="text-hint text-xs sm:text-sm">
-                                    Nhân vật của bạn: <span className="font-medium">{characterCount} / {MAX_CHARACTERS}</span>
+                                    {t.characters.count} <span className="font-medium">{characterCount} / {MAX_CHARACTERS}</span>
                                 </span>
                                 {hasReachedLimit && (
                                     <span className="text-xs text-yellow-400">
-                                        Đã đạt giới hạn
+                                        {t.characters.noCharacters}
                                     </span>
                                 )}
                             </div>
@@ -157,9 +158,9 @@ export default function CharactersPage() {
                                 onClick={() => setIsCreateModalOpen(true)}
                                 disabled={hasReachedLimit}
                                 className="btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={hasReachedLimit ? 'Xoá bớt hoặc chỉnh sửa nhân vật cũ nếu muốn thay đổi.' : 'Tạo nhân vật mới'}
+                                title={hasReachedLimit ? t.characters.noCharacters : t.characters.createNew}
                             >
-                                ✨ Tạo nhân vật mới
+                                {t.characters.createNew}
                             </button>
                         </div>
 

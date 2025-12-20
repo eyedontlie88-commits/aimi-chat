@@ -97,10 +97,13 @@ export const translations = {
             },
         },
 
-        // Characters
+        // Characters / Dashboard
         characters: {
-            title: 'Characters',
-            createNew: 'Create New Character',
+            title: 'Your Characters',
+            subtitle: 'Create and customize your own AI lover. Each character has unique personality, speaking style, and boundaries.',
+            count: 'Your characters:',
+            createNew: '✨ Create New Character',
+            chatNow: '💬 Chat Now',
             messages: 'messages',
             memories: 'memories',
             startChat: 'Start Chat',
@@ -284,6 +287,10 @@ export const translations = {
             noMessages: 'No messages',
             noNotes: 'No notes',
             noEvents: 'No events',
+            // App names
+            maps: 'Maps',
+            wallet: 'Wallet',
+            browser: 'Browser',
         },
 
         // Narrative Syntax
@@ -446,10 +453,13 @@ export const translations = {
             },
         },
 
-        // Characters
+        // Characters / Dashboard
         characters: {
-            title: 'Nhân vật',
-            createNew: 'Tạo nhân vật mới',
+            title: 'Nhân Vật Của Bạn',
+            subtitle: 'Tạo và tùy chỉnh người yêu AI của riêng bạn. Mỗi nhân vật đều có tính cách, cách nói chuyện và ranh giới độc đáo.',
+            count: 'Nhân vật của bạn:',
+            createNew: '✨ Tạo nhân vật mới',
+            chatNow: '💬 Chat ngay',
             messages: 'tin nhắn',
             memories: 'kỷ niệm',
             startChat: 'Bắt đầu chat',
@@ -633,6 +643,10 @@ export const translations = {
             noMessages: 'Không có tin nhắn',
             noNotes: 'Không có ghi chú',
             noEvents: 'Không có sự kiện',
+            // App names
+            maps: 'Bản đồ',
+            wallet: 'Ví',
+            browser: 'Trình duyệt',
         },
 
         // Narrative Syntax

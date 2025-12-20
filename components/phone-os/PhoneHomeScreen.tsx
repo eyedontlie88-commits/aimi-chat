@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { X, Map, StickyNote, Wallet, MessageCircle, Globe } from 'lucide-react'
 import MessagesApp from './apps/MessagesApp'
+import { useLanguage } from '@/lib/i18n'
 
 interface PhoneHomeScreenProps {
     isOpen: boolean
@@ -14,15 +15,6 @@ interface PhoneHomeScreenProps {
     onAppClick?: (appId: string) => void
 }
 
-// App definitions with pastel colors
-const apps = [
-    { id: 'maps', name: 'Bản đồ', icon: Map, bgColor: 'bg-pink-200', iconColor: 'text-pink-600' },
-    { id: 'notes', name: 'Ghi chú', icon: StickyNote, bgColor: 'bg-yellow-200', iconColor: 'text-yellow-600' },
-    { id: 'wallet', name: 'Ví', icon: Wallet, bgColor: 'bg-blue-200', iconColor: 'text-blue-600' },
-    { id: 'messages', name: 'Tin nhắn', icon: MessageCircle, bgColor: 'bg-green-200', iconColor: 'text-green-600' },
-    { id: 'browser', name: 'Trình duyệt', icon: Globe, bgColor: 'bg-sky-200', iconColor: 'text-sky-600' },
-]
-
 export default function PhoneHomeScreen({
     isOpen,
     onClose,
@@ -32,8 +24,18 @@ export default function PhoneHomeScreen({
     messageCount,
     onAppClick
 }: PhoneHomeScreenProps) {
+    const { t } = useLanguage()
     const [currentTime, setCurrentTime] = useState(new Date())
     const [activeApp, setActiveApp] = useState<string | null>(null)
+
+    // App definitions with pastel colors - inside component to use i18n
+    const apps = [
+        { id: 'maps', name: t.phone.maps, icon: Map, bgColor: 'bg-pink-200', iconColor: 'text-pink-600' },
+        { id: 'notes', name: t.phone.notes, icon: StickyNote, bgColor: 'bg-yellow-200', iconColor: 'text-yellow-600' },
+        { id: 'wallet', name: t.phone.wallet, icon: Wallet, bgColor: 'bg-blue-200', iconColor: 'text-blue-600' },
+        { id: 'messages', name: t.phone.messages, icon: MessageCircle, bgColor: 'bg-green-200', iconColor: 'text-green-600' },
+        { id: 'browser', name: t.phone.browser, icon: Globe, bgColor: 'bg-sky-200', iconColor: 'text-sky-600' },
+    ]
 
     // Update time every second
     useEffect(() => {
@@ -190,7 +192,7 @@ export default function PhoneHomeScreen({
                             <div className="flex items-center justify-between px-4 py-3 border-b border-pink-100">
                                 <div className="flex-1" />
                                 <h2 className="text-sm font-medium text-gray-700 bg-white/80 px-4 py-1.5 rounded-full border border-pink-100">
-                                    Điện thoại của {characterName}
+                                    {t.phone.title.replace('{character}', characterName)}
                                 </h2>
                                 <div className="flex-1 flex justify-end">
                                     <button
