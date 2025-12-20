@@ -37,6 +37,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const router = useRouter()
     const [character, setCharacter] = useState<Character | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [fetchError, setFetchError] = useState<{ code: number; message: string } | null>(null)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
     const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false)
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -49,6 +50,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     }, [id])
 
     const loadCharacter = async () => {
+        // 1. RESET STATE AT START
+        setIsLoading(true)
+        setFetchError(null)
+
         try {
             const [charRes, presetsRes, googlePresetsRes] = await Promise.all([
                 authFetch(`/api/characters/${id}`),
@@ -56,11 +61,38 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 authFetch('/api/google-presets')
             ])
 
+            // 2. CHECK HTTP ERRORS IMMEDIATELY
+            if (!charRes.ok) {
+                console.error(`[CharacterPage] Character fetch failed: ${charRes.status}`)
+                setFetchError({
+                    code: charRes.status,
+                    message: charRes.status === 403
+                        ? 'Bạn không có quyền truy cập nhân vật này.'
+                        : charRes.status === 404
+                            ? 'Không tìm thấy nhân vật này.'
+                            : `Lỗi server: ${charRes.status}`
+                })
+                return
+            }
+
+            // 3. PARSE DATA
             const charData = await charRes.json()
             const presetsData = await presetsRes.json()
             const googlePresetsData = await googlePresetsRes.json()
 
+            // 4. CHECK FOR EMPTY DATA
+            if (!charData.character) {
+                setFetchError({
+                    code: 404,
+                    message: 'Không tìm thấy dữ liệu nhân vật.'
+                })
+                return
+            }
+
+            // 5. SUCCESS
             setCharacter(charData.character)
+            setFetchError(null)
+
             if (presetsData.presets) {
                 setSiliconPresets(presetsData.presets)
             }
@@ -68,7 +100,15 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 setGooglePresets(googlePresetsData.presets)
             }
         } catch (error) {
-            console.error('Error loading data:', error)
+            // 6. CATCH NETWORK ERRORS
+            console.error('[CharacterPage] Error loading data:', error)
+            setFetchError({
+                code: 500,
+                message: 'Không thể tải dữ liệu. Vui lòng thử lại.'
+            })
+        } finally {
+            // 7. ALWAYS STOP LOADING
+            setIsLoading(false)
         }
     }
 
@@ -89,13 +129,41 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         }
     }
 
-    if (!character) {
+    // RENDER PRIORITY 1: ERROR STATE
+    if (fetchError) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="animate-pulse text-secondary">Loading...</div>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+                <div className="glass rounded-2xl p-8 max-w-md text-center">
+                    <div className="text-5xl mb-4">
+                        {fetchError.code === 403 ? '🔒' : fetchError.code === 404 ? '😔' : '⚠️'}
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">
+                        {fetchError.code === 403 ? 'Không có quyền truy cập' : 'Không tìm thấy'}
+                    </h2>
+                    <p className="text-secondary mb-6">
+                        {fetchError.message}
+                    </p>
+                    <button
+                        onClick={() => router.push('/characters')}
+                        className="btn-primary px-6 py-3 rounded-xl font-medium"
+                    >
+                        ← Quay về trang chủ
+                    </button>
+                </div>
             </div>
         )
     }
+
+    // RENDER PRIORITY 2: LOADING STATE (only when no error)
+    if (isLoading || !character) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="animate-pulse text-secondary">Đang tải...</div>
+            </div>
+        )
+    }
+
+    // RENDER PRIORITY 3: NORMAL CONTENT
 
     const tagList = character.tags.split(',').map((t) => t.trim()).filter(Boolean)
 
