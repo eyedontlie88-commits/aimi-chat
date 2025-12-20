@@ -6,7 +6,6 @@ import {
     signInWithEmail,
     createAccount,
 } from '@/lib/firebase/client'
-import { useLanguage } from '@/lib/i18n'
 
 interface LoginModalProps {
     isOpen: boolean
@@ -15,11 +14,10 @@ interface LoginModalProps {
 }
 
 /**
- * Fullscreen login modal for mobile-first experience
- * Centered form with touch-friendly inputs
+ * Fullscreen glassmorphism login modal
+ * Mobile-first design with centered form and large touch targets
  */
 export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
-    const { t } = useLanguage()
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [isSignUp, setIsSignUp] = useState(false)
@@ -69,30 +67,36 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
     }
 
     return (
+        // Fixed overlay - luôn nổi trên cùng
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
             onClick={handleBackdropClick}
         >
-            <div className="relative w-full max-w-md mx-4 bg-gradient-to-b from-slate-800/95 to-slate-900/95 border border-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 animate-in slide-in-from-bottom-4 duration-300">
-                {/* Close button */}
+            {/* Modal container - căn giữa tuyệt đối */}
+            <div className="relative w-full max-w-sm mx-4 bg-slate-900/90 border border-white/20 rounded-2xl shadow-2xl p-6 animate-in slide-in-from-bottom-4 zoom-in-95 duration-300">
+
+                {/* Nút đóng - góc phải */}
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                    className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+                    aria-label="Đóng"
                 >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
 
                 {/* Logo */}
-                <div className="text-center mb-6">
+                <div className="text-center mb-4">
                     <span className="text-4xl">💕</span>
-                    <h1 className="text-2xl font-bold gradient-text mt-2">AImi chat</h1>
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent mt-1">
+                        AImi Chat
+                    </h1>
                 </div>
 
                 {/* Title */}
-                <h2 className="text-xl font-semibold text-white text-center mb-6">
-                    {isSignUp ? 'Tạo tài khoản mới' : 'Chào mừng trở lại'}
+                <h2 className="text-lg text-white text-center mb-6">
+                    {isSignUp ? 'Tạo tài khoản mới' : 'Chào mừng quay trở lại!'}
                 </h2>
 
                 {/* Error message */}
@@ -103,37 +107,47 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                 )}
 
                 {/* Email form */}
-                <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Email của bạn"
-                        className="w-full p-4 rounded-xl bg-gray-800/80 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500/50 focus:ring-2 focus:ring-pink-500/20 transition-all"
-                        required
-                        disabled={isLoading}
-                    />
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Mật khẩu"
-                        className="w-full p-4 rounded-xl bg-gray-800/80 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500/50 focus:ring-2 focus:ring-pink-500/20 transition-all"
-                        required
-                        disabled={isLoading}
-                    />
+                <form onSubmit={handleEmailAuth} className="space-y-4 mb-4">
+                    {/* Email input */}
+                    <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">📧</span>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Email của bạn..."
+                            className="w-full pl-12 pr-4 py-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500/50 focus:ring-2 focus:ring-pink-500/20 transition-all"
+                            required
+                            disabled={isLoading}
+                        />
+                    </div>
 
+                    {/* Password input */}
+                    <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔒</span>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Mật khẩu..."
+                            className="w-full pl-12 pr-4 py-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500/50 focus:ring-2 focus:ring-pink-500/20 transition-all"
+                            required
+                            disabled={isLoading}
+                        />
+                    </div>
+
+                    {/* Submit button - Gradient Pink */}
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-pink-500/25"
+                        className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-pink-500/30"
                     >
                         {isLoading ? (
                             <span className="animate-pulse">Đang xử lý...</span>
                         ) : isSignUp ? (
-                            'Đăng ký tài khoản'
+                            'ĐĂNG KÝ'
                         ) : (
-                            'Đăng nhập'
+                            'ĐĂNG NHẬP'
                         )}
                     </button>
                 </form>
@@ -143,23 +157,23 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                     type="button"
                     onClick={() => setIsSignUp(!isSignUp)}
                     disabled={isLoading}
-                    className="w-full py-3 border border-pink-500/50 text-pink-300 font-medium rounded-xl hover:bg-pink-500/10 transition-all disabled:opacity-50"
+                    className="w-full text-sm text-gray-400 hover:text-pink-400 transition-colors mb-4"
                 >
                     {isSignUp ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký'}
                 </button>
 
                 {/* Divider */}
-                <div className="flex items-center gap-4 my-6">
-                    <div className="flex-1 h-px bg-white/10"></div>
-                    <span className="text-gray-400 text-sm">Hoặc</span>
-                    <div className="flex-1 h-px bg-white/10"></div>
+                <div className="flex items-center gap-3 my-4">
+                    <div className="flex-1 h-px bg-white/20"></div>
+                    <span className="text-gray-400 text-sm font-medium">HOẶC</span>
+                    <div className="flex-1 h-px bg-white/20"></div>
                 </div>
 
-                {/* Google Sign In */}
+                {/* Google Sign In - Nút trắng với icon màu */}
                 <button
                     onClick={handleGoogleSignIn}
                     disabled={isLoading}
-                    className="w-full py-4 bg-white hover:bg-gray-100 text-gray-800 font-medium rounded-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                    className="w-full py-4 bg-white hover:bg-gray-100 text-gray-800 font-medium rounded-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                         <path
