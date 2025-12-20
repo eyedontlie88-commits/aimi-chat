@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { characterId, message, sceneState, replyToMessageId, sceneGoal, nextDirection } = body
+        const { characterId, message, sceneState, replyToMessageId, sceneGoal, nextDirection, userLanguage } = body
 
         if (!characterId || !message) {
             return NextResponse.json({ error: 'characterId and message are required' }, { status: 400 })
@@ -117,6 +117,7 @@ export async function POST(request: NextRequest) {
             memories,
             recentMessages: messagesForContext,
             sceneState: sceneState as SceneState | undefined,
+            userLanguage: userLanguage || 'vi', // Default to Vietnamese
         })
 
         // Determine effective model (provider already determined above for context limits)

@@ -16,6 +16,7 @@ import PlusDropdownModal from '@/components/PlusDropdownModal'
 import SceneDirectorModal from '@/components/SceneDirectorModal'
 import PhoneHomeScreen from '@/components/phone-os/PhoneHomeScreen'
 import { useColors } from '@/lib/ColorContext'
+import { useLanguage } from '@/lib/i18n'
 import { useModal } from '@/contexts/ModalContext'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
@@ -164,6 +165,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
     // Get auth state from ModalContext
     const { user, loading: authLoading, openLogin } = useModal()
+    const { lang: userLanguage } = useLanguage()
 
     // AUTH GATEKEEPER: Redirect to home if not authenticated
     useEffect(() => {
@@ -398,6 +400,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     // Đạo diễn Cảnh - Scene Director
                     sceneGoal: sceneGoal || undefined,
                     nextDirection: nextDirection || undefined,
+                    // Multi-language support - AI responds in user's language
+                    userLanguage: userLanguage,
                     // Dev force reaction (only sent if not OFF and in dev mode)
                     ...(isDev && devForceReaction !== 'OFF' && { devForceReaction }),
                 }),

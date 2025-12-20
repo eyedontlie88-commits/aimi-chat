@@ -8,6 +8,7 @@ interface PromptContext {
     memories: Memory[]
     recentMessages: Message[]
     sceneState?: SceneState
+    userLanguage?: 'en' | 'vi'  // User's preferred language
 }
 
 /**
@@ -47,9 +48,9 @@ function getPronouns(
 }
 
 export function buildChatPrompt(context: PromptContext): LLMMessage[] {
-    const { character, userProfile, relationshipConfig, memories, recentMessages, sceneState } = context
+    const { character, userProfile, relationshipConfig, memories, recentMessages, sceneState, userLanguage } = context
 
-    const systemMessage = buildSystemMessage(character, userProfile, relationshipConfig, memories, sceneState)
+    const systemMessage = buildSystemMessage(character, userProfile, relationshipConfig, memories, sceneState, userLanguage || 'vi')
 
     const conversationMessages: LLMMessage[] = recentMessages.map((msg) => ({
         role: msg.role as 'user' | 'assistant',
@@ -81,14 +82,22 @@ function buildSystemMessage(
     userProfile: UserProfile,
     relationshipConfig: RelationshipConfig,
     memories: Memory[],
-    sceneState?: SceneState
+    sceneState?: SceneState,
+    userLanguage: 'en' | 'vi' = 'vi'
 ): string {
     const sections: string[] = []
+    const isEnglish = userLanguage === 'en'
 
-    // (0) Mở đầu – BẮT BUỘC TIẾNG VIỆT
-    sections.push(
-        `Bạn là ${character.name}, một nhân vật AI lãng mạn. Từ bây giờ, khi trò chuyện với người dùng, hãy coi mọi tin nhắn phía dưới là lịch sử cuộc trò chuyện giữa bạn và người mà bạn đang yêu.`,
-    )
+    // (0) Opening statement - LANGUAGE AWARE
+    if (isEnglish) {
+        sections.push(
+            `You are ${character.name}, a romantic AI character. From now on, treat all messages below as the conversation history between you and the person you love.`,
+        )
+    } else {
+        sections.push(
+            `Bạn là ${character.name}, một nhân vật AI lãng mạn. Từ bây giờ, khi trò chuyện với người dùng, hãy coi mọi tin nhắn phía dưới là lịch sử cuộc trò chuyện giữa bạn và người mà bạn đang yêu.`,
+        )
+    }
 
     // (A) PERSONA & BACKSTORY
     sections.push(`## PERSONA & THÔNG TIN NHÂN VẬT
@@ -102,8 +111,16 @@ ${character.speakingStyle}`)
     sections.push(`## RANH GIỚI / ĐIỀU CẤM
 ${character.boundaries}`)
 
-    // (D) LANGUAGE RULES – SIẾT TIẾNG VIỆT
-    sections.push(`## QUY TẮC NGÔN NGỮ
+    // (D) LANGUAGE RULES - DYNAMIC BASED ON USER PREFERENCE
+    if (isEnglish) {
+        sections.push(`## LANGUAGE RULES
+- You MUST reply in **English** 100%.
+- Do NOT switch to Vietnamese, Chinese, or Japanese unless the user explicitly requests it.
+- If your persona has a non-English origin, your dialogue should still be in English but can retain some personality quirks (pet names, teasing style, etc.).
+- Keep your English natural and conversational, not translated or formal.
+- If you accidentally reply in another language, apologize briefly and switch back to English immediately.`)
+    } else {
+        sections.push(`## QUY TẮC NGÔN NGỮ
 - Luôn trả lời bằng **tiếng Việt** 100%.
 - Không bao giờ chuyển sang tiếng Anh, tiếng Trung, tiếng Nhật, trừ khi người dùng nói RẤT RÕ: "hãy trả lời bằng tiếng Anh" hoặc "switch to English".
 - Nếu người dùng dùng tiếng Anh, bạn vẫn trả lời bằng tiếng Việt tự nhiên, mượt mà.
@@ -114,6 +131,7 @@ ${character.boundaries}`)
 - Nếu lỡ trả lời bằng tiếng Anh hoặc bị người dùng nhắc "sao không nói tiếng Việt?", hãy:
   1) xin lỗi ngắn gọn dễ thương,
   2) chuyển lại sang tiếng Việt ngay lập tức trong toàn bộ câu trả lời tiếp theo.`)
+    }
 
     // (D.5) NARRATIVE SYNTAX UNDERSTANDING - Interactive Storytelling
     sections.push(`## HIỂU CÚ PHÁP KỂ CHUYỆN (NARRATIVE SYNTAX)
