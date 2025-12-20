@@ -1,12 +1,13 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.aimi.chat',
-  appName: 'AImi chat',
+  appId: 'com.aimi.chat', // Khớp với Android Studio
+  appName: 'aimi-chat',
   webDir: 'public',
   server: {
-    url: 'https://aimi-chat-production.up.railway.app',
-    cleartext: false
+    // 👇 Vercel deployment URL
+    url: 'https://aimi-chat-mcj3.vercel.app',
+    cleartext: true
   }
 };
 
