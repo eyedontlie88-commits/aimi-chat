@@ -4,26 +4,26 @@ import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import {
     onAuthChange,
-    signOut,
     type User
 } from '@/lib/firebase/client'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import { useLanguage } from '@/lib/i18n'
 
-// Dynamic import LoginModal to avoid SSR issues
+// Dynamic imports for modals to avoid SSR issues
 const LoginModal = dynamic(() => import('./LoginModal'), { ssr: false })
+const UserProfileModal = dynamic(() => import('./UserProfileModal'), { ssr: false })
 
 /**
- * Authentication button component - CLEANED UP VERSION
- * - When NOT logged in: Shows only "Đăng nhập" button -> opens LoginModal
- * - When logged in: Shows user avatar/email and sign out option
- * - NO inline inputs in header anymore!
+ * Authentication button component
+ * - When NOT logged in: Shows "Đăng nhập" button -> opens LoginModal
+ * - When logged in: Shows clickable avatar -> opens UserProfileModal
  */
 export default function AuthButton() {
     const { t } = useLanguage()
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
     const [showLoginModal, setShowLoginModal] = useState(false)
+    const [showProfileModal, setShowProfileModal] = useState(false)
     const [role, setRole] = useState<'user' | 'dev'>('user')
     const [migrationStatus, setMigrationStatus] = useState<'idle' | 'migrating' | 'done' | 'error'>('idle')
 
@@ -75,14 +75,6 @@ export default function AuthButton() {
         return unsubscribe
     }, [migrateGuestData])
 
-    const handleSignOut = async () => {
-        try {
-            await signOut()
-        } catch (e) {
-            console.error('Sign out error:', e)
-        }
-    }
-
     // Loading state
     if (loading) {
         return (
@@ -92,51 +84,60 @@ export default function AuthButton() {
         )
     }
 
-    // LOGGED IN - Show user info
+    // LOGGED IN - Show clickable avatar
     if (user) {
-        const initials = user.email ? user.email.charAt(0).toUpperCase() : '?'
+        const displayName = user.displayName || user.email?.split('@')[0] || 'User'
+        const initials = displayName.charAt(0).toUpperCase()
+        const photoURL = user.photoURL
 
         return (
-            <div className="flex items-center gap-1 md:gap-3 min-w-0">
-                {role === 'dev' && (
-                    <span className="px-1.5 py-0.5 text-[10px] md:text-xs font-bold bg-purple-600 text-white rounded shrink-0">
-                        DEV
-                    </span>
-                )}
+            <>
+                <div className="flex items-center gap-1 md:gap-2 min-w-0">
+                    {role === 'dev' && (
+                        <span className="px-1.5 py-0.5 text-[10px] md:text-xs font-bold bg-purple-600 text-white rounded shrink-0">
+                            DEV
+                        </span>
+                    )}
 
-                {migrationStatus === 'migrating' && (
-                    <span className="text-xs text-yellow-400 animate-pulse hidden md:inline">
-                        {t.auth?.migratingData || 'Đang di chuyển...'}
-                    </span>
-                )}
+                    {migrationStatus === 'migrating' && (
+                        <span className="text-xs text-yellow-400 animate-pulse hidden md:inline">
+                            {t.auth?.migratingData || 'Đang di chuyển...'}
+                        </span>
+                    )}
 
-                {/* Mobile: Avatar with initials */}
-                <div className="md:hidden">
-                    <div
-                        className="w-8 h-8 rounded-full bg-gradient-to-r from-pink-500 to-rose-600 flex items-center justify-center text-sm font-bold text-white shadow-lg"
-                        title={user.email || 'User'}
-                    >
-                        {initials}
-                    </div>
-                </div>
-
-                {/* Desktop: Email and sign out */}
-                <div className="hidden md:flex items-center gap-2 min-w-0">
-                    <span className="text-sm text-gray-300 truncate max-w-[150px]">
-                        {user.email}
-                    </span>
+                    {/* Clickable Avatar - opens UserProfileModal */}
                     <button
-                        onClick={handleSignOut}
-                        className="text-sm text-gray-400 hover:text-white transition-colors shrink-0"
+                        onClick={() => setShowProfileModal(true)}
+                        className="relative group"
+                        title={user.email || displayName}
                     >
-                        {t.auth?.signOut || 'Đăng xuất'}
+                        {photoURL ? (
+                            <img
+                                src={photoURL}
+                                alt={displayName}
+                                className="w-9 h-9 rounded-full border-2 border-pink-500/50 shadow-lg shadow-pink-500/20 transition-all group-hover:border-pink-400 group-hover:scale-105"
+                            />
+                        ) : (
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-r from-pink-500 to-rose-600 flex items-center justify-center text-sm font-bold text-white shadow-lg shadow-pink-500/25 border-2 border-pink-500/50 transition-all group-hover:border-pink-400 group-hover:scale-105">
+                                {initials}
+                            </div>
+                        )}
+                        {/* Online indicator dot */}
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-900"></span>
                     </button>
                 </div>
-            </div>
+
+                {/* User Profile Modal */}
+                <UserProfileModal
+                    isOpen={showProfileModal}
+                    onClose={() => setShowProfileModal(false)}
+                    user={user}
+                />
+            </>
         )
     }
 
-    // NOT LOGGED IN - Show only "Đăng nhập" button (NO inline inputs!)
+    // NOT LOGGED IN - Show "Đăng nhập" button
     return (
         <>
             <button
