@@ -263,24 +263,33 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
 
     const loadCharacter = async () => {
+        // 1. RESET STATE AT START - Always set loading true and clear old errors
+        setIsPageLoading(true)
+        setFetchError(null)
+
         try {
             const res = await authFetch(`/api/characters/${characterId}`)
 
-            // Handle 403/404 errors - character not found or no access
-            if (res.status === 403 || res.status === 404) {
+            // 2. CHECK HTTP ERRORS IMMEDIATELY - Handle ANY non-ok response
+            if (!res.ok) {
                 console.error(`[ChatPage] Character fetch failed: ${res.status}`)
                 setFetchError({
                     code: res.status,
                     message: res.status === 403
                         ? 'Bạn không có quyền truy cập cuộc trò chuyện này.'
-                        : 'Không tìm thấy cuộc trò chuyện này.'
+                        : res.status === 404
+                            ? 'Không tìm thấy cuộc trò chuyện này.'
+                            : `Lỗi server: ${res.status}`
                 })
+                // CRITICAL: Stop loading immediately on error and exit
                 setIsPageLoading(false)
                 return
             }
 
+            // 3. PARSE JSON DATA
             const data = await res.json()
 
+            // 4. CHECK FOR EMPTY DATA
             if (!data.character) {
                 setFetchError({
                     code: 404,
@@ -290,8 +299,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 return
             }
 
+            // 5. SUCCESS - Set character data
             setCharacter(data.character)
-            setFetchError(null)
+            setFetchError(null) // Clear any previous errors
 
             // Initialize relationship stats from character data
             if (data.character?.relationshipConfig) {
@@ -300,12 +310,14 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 setRelationshipStage(data.character.relationshipConfig.stage || 'UNDEFINED')
             }
         } catch (error) {
-            console.error('Error loading character:', error)
+            // 6. CATCH NETWORK/JSON ERRORS
+            console.error('[ChatPage] Error loading character:', error)
             setFetchError({
                 code: 500,
                 message: 'Không thể tải dữ liệu. Vui lòng thử lại.'
             })
         } finally {
+            // 7. ALWAYS STOP LOADING - No matter what happens
             setIsPageLoading(false)
         }
     }
