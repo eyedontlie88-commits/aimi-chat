@@ -390,6 +390,11 @@ ${nextDirection.trim()}`
             reactionReason,
             // TASK B: Include impact for micro-feedback UI
             impactScaled: impactScore * 3, // Scaled impact applied to affection
+            // 🟢 LIVE AI MONITOR: Include provider/model info for frontend
+            meta: {
+                provider: providerUsed,
+                model: modelUsed,
+            },
         })
     } catch (error: any) {
         if (isAuthError(error)) {

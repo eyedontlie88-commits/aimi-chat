@@ -135,6 +135,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [sceneGoal, setSceneGoal] = useState('')  // Long-term narrative context
     const [nextDirection, setNextDirection] = useState('')  // One-time instruction for next message
 
+    // 🟢 Live AI Monitor - track which model last responded
+    const [activeModel, setActiveModel] = useState<{ provider: string; model: string } | null>(null)
+
     // Comforting Loading Messages (timer-based rotation)
     const [loadingText, setLoadingText] = useState('')
     const loadingStartRef = useRef<number>(0)
@@ -401,6 +404,14 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 setAffectionPoints(data.relationship.affectionPoints)
                 setIntimacyLevel(data.relationship.intimacyLevel)
                 setRelationshipStage(data.relationship.stage || 'UNDEFINED')
+            }
+
+            // 🟢 Live AI Monitor: Update active model from response
+            if (data.meta) {
+                setActiveModel({
+                    provider: data.meta.provider,
+                    model: data.meta.model,
+                })
             }
 
             // TASK B: Show micro-feedback for impact (+6❤️ / -3💔)
@@ -700,9 +711,26 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                         STAGE: {relationshipStage}
                                     </div>
                                 </div>
-                                {/* Model Info */}
-                                <div className={`hidden sm:block text-[9px] truncate opacity-60 ${theme.bubbles.aiText}`}>
-                                    {character.provider || 'mặc định'} · {character.modelName || 'default'}
+                                {/* 🟢 Live AI Monitor - Show active model with pulsing indicator */}
+                                <div className={`flex items-center gap-1.5 text-[9px] font-mono opacity-70 ${theme.bubbles.aiText}`}>
+                                    {activeModel ? (
+                                        <>
+                                            <span className="relative flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                            </span>
+                                            <span className="truncate max-w-[180px]">
+                                                {activeModel.provider} / {activeModel.model}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+                                            <span className="truncate max-w-[180px]">
+                                                {character.provider || 'Mặc định'} / {character.modelName || 'Ready'}
+                                            </span>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
