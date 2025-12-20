@@ -122,6 +122,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     // Dev force reaction (development only)
     const [devForceReaction, setDevForceReaction] = useState<'OFF' | 'LIKE' | 'HEARTBEAT'>('OFF')
     const isDev = process.env.NODE_ENV !== 'production'
+    const { t } = useLanguage()
 
     // TASK B: Micro-feedback for impact display
     const [impactFeedback, setImpactFeedback] = useState<{ value: number; show: boolean }>({ value: 0, show: false })
@@ -1165,10 +1166,10 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     <div className="glass p-6 rounded-2xl w-full max-w-sm text-center space-y-4">
                         <div className="text-4xl">💕</div>
                         <h3 className="text-lg font-semibold">
-                            Hôm nay tụi mình nói chuyện vui quá!
+                            {t.exit.title}
                         </h3>
                         <p className="text-sm text-secondary">
-                            Bạn có muốn lưu lại kỷ niệm ngày hôm nay không?
+                            {t.exit.message}
                         </p>
                         <div className="flex flex-col gap-2">
                             <button
@@ -1180,7 +1181,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                 className="btn-primary w-full flex items-center justify-center gap-2"
                                 disabled={isAutoSaving}
                             >
-                                {isAutoSaving ? '⏳ Đang lưu...' : '💾 Lưu kỷ niệm & Thoát'}
+                                {isAutoSaving ? t.exit.saving : t.exit.saveExit}
                             </button>
                             <button
                                 onClick={() => {
@@ -1189,13 +1190,13 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                 }}
                                 className="btn-secondary w-full"
                             >
-                                Thoát không lưu
+                                {t.exit.exitOnly}
                             </button>
                             <button
                                 onClick={() => setShowExitConfirm(false)}
                                 className="text-sm text-secondary hover:text-white transition"
                             >
-                                Ở lại chat
+                                {t.exit.stay}
                             </button>
                         </div>
                     </div>

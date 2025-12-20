@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useLanguage } from '@/lib/i18n'
 
 interface SceneDirectorModalProps {
     isOpen: boolean
@@ -39,6 +40,7 @@ export default function SceneDirectorModal({
     const [mounted, setMounted] = useState(false)
     const [goalSaved, setGoalSaved] = useState(false)
     const [directionApplied, setDirectionApplied] = useState(false)
+    const { t } = useLanguage()
 
     useEffect(() => {
         setMounted(true)
@@ -117,7 +119,7 @@ export default function SceneDirectorModal({
                 <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
                     <div className="flex items-center gap-2">
                         <span className="text-2xl">🎬</span>
-                        <h2 className="text-lg font-bold text-white">Đạo diễn Cảnh</h2>
+                        <h2 className="text-lg font-bold text-white">{t.director.title}</h2>
                     </div>
                     <button
                         onClick={onClose}
@@ -132,20 +134,20 @@ export default function SceneDirectorModal({
                     <button
                         onClick={() => setActiveTab('long-term')}
                         className={`flex-1 py-3 px-4 text-sm font-medium transition-all ${activeTab === 'long-term'
-                                ? 'text-purple-400 border-b-2 border-purple-400 bg-purple-500/10'
-                                : 'text-gray-400 hover:text-gray-300'
+                            ? 'text-purple-400 border-b-2 border-purple-400 bg-purple-500/10'
+                            : 'text-gray-400 hover:text-gray-300'
                             }`}
                     >
-                        📖 Kịch bản Dài hạn
+                        {t.director.longTab}
                     </button>
                     <button
                         onClick={() => setActiveTab('quick')}
                         className={`flex-1 py-3 px-4 text-sm font-medium transition-all ${activeTab === 'quick'
-                                ? 'text-pink-400 border-b-2 border-pink-400 bg-pink-500/10'
-                                : 'text-gray-400 hover:text-gray-300'
+                            ? 'text-pink-400 border-b-2 border-pink-400 bg-pink-500/10'
+                            : 'text-gray-400 hover:text-gray-300'
                             }`}
                     >
-                        ⚡ Chỉ đạo Nhanh
+                        {t.director.quickTab}
                     </button>
                 </div>
 
@@ -154,13 +156,13 @@ export default function SceneDirectorModal({
                     {activeTab === 'long-term' ? (
                         <div className="space-y-4">
                             <p className="text-sm text-gray-400">
-                                💡 Mục tiêu của cả buổi trò chuyện này là gì? AI sẽ tuân thủ bối cảnh này liên tục.
+                                {t.director.longHint}
                             </p>
 
                             <textarea
                                 value={localGoal}
                                 onChange={(e) => setLocalGoal(e.target.value)}
-                                placeholder="Ví dụ: Hôm nay tôi đến trễ, hãy tỏ ra giận dỗi lạnh lùng. Đừng tha thứ dễ dàng cho đến khi tôi thực sự nỗ lực dỗ dành..."
+                                placeholder={t.director.longPlaceholder}
                                 className="w-full h-32 px-4 py-3 bg-slate-800/80 border border-white/10 rounded-xl text-white placeholder-gray-500 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
                             />
 
@@ -168,12 +170,12 @@ export default function SceneDirectorModal({
                             {sceneGoal && (
                                 <div className="flex items-center gap-2 p-3 bg-purple-500/20 border border-purple-500/30 rounded-lg">
                                     <span className="text-green-400 text-sm">✓</span>
-                                    <span className="text-purple-300 text-xs">Kịch bản đang hoạt động</span>
+                                    <span className="text-purple-300 text-xs">{t.director.scriptActive}</span>
                                     <button
                                         onClick={handleClearGoal}
                                         className="ml-auto text-xs text-red-400 hover:text-red-300"
                                     >
-                                        Xóa
+                                        {t.director.clear}
                                     </button>
                                 </div>
                             )}
@@ -182,11 +184,11 @@ export default function SceneDirectorModal({
                                 onClick={handleSaveGoal}
                                 disabled={goalSaved}
                                 className={`w-full py-3 rounded-xl font-bold text-white transition-all ${goalSaved
-                                        ? 'bg-green-600 cursor-default'
-                                        : 'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700'
+                                    ? 'bg-green-600 cursor-default'
+                                    : 'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700'
                                     }`}
                             >
-                                {goalSaved ? '✓ Đã Lưu!' : '💾 Lưu Kịch Bản'}
+                                {goalSaved ? t.director.saved : t.director.saveScript}
                             </button>
                         </div>
                     ) : (
@@ -198,14 +200,14 @@ export default function SceneDirectorModal({
                             <textarea
                                 value={localDirection}
                                 onChange={(e) => setLocalDirection(e.target.value)}
-                                placeholder="Ví dụ: Hãy phản ứng một cách ngạc nhiên và hơi đỏ mặt, sau đó cố lảng sang chuyện khác..."
+                                placeholder={t.director.quickPlaceholder}
                                 className="w-full h-32 px-4 py-3 bg-slate-800/80 border border-white/10 rounded-xl text-white placeholder-gray-500 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50"
                             />
 
                             <div className="flex items-center gap-2 p-3 bg-slate-800/50 border border-white/10 rounded-lg">
                                 <span className="text-yellow-400">⏳</span>
                                 <span className="text-gray-400 text-xs">
-                                    Lệnh này sẽ được gửi kèm tin nhắn tiếp theo của bạn, sau đó tự xóa.
+                                    {t.director.quickNote}
                                 </span>
                             </div>
 
@@ -213,13 +215,13 @@ export default function SceneDirectorModal({
                                 onClick={handleApplyDirection}
                                 disabled={!localDirection.trim() || directionApplied}
                                 className={`w-full py-3 rounded-xl font-bold text-white transition-all ${directionApplied
-                                        ? 'bg-green-600 cursor-default'
-                                        : !localDirection.trim()
-                                            ? 'bg-gray-600 cursor-not-allowed opacity-50'
-                                            : 'bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700'
+                                    ? 'bg-green-600 cursor-default'
+                                    : !localDirection.trim()
+                                        ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                                        : 'bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700'
                                     }`}
                             >
-                                {directionApplied ? '✓ Đã Áp Dụng!' : '🎯 Áp dụng cho tin nhắn sau'}
+                                {directionApplied ? t.director.applied : t.director.applyNext}
                             </button>
                         </div>
                     )}
@@ -229,8 +231,8 @@ export default function SceneDirectorModal({
                 <div className="border-t border-white/10 px-5 py-3 text-center">
                     <p className="text-xs text-gray-500">
                         {activeTab === 'long-term'
-                            ? 'Kịch bản sẽ được lưu và áp dụng cho mọi tin nhắn sau này.'
-                            : 'Nhấn áp dụng rồi nhắn tin bình thường ở ngoài.'}
+                            ? t.director.footerLong
+                            : t.director.footerQuick}
                     </p>
                 </div>
             </div>

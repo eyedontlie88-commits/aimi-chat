@@ -1,5 +1,6 @@
 import { formatRelativeTime } from '@/lib/utils'
 import NarrativeContent from '@/components/NarrativeContent'
+import { useLanguage } from '@/lib/i18n'
 
 interface ReplyToData {
     id: string
@@ -55,6 +56,7 @@ export default function MessageBubble({
     customAiBg,
     customAiText,
 }: MessageBubbleProps) {
+    const { t } = useLanguage()
     const isUser = role === 'user'
 
     // Theme-based or default colors (Tailwind classes)
@@ -140,9 +142,9 @@ export default function MessageBubble({
                         <button
                             onClick={onReply}
                             className="text-xs opacity-60 hover:opacity-100 transition-opacity"
-                            title="Trả lời"
+                            title={t.chat.reply}
                         >
-                            ↩ Trả lời
+                            ↩ {t.chat.reply}
                         </button>
                     )}
 
@@ -150,9 +152,9 @@ export default function MessageBubble({
                         <button
                             onClick={onSaveMemory}
                             className="text-xs opacity-60 hover:opacity-100 transition-opacity"
-                            title="Save as memory"
+                            title={t.chat.saveMemory}
                         >
-                            💾 Save
+                            💾 {t.chat.saveMemory}
                         </button>
                     )}
                 </div>

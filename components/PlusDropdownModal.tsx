@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useLanguage } from '@/lib/i18n'
 
 interface PlusDropdownModalProps {
     isOpen: boolean
@@ -64,12 +65,14 @@ export default function PlusDropdownModal({
 
     if (!isOpen) return null
 
+    const { t } = useLanguage()
+
     // Menu items configuration
     const menuItems: MenuItem[] = [
         {
             id: 'scene-director',
             icon: '🎬',
-            label: 'Đạo diễn',
+            label: t.menu.director,
             onClick: () => {
                 onSceneDirector?.()
                 onClose()
@@ -79,13 +82,13 @@ export default function PlusDropdownModal({
         {
             id: 'image',
             icon: '🖼️',
-            label: 'Image',
+            label: t.menu.image,
             placeholder: true, // Future feature
         },
         {
             id: 'search',
             icon: '💬',
-            label: 'Messages',
+            label: t.menu.messages,
             onClick: () => {
                 onSearch?.()
                 onClose()
@@ -94,7 +97,7 @@ export default function PlusDropdownModal({
         {
             id: 'phone-check',
             icon: '⏰',
-            label: 'Clock',
+            label: t.menu.clock,
             onClick: () => {
                 onPhoneCheck?.()
                 onClose()
@@ -103,7 +106,7 @@ export default function PlusDropdownModal({
         {
             id: 'memory',
             icon: '📝',
-            label: 'Notes',
+            label: t.menu.notes,
             onClick: () => {
                 onMemory?.()
                 onClose()
@@ -112,7 +115,7 @@ export default function PlusDropdownModal({
         {
             id: 'phone',
             icon: '📱',
-            label: 'Phone',
+            label: t.menu.phone,
             onClick: () => {
                 onPhone?.()  // Opens Phone OS screen
                 onClose()
@@ -121,13 +124,13 @@ export default function PlusDropdownModal({
         {
             id: 'help',
             icon: '💡',
-            label: 'Help',
+            label: t.menu.help,
             placeholder: true, // Future feature
         },
         {
             id: 'reset',
             icon: '💭',
-            label: 'Reset',
+            label: t.menu.reset,
             onClick: () => {
                 onReset?.()
                 onClose()
@@ -137,7 +140,7 @@ export default function PlusDropdownModal({
         {
             id: 'dev-options',
             icon: '🔖',
-            label: 'Dev',
+            label: t.menu.dev,
             placeholder: true, // Future feature
             devOnly: true,
         },
@@ -159,7 +162,7 @@ export default function PlusDropdownModal({
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs sm:max-w-sm overflow-hidden">
                     {/* Header with close button */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                        <h3 className="text-lg font-semibold text-gray-900">Menu</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">{t.menu.title}</h3>
                         <button
                             onClick={onClose}
                             className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
@@ -177,10 +180,10 @@ export default function PlusDropdownModal({
                                 onClick={item.onClick}
                                 disabled={item.placeholder}
                                 className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-all ${item.placeholder
-                                        ? 'opacity-40 cursor-not-allowed bg-gray-50'
-                                        : item.highlight
-                                            ? 'bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 active:scale-95 cursor-pointer ring-2 ring-purple-300'
-                                            : 'hover:bg-gray-100 active:scale-95 cursor-pointer'
+                                    ? 'opacity-40 cursor-not-allowed bg-gray-50'
+                                    : item.highlight
+                                        ? 'bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 active:scale-95 cursor-pointer ring-2 ring-purple-300'
+                                        : 'hover:bg-gray-100 active:scale-95 cursor-pointer'
                                     }`}
                             >
                                 <span className="text-2xl sm:text-3xl">{item.icon}</span>
@@ -194,7 +197,7 @@ export default function PlusDropdownModal({
                     {/* Footer hint */}
                     <div className="px-4 py-2 border-t border-gray-100 text-center">
                         <p className="text-xs text-gray-400">
-                            Tap to select • Esc to close
+                            {t.menu.tapToSelect}
                         </p>
                     </div>
                 </div>

@@ -323,15 +323,15 @@ export default function SettingsPage() {
 
             {/* Custom Color Picker */}
             <div className="card mb-8">
-                <h2 className="text-xl font-semibold mb-4">🎨 Màu chữ & Nền</h2>
+                <h2 className="text-xl font-semibold mb-4">{t.settings.colorTitle}</h2>
                 <p className="text-sm text-secondary mb-6">
-                    Tùy chỉnh màu chữ và màu nền cho tin nhắn chat
+                    {t.settings.colorDesc}
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Text Color */}
                     <div>
-                        <label className="block text-sm font-medium mb-2">Màu chữ</label>
+                        <label className="block text-sm font-medium mb-2">{t.settings.textColor}</label>
                         <div className="flex items-center gap-3">
                             <input
                                 type="color"
@@ -362,7 +362,7 @@ export default function SettingsPage() {
 
                     {/* Background Color */}
                     <div>
-                        <label className="block text-sm font-medium mb-2">Màu nền</label>
+                        <label className="block text-sm font-medium mb-2">{t.settings.bgColor}</label>
                         <div className="flex items-center gap-3">
                             <input
                                 type="color"
@@ -394,7 +394,7 @@ export default function SettingsPage() {
 
                 {/* Live Preview */}
                 <div className="mt-6">
-                    <label className="block text-sm font-medium mb-2">Xem trước</label>
+                    <label className="block text-sm font-medium mb-2">{t.settings.preview}</label>
                     <div
                         className="p-6 rounded-xl border border-white/20 text-center"
                         style={{
@@ -402,7 +402,7 @@ export default function SettingsPage() {
                             color: profile.textColor || '#F9D47E',
                         }}
                     >
-                        <p className="text-lg font-medium mb-2">Đây là tin nhắn mẫu</p>
+                        <p className="text-lg font-medium mb-2">{t.settings.sampleText}</p>
                         <p className="text-sm opacity-80">The quick brown fox jumps over the lazy dog</p>
                     </div>
                 </div>
@@ -414,7 +414,7 @@ export default function SettingsPage() {
                         onClick={() => setShowAIColorPopup(true)}
                         className="btn-primary w-full md:w-auto"
                     >
-                        🤖 AI Gợi ý màu
+                        {t.settings.aiSuggestColors}
                     </button>
                 </div>
 

@@ -81,6 +81,14 @@ export const translations = {
             textModeDark: 'Dark (black)',
             relationships: 'Relationship Settings',
             relationshipsDesc: 'Configure your relationship with each character.',
+            // Color customization
+            colorTitle: '🎨 Text & Background Color',
+            colorDesc: 'Customize text and background colors for chat',
+            textColor: 'Text Color',
+            bgColor: 'Background Color',
+            preview: 'Preview',
+            sampleText: 'This is a sample message',
+            aiSuggestColors: '✨ AI Suggest Colors',
             genderOptions: {
                 none: 'Prefer not to say',
                 male: 'Male',
@@ -180,11 +188,58 @@ export const translations = {
             reply: 'Reply',
             saveMemory: 'Save',
             replyingTo: 'Replying to:',
+            replyTo: 'Reply to',
+            you: 'You',
             cancelReply: 'Cancel reply',
             search: 'Search',
             searchMessages: 'Search messages...',
             noResults: 'No messages found',
             stage: 'STAGE',
+        },
+
+        // Menu
+        menu: {
+            title: 'Menu',
+            director: 'Director',
+            image: 'Image',
+            messages: 'Messages',
+            clock: 'Clock',
+            notes: 'Notes',
+            phone: 'Phone',
+            help: 'Help',
+            reset: 'Reset',
+            dev: 'Dev',
+            tapToSelect: 'Tap to select • Esc to close',
+        },
+
+        // Scene Director
+        director: {
+            title: 'Scene Director',
+            longTab: '📖 Long-term Script',
+            quickTab: '⚡ Quick Direction',
+            longHint: '💡 What is the goal for this entire chat session? AI will follow this context continuously.',
+            longPlaceholder: 'E.g: Today I arrived late, be cold and pouty. Do not forgive easily until I really make an effort...',
+            scriptActive: 'Script is active',
+            clear: 'Clear',
+            saveScript: '💾 Save Script',
+            saved: '✓ Saved!',
+            quickHint: '⚡ Direction for the NEXT AI response. Applied once only.',
+            quickPlaceholder: 'E.g: React with surprise and blush slightly, then try to change the subject...',
+            quickNote: 'This command will be sent with your next message, then auto-deleted.',
+            applyNext: '🎯 Apply to next message',
+            applied: '✓ Applied!',
+            footerLong: 'Script will be saved and applied to all future messages.',
+            footerQuick: 'Press apply then send your message normally.',
+        },
+
+        // Exit Confirmation
+        exit: {
+            title: 'We had a great chat today!',
+            message: 'Do you want to save this memory?',
+            saving: '⏳ Saving...',
+            saveExit: '💾 Save Memory & Exit',
+            exitOnly: 'Exit without saving',
+            stay: 'Stay & Chat',
         },
 
         // Memory
@@ -375,6 +430,14 @@ export const translations = {
             textModeDark: 'Chữ đậm (tối)',
             relationships: 'Cài đặt quan hệ',
             relationshipsDesc: 'Thiết lập mối quan hệ với từng nhân vật.',
+            // Color customization
+            colorTitle: '🎨 Màu chữ & Nền',
+            colorDesc: 'Tùy chỉnh màu chữ và màu nền cho tin nhắn chat',
+            textColor: 'Màu chữ',
+            bgColor: 'Màu nền',
+            preview: 'Xem trước',
+            sampleText: 'Đây là tin nhắn mẫu',
+            aiSuggestColors: '✨ AI Gợi ý màu',
             genderOptions: {
                 none: 'Không muốn nói',
                 male: 'Nam',
@@ -474,11 +537,58 @@ export const translations = {
             reply: 'Trả lời',
             saveMemory: 'Lưu',
             replyingTo: 'Đang trả lời:',
+            replyTo: 'Trả lời',
+            you: 'Bạn',
             cancelReply: 'Hủy trả lời',
             search: 'Tìm kiếm',
             searchMessages: 'Tìm kiếm tin nhắn...',
             noResults: 'Không tìm thấy tin nhắn nào',
             stage: 'GĐ',
+        },
+
+        // Menu
+        menu: {
+            title: 'Menu',
+            director: 'Đạo diễn',
+            image: 'Hình ảnh',
+            messages: 'Tin nhắn',
+            clock: 'Đồng hồ',
+            notes: 'Ghi chú',
+            phone: 'Điện thoại',
+            help: 'Trợ giúp',
+            reset: 'Reset',
+            dev: 'Dev',
+            tapToSelect: 'Chạm để chọn • Esc để đóng',
+        },
+
+        // Scene Director
+        director: {
+            title: 'Đạo diễn Cảnh',
+            longTab: '📖 Kịch bản Dài hạn',
+            quickTab: '⚡ Chỉ đạo Nhanh',
+            longHint: '💡 Mục tiêu của cả buổi trò chuyện này là gì? AI sẽ tuân thủ bối cảnh này liên tục.',
+            longPlaceholder: 'Ví dụ: Hôm nay tôi đến trễ, hãy tỏ ra giận dỗi lạnh lùng. Đừng tha thứ dễ dàng cho đến khi tôi thực sự nỗ lực dỗ dành...',
+            scriptActive: 'Kịch bản đang hoạt động',
+            clear: 'Xóa',
+            saveScript: '💾 Lưu Kịch Bản',
+            saved: '✓ Đã Lưu!',
+            quickHint: '⚡ Hướng dẫn cho câu trả lời TIẾP THEO của AI. Chỉ áp dụng 1 lần duy nhất.',
+            quickPlaceholder: 'Ví dụ: Hãy phản ứng một cách ngạc nhiên và hơi đỏ mặt, sau đó cố lảng sang chuyện khác...',
+            quickNote: 'Lệnh này sẽ được gửi kèm tin nhắn tiếp theo của bạn, sau đó tự xóa.',
+            applyNext: '🎯 Áp dụng cho tin nhắn sau',
+            applied: '✓ Đã Áp Dụng!',
+            footerLong: 'Kịch bản sẽ được lưu và áp dụng cho mọi tin nhắn sau này.',
+            footerQuick: 'Nhấn áp dụng rồi nhắn tin bình thường ở ngoài.',
+        },
+
+        // Exit Confirmation
+        exit: {
+            title: 'Hôm nay tụi mình nói chuyện vui quá!',
+            message: 'Bạn có muốn lưu lại kỷ niệm ngày hôm nay không?',
+            saving: '⏳ Đang lưu...',
+            saveExit: '💾 Lưu kỷ niệm & Thoát',
+            exitOnly: 'Thoát không lưu',
+            stay: 'Ở lại chat',
         },
 
         // Memory
