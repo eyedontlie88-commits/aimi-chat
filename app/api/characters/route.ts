@@ -6,19 +6,25 @@ export const dynamic = 'force-dynamic'
 
 // GET /api/characters - List characters for current user
 export const GET = withAuth(async (request: NextRequest, ctx: AuthContext) => {
-    const { uid, role, prisma, schema } = ctx
+    const { uid, role, prisma } = ctx
 
-    console.log(`[Characters API] uid=${uid}, role=${role}, schema=${schema}`)
+    console.log(`[Characters API] uid=${uid}, role=${role}`)
 
-    // TEMP: Bỏ where clause để test - hiển thị TẤT CẢ characters trong schema
+    // SECURITY: Only fetch characters that belong to the current user
+    // Characters are owned via the RelationshipConfig join table
     const characters = await prisma.character.findMany({
+        where: {
+            relationshipConfig: {
+                userId: uid, // CRITICAL: Filter by current user's ID
+            },
+        },
         orderBy: { name: 'asc' },
         include: {
             relationshipConfig: true,
         },
     })
 
-    console.log(`[Characters API] Found ${characters.length} characters`)
+    console.log(`[Characters API] Found ${characters.length} characters for user ${uid}`)
 
     return NextResponse.json({ characters })
 })
