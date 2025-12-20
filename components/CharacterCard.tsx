@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { useModal } from '@/contexts/ModalContext'
 
 interface CharacterCardProps {
     id: string
@@ -38,13 +39,21 @@ export default function CharacterCard({
     onDelete,
 }: CharacterCardProps) {
     const router = useRouter()
+    const { user, openLogin } = useModal()
     const [isDeleting, setIsDeleting] = useState(false)
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-    // Navigate to chat
+    // Navigate to chat - AUTH GATEKEEPER
     const handleChatClick = (e: React.MouseEvent) => {
         e.stopPropagation()
         e.preventDefault()
+
+        // Gatekeeper: If not logged in, show login modal instead of navigating
+        if (!user) {
+            openLogin()
+            return
+        }
+
         router.push(`/chat/${id}`)
     }
 

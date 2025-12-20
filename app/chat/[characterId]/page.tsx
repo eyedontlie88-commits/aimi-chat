@@ -15,6 +15,7 @@ import ParseToolbar from '@/components/ParseToolbar'
 import PlusDropdownModal from '@/components/PlusDropdownModal'
 import PhoneHomeScreen from '@/components/phone-os/PhoneHomeScreen'
 import { useColors } from '@/lib/ColorContext'
+import { useModal } from '@/contexts/ModalContext'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
 
@@ -148,13 +149,29 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     // Get user's custom colors from ColorContext (must be before any conditional returns)
     const { textColor, backgroundColor } = useColors()
 
+    // Get auth state from ModalContext
+    const { user, loading: authLoading, openLogin } = useModal()
+
+    // AUTH GATEKEEPER: Redirect to home if not authenticated
     useEffect(() => {
-        loadCharacter()
-        loadMessages()
-        loadMemories()
-        loadSiliconPresets()
-        loadTheme()
-    }, [characterId])
+        if (!authLoading && !user) {
+            console.log('[ChatPage] User not authenticated, redirecting to home...')
+            router.replace('/characters')
+            // Open login modal after redirect
+            setTimeout(() => openLogin(), 100)
+        }
+    }, [authLoading, user, router, openLogin])
+
+    useEffect(() => {
+        // Only load data if user is authenticated
+        if (user) {
+            loadCharacter()
+            loadMessages()
+            loadMemories()
+            loadSiliconPresets()
+            loadTheme()
+        }
+    }, [characterId, user])
 
     useEffect(() => {
         scrollToBottom()
