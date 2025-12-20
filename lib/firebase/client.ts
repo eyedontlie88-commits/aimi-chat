@@ -2,6 +2,7 @@ import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
 import {
     getAuth,
     signInWithPopup,
+    signInWithCredential,
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     GoogleAuthProvider,
@@ -10,6 +11,8 @@ import {
     User,
     Auth
 } from 'firebase/auth'
+import { Capacitor } from '@capacitor/core'
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth'
 
 /**
  * Firebase Client SDK
@@ -46,12 +49,29 @@ export function getFirebaseAuth(): Auth {
 const googleProvider = new GoogleAuthProvider()
 
 /**
- * Sign in with Google popup
+ * Sign in with Google
+ * Uses native GoogleAuth plugin on Capacitor (Android/iOS)
+ * Falls back to Firebase popup on web
  */
 export async function signInWithGoogle(): Promise<User> {
     const auth = getFirebaseAuth()
-    const result = await signInWithPopup(auth, googleProvider)
-    return result.user
+
+    // Check if running on native platform (Android/iOS)
+    if (Capacitor.isNativePlatform()) {
+        // Use native Google Auth plugin
+        const googleUser = await GoogleAuth.signIn()
+
+        // Create Firebase credential from the ID token
+        const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken)
+
+        // Sign in to Firebase with the credential
+        const result = await signInWithCredential(auth, credential)
+        return result.user
+    } else {
+        // Web browser: use Firebase popup
+        const result = await signInWithPopup(auth, googleProvider)
+        return result.user
+    }
 }
 
 /**

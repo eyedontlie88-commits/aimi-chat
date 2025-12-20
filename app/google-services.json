@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "647583841932",
+    "project_id": "aimi-chat",
+    "storage_bucket": "aimi-chat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:647583841932:android:4192d7c88273e685e245a9",
+        "android_client_info": {
+          "package_name": "com.aimi.chat"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "647583841932-dshut2n2ngg6a60iborrb719i7tpjht9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aimi.chat",
+            "certificate_hash": "ac4314358c8f7720e50790db7c2073240949a76c"
+          }
+        },
+        {
+          "client_id": "647583841932-gekeglpllnt43tb0gkqnq294j5ejomla.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDj_un2olQd6SXu1bt06OpkhqkXtGE0RMA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "647583841932-gekeglpllnt43tb0gkqnq294j5ejomla.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

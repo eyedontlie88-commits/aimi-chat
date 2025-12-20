@@ -24,6 +24,12 @@ const poppins = Poppins({
 export const metadata: Metadata = {
     title: "AImi chat - Your Personal AI Companions",
     description: "Chat with romantic AI characters who remember and care",
+    // PWA meta tags for app-like experience
+    other: {
+        'apple-mobile-web-app-capable': 'yes',
+        'mobile-web-app-capable': 'yes',
+        'apple-mobile-web-app-status-bar-style': 'black-translucent',
+    },
 };
 
 export default function RootLayout({
