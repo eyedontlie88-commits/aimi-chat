@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
     signInWithGoogle,
     signInWithEmail,
@@ -14,8 +15,9 @@ interface LoginModalProps {
 }
 
 /**
- * Fullscreen glassmorphism login modal
- * Mobile-first design with centered form and large touch targets
+ * Fixed overlay login modal using React Portal
+ * Renders at document.body level to escape any parent overflow:hidden
+ * z-[9999] ensures it's always on top
  */
 export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
     const [email, setEmail] = useState('')
@@ -23,8 +25,15 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
     const [isSignUp, setIsSignUp] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
+    const [mounted, setMounted] = useState(false)
 
-    if (!isOpen) return null
+    // Wait for client-side mount to use Portal
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    // Don't render until mounted (client-side) and modal is open
+    if (!isOpen || !mounted) return null
 
     const handleGoogleSignIn = async () => {
         try {
@@ -66,16 +75,16 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
         }
     }
 
-    return (
-        // Fixed overlay - luôn nổi trên cùng
+    // Modal content with z-[9999] for guaranteed top layer
+    const modalContent = (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
             onClick={handleBackdropClick}
         >
-            {/* Modal container - căn giữa tuyệt đối */}
-            <div className="relative w-full max-w-sm mx-4 bg-slate-900/90 border border-white/20 rounded-2xl shadow-2xl p-6 animate-in slide-in-from-bottom-4 zoom-in-95 duration-300">
+            {/* Modal container - centered absolutely */}
+            <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl relative animate-in slide-in-from-bottom-4 zoom-in-95 duration-300">
 
-                {/* Nút đóng - góc phải */}
+                {/* Close button */}
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
@@ -88,8 +97,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
 
                 {/* Logo */}
                 <div className="text-center mb-4">
-                    <span className="text-4xl">💕</span>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent mt-1">
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent">
                         AImi Chat
                     </h1>
                 </div>
@@ -106,41 +114,35 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                     </div>
                 )}
 
-                {/* Email form */}
-                <form onSubmit={handleEmailAuth} className="space-y-4 mb-4">
+                {/* Form with full width inputs */}
+                <form onSubmit={handleEmailAuth} className="space-y-4">
                     {/* Email input */}
-                    <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">📧</span>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Email của bạn..."
-                            className="w-full pl-12 pr-4 py-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500/50 focus:ring-2 focus:ring-pink-500/20 transition-all"
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
+                    <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Email..."
+                        className="w-full p-4 bg-gray-800 rounded-xl border border-gray-700 focus:border-pink-500 outline-none transition-all text-white placeholder-gray-400"
+                        required
+                        disabled={isLoading}
+                    />
 
                     {/* Password input */}
-                    <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔒</span>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Mật khẩu..."
-                            className="w-full pl-12 pr-4 py-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500/50 focus:ring-2 focus:ring-pink-500/20 transition-all"
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Mật khẩu..."
+                        className="w-full p-4 bg-gray-800 rounded-xl border border-gray-700 focus:border-pink-500 outline-none transition-all text-white placeholder-gray-400"
+                        required
+                        disabled={isLoading}
+                    />
 
-                    {/* Submit button - Gradient Pink */}
+                    {/* Submit button */}
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-pink-500/30"
+                        className="w-full p-4 bg-gradient-to-r from-pink-600 to-rose-600 rounded-xl font-bold text-white shadow-lg hover:shadow-pink-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
                         {isLoading ? (
                             <span className="animate-pulse">Đang xử lý...</span>
@@ -157,7 +159,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                     type="button"
                     onClick={() => setIsSignUp(!isSignUp)}
                     disabled={isLoading}
-                    className="w-full text-sm text-gray-400 hover:text-pink-400 transition-colors mb-4"
+                    className="w-full text-sm text-gray-400 hover:text-pink-400 transition-colors mt-4"
                 >
                     {isSignUp ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký'}
                 </button>
@@ -169,7 +171,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                     <div className="flex-1 h-px bg-white/20"></div>
                 </div>
 
-                {/* Google Sign In - Nút trắng với icon màu */}
+                {/* Google Sign In */}
                 <button
                     onClick={handleGoogleSignIn}
                     disabled={isLoading}
@@ -198,4 +200,8 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
             </div>
         </div>
     )
+
+    // Use createPortal to render modal at document.body level
+    // This escapes any parent overflow:hidden constraints
+    return createPortal(modalContent, document.body)
 }
