@@ -12,6 +12,7 @@ interface PlusDropdownModalProps {
     onSettings?: () => void
     onSearch?: () => void
     onReset?: () => void
+    onSceneDirector?: () => void // 🎬 Scene Director - narrative control
     devMode?: boolean
 }
 
@@ -22,6 +23,7 @@ interface MenuItem {
     onClick?: () => void
     devOnly?: boolean
     placeholder?: boolean
+    highlight?: boolean // VIP feature highlighting
 }
 
 export default function PlusDropdownModal({
@@ -34,6 +36,7 @@ export default function PlusDropdownModal({
     onSettings,
     onSearch,
     onReset,
+    onSceneDirector,
     devMode = false,
 }: PlusDropdownModalProps) {
     // Prevent scroll when modal is open
@@ -63,6 +66,16 @@ export default function PlusDropdownModal({
 
     // Menu items configuration
     const menuItems: MenuItem[] = [
+        {
+            id: 'scene-director',
+            icon: '🎬',
+            label: 'Đạo diễn',
+            onClick: () => {
+                onSceneDirector?.()
+                onClose()
+            },
+            highlight: true, // VIP feature
+        },
         {
             id: 'image',
             icon: '🖼️',
@@ -164,12 +177,14 @@ export default function PlusDropdownModal({
                                 onClick={item.onClick}
                                 disabled={item.placeholder}
                                 className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-all ${item.placeholder
-                                    ? 'opacity-40 cursor-not-allowed bg-gray-50'
-                                    : 'hover:bg-gray-100 active:scale-95 cursor-pointer'
+                                        ? 'opacity-40 cursor-not-allowed bg-gray-50'
+                                        : item.highlight
+                                            ? 'bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 active:scale-95 cursor-pointer ring-2 ring-purple-300'
+                                            : 'hover:bg-gray-100 active:scale-95 cursor-pointer'
                                     }`}
                             >
                                 <span className="text-2xl sm:text-3xl">{item.icon}</span>
-                                <span className="text-xs sm:text-sm font-medium text-gray-700">
+                                <span className={`text-xs sm:text-sm font-medium ${item.highlight ? 'text-purple-700' : 'text-gray-700'}`}>
                                     {item.label}
                                 </span>
                             </button>

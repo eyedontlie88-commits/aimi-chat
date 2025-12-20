@@ -13,6 +13,7 @@ import HeartToast from '@/components/HeartToast'
 import DevRelationshipTools from '@/components/DevRelationshipTools'
 import ParseToolbar from '@/components/ParseToolbar'
 import PlusDropdownModal from '@/components/PlusDropdownModal'
+import SceneDirectorModal from '@/components/SceneDirectorModal'
 import PhoneHomeScreen from '@/components/phone-os/PhoneHomeScreen'
 import { useColors } from '@/lib/ColorContext'
 import { useModal } from '@/contexts/ModalContext'
@@ -129,6 +130,11 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [showPlusModal, setShowPlusModal] = useState(false)
     const [showPhoneOS, setShowPhoneOS] = useState(false)
 
+    // 🎬 Scene Director state
+    const [showSceneDirector, setShowSceneDirector] = useState(false)
+    const [sceneGoal, setSceneGoal] = useState('')  // Long-term narrative context
+    const [nextDirection, setNextDirection] = useState('')  // One-time instruction for next message
+
     // Comforting Loading Messages (timer-based rotation)
     const [loadingText, setLoadingText] = useState('')
     const loadingStartRef = useRef<number>(0)
@@ -174,6 +180,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             loadMemories()
             loadSiliconPresets()
             loadTheme()
+
+            // Load saved scene goal from localStorage
+            const savedGoal = localStorage.getItem(`scene_goal_${characterId}`)
+            if (savedGoal) {
+                setSceneGoal(savedGoal)
+            }
         }
     }, [characterId, user])
 
@@ -368,6 +380,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         : userMessage,
                     sceneState,
                     replyToMessageId: replyTarget?.id || null,
+                    // Đạo diễn Cảnh - Scene Director
+                    sceneGoal: sceneGoal || undefined,
+                    nextDirection: nextDirection || undefined,
                     // Dev force reaction (only sent if not OFF and in dev mode)
                     ...(isDev && devForceReaction !== 'OFF' && { devForceReaction }),
                 }),
@@ -408,6 +423,11 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             setInputMessage('')
             setReplyTarget(null)
             setIsPhoneCheckOpen(false)
+
+            // Đạo diễn Cảnh: Clear one-time direction after sending
+            if (nextDirection) {
+                setNextDirection('')
+            }
         } catch (error: any) {
             console.error('Error sending message:', error)
             alert(`AI không trả lời được (lỗi máy chủ). Bạn thử nhắn lại sau một chút nhé.\n\nChi tiết: ${error?.message || 'Unknown error'}`)
@@ -1039,6 +1059,20 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     setIsSearchOpen(true)
                 }}
                 onReset={handleResetChat}
+                onSceneDirector={() => {
+                    setShowSceneDirector(true)
+                }}
+            />
+
+            {/* 🎬 Scene Director Modal */}
+            <SceneDirectorModal
+                isOpen={showSceneDirector}
+                onClose={() => setShowSceneDirector(false)}
+                characterId={characterId}
+                sceneGoal={sceneGoal}
+                onSceneGoalChange={setSceneGoal}
+                nextDirection={nextDirection}
+                onNextDirectionChange={setNextDirection}
             />
 
             {/* Phone OS Home Screen */}

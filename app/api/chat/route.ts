@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { characterId, message, sceneState, replyToMessageId } = body
+        const { characterId, message, sceneState, replyToMessageId, sceneGoal, nextDirection } = body
 
         if (!characterId || !message) {
             return NextResponse.json({ error: 'characterId and message are required' }, { status: 400 })
@@ -143,6 +143,30 @@ export async function POST(request: NextRequest) {
                 userContent = `[Ngữ cảnh: Tin nhắn này đang trả lời tin nhắn trước của ${replyAuthor}: "${replyToMessage.content.slice(0, 200)}${replyToMessage.content.length > 200 ? '...' : ''}"]
 ${message}`
             }
+        }
+
+        // ============================================
+        // 🎬 SCENE DIRECTOR - NARRATIVE CONTROL
+        // Inject user-provided scene context and directions
+        // ============================================
+
+        // Long-term Scene Goal: Prepend as persistent context for entire session
+        if (sceneGoal && sceneGoal.trim()) {
+            userContent = `[IMPORTANT SCENE CONTEXT - Follow this throughout the conversation:]
+${sceneGoal.trim()}
+
+[User's message:]
+${userContent}`
+            console.log('[Chat API] 🎬 Scene Goal active:', sceneGoal.substring(0, 50) + '...')
+        }
+
+        // Quick Direction: Append as one-time instruction for this response only
+        if (nextDirection && nextDirection.trim()) {
+            userContent = `${userContent}
+
+[INSTRUCTION FOR YOUR NEXT RESPONSE ONLY - After reading, execute this direction:]
+${nextDirection.trim()}`
+            console.log('[Chat API] 🎬 Next Direction:', nextDirection.substring(0, 50) + '...')
         }
 
         const promptMessages = [
