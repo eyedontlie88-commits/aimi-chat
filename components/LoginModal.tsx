@@ -15,6 +15,42 @@ interface LoginModalProps {
 }
 
 /**
+ * Translate Firebase auth error codes to user-friendly Vietnamese messages
+ */
+function getFriendlyErrorMessage(error: any): string {
+    const errorCode = error?.code || ''
+    const errorMessage = error?.message || ''
+
+    // Extract error code from message if not in code field
+    // Firebase sometimes returns: "Firebase: Error (auth/invalid-credential)."
+    const codeMatch = errorMessage.match(/\(auth\/([^)]+)\)/)
+    const code = errorCode || (codeMatch ? `auth/${codeMatch[1]}` : '')
+
+    switch (code) {
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found':
+            return 'Email hoặc mật khẩu không chính xác.'
+        case 'auth/email-already-in-use':
+            return 'Email này đã được đăng ký rồi.'
+        case 'auth/weak-password':
+            return 'Mật khẩu quá yếu (cần ít nhất 6 ký tự).'
+        case 'auth/invalid-email':
+            return 'Định dạng email không hợp lệ.'
+        case 'auth/too-many-requests':
+            return 'Thử lại quá nhiều lần. Vui lòng đợi 5 phút.'
+        case 'auth/network-request-failed':
+            return 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.'
+        case 'auth/popup-closed-by-user':
+            return 'Bạn đã đóng cửa sổ đăng nhập.'
+        case 'auth/cancelled-popup-request':
+            return 'Đăng nhập bị hủy.'
+        default:
+            return 'Đã có lỗi xảy ra. Vui lòng thử lại.'
+    }
+}
+
+/**
  * Fixed overlay login modal using React Portal
  * Renders at document.body level to escape any parent overflow:hidden
  * z-[9999] ensures it's always on top
@@ -44,7 +80,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
             onClose()
         } catch (e: any) {
             console.error('[LoginModal] Google sign in error:', e)
-            setError(e.message || 'Đăng nhập thất bại')
+            setError(getFriendlyErrorMessage(e))
             setIsLoading(false)
         }
     }
@@ -64,9 +100,15 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
             onClose()
         } catch (e: any) {
             console.error('[LoginModal] Email auth error:', e)
-            setError(e.message || 'Xác thực thất bại')
+            setError(getFriendlyErrorMessage(e))
             setIsLoading(false)
         }
+    }
+
+    // Clear error when switching between login/signup modes
+    const toggleMode = () => {
+        setError('')
+        setIsSignUp(!isSignUp)
     }
 
     const handleBackdropClick = (e: React.MouseEvent) => {
@@ -157,7 +199,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                 {/* Toggle Sign In/Sign Up */}
                 <button
                     type="button"
-                    onClick={() => setIsSignUp(!isSignUp)}
+                    onClick={toggleMode}
                     disabled={isLoading}
                     className="w-full text-sm text-gray-400 hover:text-pink-400 transition-colors mt-4"
                 >
