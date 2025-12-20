@@ -90,6 +90,10 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [themeId, setThemeId] = useState<ChatThemeId>('midnight')
     const [textMode, setTextMode] = useState<ChatTextMode>('auto')
 
+    // Error state for handling 403/404 fetch errors
+    const [fetchError, setFetchError] = useState<{ code: number; message: string } | null>(null)
+    const [isPageLoading, setIsPageLoading] = useState(true) // Track initial page load
+
     // Relationship state (updated after each message)
     const [affectionPoints, setAffectionPoints] = useState(0)
     const [intimacyLevel, setIntimacyLevel] = useState(0)
@@ -246,8 +250,33 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const loadCharacter = async () => {
         try {
             const res = await authFetch(`/api/characters/${characterId}`)
+
+            // Handle 403/404 errors - character not found or no access
+            if (res.status === 403 || res.status === 404) {
+                console.error(`[ChatPage] Character fetch failed: ${res.status}`)
+                setFetchError({
+                    code: res.status,
+                    message: res.status === 403
+                        ? 'Bạn không có quyền truy cập cuộc trò chuyện này.'
+                        : 'Không tìm thấy cuộc trò chuyện này.'
+                })
+                setIsPageLoading(false)
+                return
+            }
+
             const data = await res.json()
+
+            if (!data.character) {
+                setFetchError({
+                    code: 404,
+                    message: 'Không tìm thấy nhân vật này.'
+                })
+                setIsPageLoading(false)
+                return
+            }
+
             setCharacter(data.character)
+            setFetchError(null)
 
             // Initialize relationship stats from character data
             if (data.character?.relationshipConfig) {
@@ -257,6 +286,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             }
         } catch (error) {
             console.error('Error loading character:', error)
+            setFetchError({
+                code: 500,
+                message: 'Không thể tải dữ liệu. Vui lòng thử lại.'
+            })
+        } finally {
+            setIsPageLoading(false)
         }
     }
 
@@ -545,7 +580,33 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         return GOODNIGHT_KEYWORDS.some(keyword => lowerText.includes(keyword))
     }
 
-    if (!character) {
+    // Error state - show error message with back button
+    if (fetchError) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+                <div className="glass rounded-2xl p-8 max-w-md text-center">
+                    <div className="text-5xl mb-4">
+                        {fetchError.code === 403 ? '🔒' : fetchError.code === 404 ? '😔' : '⚠️'}
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">
+                        {fetchError.code === 403 ? 'Không có quyền truy cập' : 'Không tìm thấy'}
+                    </h2>
+                    <p className="text-secondary mb-6">
+                        {fetchError.message}
+                    </p>
+                    <button
+                        onClick={() => router.push('/characters')}
+                        className="btn-primary px-6 py-3 rounded-xl font-medium"
+                    >
+                        ← Quay về trang chủ
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
+    // Loading state
+    if (!character || isPageLoading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="animate-pulse text-secondary">Đang tải...</div>

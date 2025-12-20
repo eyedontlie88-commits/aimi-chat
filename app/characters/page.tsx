@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import CharacterCard from '@/components/CharacterCard'
 import CharacterFormModal from '@/components/CharacterFormModal'
 import { authFetch } from '@/lib/firebase/auth-fetch'
+import { useModal } from '@/contexts/ModalContext'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { GooglePresetModel } from '@/lib/llm/google-presets'
 
@@ -27,14 +28,27 @@ export default function CharactersPage() {
     const [siliconPresets, setSiliconPresets] = useState<SiliconPresetModel[]>([])
     const [googlePresets, setGooglePresets] = useState<GooglePresetModel[]>([])
 
+    // Get user from ModalContext - data depends on this!
+    const { user, loading: authLoading } = useModal()
+
     const characterCount = characters.length
     const hasReachedLimit = characterCount >= MAX_CHARACTERS
 
+    // CRITICAL: Depend on user state to clear/reload data on account switch
     useEffect(() => {
+        // Clear data immediately when user is null (logged out)
+        if (!user) {
+            setCharacters([])
+            setIsLoading(false)
+            return
+        }
+
+        // User is logged in - load their data
+        setIsLoading(true)
         loadCharacters()
         loadSiliconPresets()
         loadGooglePresets()
-    }, [])
+    }, [user]) // Dependency on user ensures reload on account change
 
     const loadCharacters = async () => {
         try {
@@ -43,6 +57,7 @@ export default function CharactersPage() {
             setCharacters(data.characters || [])
         } catch (error) {
             console.error('Error loading characters:', error)
+            setCharacters([]) // Clear on error to prevent stale data
         } finally {
             setIsLoading(false)
         }
