@@ -50,6 +50,9 @@ function getFriendlyErrorMessage(error: any): string {
     }
 }
 
+// Safety timeout duration - 15 seconds
+const AUTH_TIMEOUT_MS = 15000
+
 /**
  * Fixed overlay login modal using React Portal
  * Renders at document.body level to escape any parent overflow:hidden
@@ -68,17 +71,39 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
         setMounted(true)
     }, [])
 
+    // SAFETY: Reset state when modal opens/closes
+    // This ensures a fresh start every time user opens the modal
+    useEffect(() => {
+        if (isOpen) {
+            setIsLoading(false)  // Reset stuck loading state
+            setError('')         // Clear old errors
+            // Don't reset email/password - user might want to retry
+        }
+    }, [isOpen])
+
     // Don't render until mounted (client-side) and modal is open
     if (!isOpen || !mounted) return null
 
     const handleGoogleSignIn = async () => {
+        // Prevent double-click
+        if (isLoading) return
+
+        setIsLoading(true)
+        setError('')
+
+        // SAFETY: Auto-timeout after 15 seconds
+        const safetyTimer = setTimeout(() => {
+            setIsLoading(false)
+            setError('Quá thời gian chờ. Vui lòng kiểm tra mạng và thử lại.')
+        }, AUTH_TIMEOUT_MS)
+
         try {
-            setIsLoading(true)
-            setError('')
             await signInWithGoogle()
+            clearTimeout(safetyTimer)
             onSuccess?.()
             onClose()
         } catch (e: any) {
+            clearTimeout(safetyTimer)
             console.error('[LoginModal] Google sign in error:', e)
             setError(getFriendlyErrorMessage(e))
             setIsLoading(false)
@@ -87,8 +112,18 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
 
     const handleEmailAuth = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        // Prevent double-click
+        if (isLoading) return
+
         setError('')
         setIsLoading(true)
+
+        // SAFETY: Auto-timeout after 15 seconds
+        const safetyTimer = setTimeout(() => {
+            setIsLoading(false)
+            setError('Quá thời gian chờ. Vui lòng kiểm tra mạng và thử lại.')
+        }, AUTH_TIMEOUT_MS)
 
         try {
             if (isSignUp) {
@@ -96,9 +131,11 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
             } else {
                 await signInWithEmail(email, password)
             }
+            clearTimeout(safetyTimer)
             onSuccess?.()
             onClose()
         } catch (e: any) {
+            clearTimeout(safetyTimer)
             console.error('[LoginModal] Email auth error:', e)
             setError(getFriendlyErrorMessage(e))
             setIsLoading(false)
