@@ -636,8 +636,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         )
     }
 
-    // Loading state
-    if (!character || isPageLoading) {
+    // Loading state - ONLY show if not in error state
+    // Without the !fetchError check, loading would override error UI because character is still null
+    if ((!character || isPageLoading) && !fetchError) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="animate-pulse text-secondary">Đang tải...</div>
