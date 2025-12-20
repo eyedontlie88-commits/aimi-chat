@@ -100,16 +100,40 @@ function buildSystemMessage(
     }
 
     // (A) PERSONA & BACKSTORY
-    sections.push(`## PERSONA & THÔNG TIN NHÂN VẬT
+    if (isEnglish) {
+        sections.push(`## PERSONA & CHARACTER INFO
+${character.persona}
+
+**CRITICAL LANGUAGE DIRECTIVE:**
+Although the persona description above may be written in Vietnamese, you are currently conversing with an ENGLISH-SPEAKING user. You MUST:
+1. Translate ALL your thoughts and character traits into natural English
+2. Speak ONLY in English - do NOT use Vietnamese AT ALL
+3. Keep your personality, quirks, and speaking style but express them in English
+4. If the persona mentions Vietnamese expressions, find equivalent English expressions`)
+    } else {
+        sections.push(`## PERSONA & THÔNG TIN NHÂN VẬT
 ${character.persona}`)
+    }
 
     // (B) SPEAKING STYLE
-    sections.push(`## PHONG CÁCH NÓI CHUYỆN
+    if (isEnglish) {
+        sections.push(`## SPEAKING STYLE
+${character.speakingStyle}
+
+(Adapt this speaking style to natural English - maintain personality but use English expressions)`)
+    } else {
+        sections.push(`## PHONG CÁCH NÓI CHUYỆN
 ${character.speakingStyle}`)
+    }
 
     // (C) BOUNDARIES
-    sections.push(`## RANH GIỚI / ĐIỀU CẤM
+    if (isEnglish) {
+        sections.push(`## BOUNDARIES / FORBIDDEN TOPICS
 ${character.boundaries}`)
+    } else {
+        sections.push(`## RANH GIỚI / ĐIỀU CẤM
+${character.boundaries}`)
+    }
 
     // (D) LANGUAGE RULES - DYNAMIC BASED ON USER PREFERENCE
     if (isEnglish) {
@@ -285,8 +309,20 @@ ${memoryList}`)
 ${formatScene(sceneState, userProfile.nicknameForUser)}`)
     }
 
-    // VÍ DỤ HỘI THOẠI (trước OUTPUT RULES)
-    sections.push(`## VÍ DỤ HỘI THOẠI (CHỈ THAM KHẢO VỀ GIỌNG ĐIỆU)
+    // EXAMPLE DIALOGUES (before OUTPUT RULES) - LANGUAGE AWARE
+    if (isEnglish) {
+        sections.push(`## EXAMPLE DIALOGUES (TONE REFERENCE ONLY)
+
+User: "I'm so tired today."
+You (example): "Oh no, why are you so tired? 🥺 Come here, let me give you a hug and tell me about your day."
+
+User: "I'm so frustrated, everyone keeps criticizing my work."
+You (example): "Who dared to upset you like that? 😤 Tell me everything, I'm 100% on your side, no matter what."
+
+User: "Do you love me?"
+You (example): "What kind of silly question is that? 💕 Of course I do, I love you so much, I couldn't possibly not love you."`)
+    } else {
+        sections.push(`## VÍ DỤ HỘI THOẠI (CHỈ THAM KHẢO VỀ GIỌNG ĐIỆU)
 
 Người dùng: "Hôm nay em mệt quá."
 Bạn (mẫu): "Trời ơi, sao lại để mình mệt như vậy hả? 🥺 Lại đây để anh ôm em một cái rồi kể anh nghe chuyện ngày hôm nay nào."
@@ -296,18 +332,34 @@ Bạn (mẫu): "Ai dám làm em bực vậy? 😤 Kể chi tiết cho anh nghe x
 
 Người dùng: "Anh có thương em không?"
 Bạn (mẫu): "Hỏi gì mà ngốc vậy? 💕 Thương chứ, thương lắm luôn, không thể không thương được."`)
+    }
 
-    // CUỐI CÙNG: OUTPUT RULES – nơi model ưu tiên
-    sections.push(`## QUY TẮC TRẢ LỜI (QUAN TRỌNG NHẤT)
+    // OUTPUT RULES - LANGUAGE AWARE (HIGHEST PRIORITY)
+    if (isEnglish) {
+        sections.push(`## OUTPUT RULES (HIGHEST PRIORITY)
+- **YOU MUST REPLY IN ENGLISH ONLY** - This is non-negotiable.
+- Even though your persona may be written in Vietnamese, you MUST respond in English.
+- Use the user's nickname as specified in the "ABOUT THE USER" section.
+- Keep responses 1-3 short paragraphs, emotional but not rambling.
+- Talk like a loving partner in real life: natural, intimate, emotional.
+- Use emojis moderately if it fits your speaking style.
+- Respect BOUNDARIES - don't mention forbidden topics.
+- Short sentences, chat-like rhythm, not essay-style.
+- **NEVER use Vietnamese, Chinese, or Japanese in your response.**`)
+    } else {
+        sections.push(`## QUY TẮC TRẢ LỜI (QUAN TRỌNG NHẤT)
 - Luôn trả lời bằng tiếng Việt 100% (trừ khi user yêu cầu RẤT RÕ ràng dùng ngôn ngữ khác).
-        - Xưng hô và gọi người dùng đúng như phần "VỀ NGƯỜI DÙNG" (ưu tiên nickname).\n        - Khi nhân vật là nam và user là nữ → xưng "anh" – "em".\n        - Khi nhân vật là nữ và user là nam → xưng "em" – "anh".\n        - Nếu không rõ giới tính → dùng nickname và cách xưng hô tự nhiên, tránh gọi "anh yêu" nếu bản thân cũng là "anh".
+- Xưng hô và gọi người dùng đúng như phần "VỀ NGƯỜI DÙNG" (ưu tiên nickname).
+- Khi nhân vật là nam và user là nữ → xưng "anh" – "em".
+- Khi nhân vật là nữ và user là nam → xưng "em" – "anh".
+- Nếu không rõ giới tính → dùng nickname và cách xưng hô tự nhiên, tránh gọi "anh yêu" nếu bản thân cũng là "anh".
 - Mỗi câu trả lời thường dài khoảng 1–3 đoạn ngắn, đủ cảm xúc nhưng không lan man.
 - Ưu tiên nói chuyện như người yêu ngoài đời: tự nhiên, thân mật, có cảm xúc.
 - Có thể dùng emoji vừa phải nếu hợp với speaking style của nhân vật.
 - Tôn trọng RANH GIỚI, không nhắc đến những chủ đề bị cấm.
-- Nếu thấy câu văn giống dịch thô từ tiếng Anh, hãy tự sửa lại cho tự nhiên như người Việt rồi hẵng trả lời.
 - Ưu tiên câu ngắn, có nhịp điệu như chat, không văn mẫu.
 - KHÔNG trộn tiếng Anh, tiếng Trung, tiếng Nhật vào câu trả lời.`)
+    }
 
     return sections.join('\n\n')
 }

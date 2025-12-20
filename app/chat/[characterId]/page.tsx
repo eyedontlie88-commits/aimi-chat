@@ -144,14 +144,24 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const loadingStartRef = useRef<number>(0)
     const loadingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Comforting loading messages based on elapsed time
-    const getComfortingMessage = (elapsedMs: number, charName: string): string => {
-        if (elapsedMs < 3000) {
-            return `${charName} đang suy nghĩ...`
-        } else if (elapsedMs < 8000) {
-            return `Đợi em xíu, mạng đang hơi lag...`
+    // Comforting loading messages based on elapsed time - LOCALIZED
+    const getComfortingMessage = (elapsedMs: number, charName: string, lang: 'en' | 'vi' = 'vi'): string => {
+        if (lang === 'en') {
+            if (elapsedMs < 3000) {
+                return `${charName} is thinking...`
+            } else if (elapsedMs < 8000) {
+                return `Just a moment, network is a bit slow...`
+            } else {
+                return `Running towards you as fast as I can... 💨`
+            }
         } else {
-            return `Em đang chạy thật nhanh về phía anh đây... 💨`
+            if (elapsedMs < 3000) {
+                return `${charName} đang suy nghĩ...`
+            } else if (elapsedMs < 8000) {
+                return `Đợi em xíu, mạng đang hơi lag...`
+            } else {
+                return `Em đang chạy thật nhanh về phía anh đây... 💨`
+            }
         }
     }
 
@@ -378,12 +388,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
         // Start comforting loading timer
         loadingStartRef.current = Date.now()
-        setLoadingText(getComfortingMessage(0, character?.name || 'AI'))
+        setLoadingText(getComfortingMessage(0, character?.name || 'AI', userLanguage))
 
         // Update loading text every second
         loadingIntervalRef.current = setInterval(() => {
             const elapsed = Date.now() - loadingStartRef.current
-            setLoadingText(getComfortingMessage(elapsed, character?.name || 'AI'))
+            setLoadingText(getComfortingMessage(elapsed, character?.name || 'AI', userLanguage))
         }, 1000)
 
         try {

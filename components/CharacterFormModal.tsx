@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import { uploadAvatar } from '@/lib/supabase/storage'
+import { useLanguage } from '@/lib/i18n'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { GooglePresetModel } from '@/lib/llm/google-presets'
 
@@ -49,6 +50,7 @@ export default function CharacterFormModal({
     googlePresets = [],
 }: CharacterFormModalProps) {
     const router = useRouter()
+    const { t } = useLanguage()  // i18n hook - ready for use in Step 2
     const [isLoading, setIsLoading] = useState(false)
     const [isUploading, setIsUploading] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -75,13 +77,13 @@ export default function CharacterFormModal({
 
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            alert('Vui lòng chọn file hình ảnh')
+            alert(t.characterForm.pleaseSelectImage)
             return
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            alert('Kích thước file tối đa 5MB')
+            alert(t.characterForm.maxFileSize)
             return
         }
 
@@ -94,11 +96,11 @@ export default function CharacterFormModal({
             if (publicUrl) {
                 updateField('avatarUrl', publicUrl)
             } else {
-                alert('Không thể upload ảnh. Vui lòng thử lại hoặc dùng URL.')
+                alert(t.characterForm.uploadFailed)
             }
         } catch (error) {
             console.error('Avatar upload error:', error)
-            alert('Lỗi upload ảnh')
+            alert(t.characterForm.uploadError)
         } finally {
             setIsUploading(false)
             // Reset file input
@@ -153,7 +155,7 @@ export default function CharacterFormModal({
 
                 if (!res.ok) {
                     if (data.error === 'MAX_CHARACTERS_REACHED') {
-                        alert('Bạn đã đạt giới hạn 10 nhân vật. Xoá bớt nhân vật cũ nếu muốn tạo mới.')
+                        alert(t.characterForm.maxCharactersReached)
                         return
                     }
                     throw new Error(data.message || 'Failed to create character')
@@ -176,7 +178,7 @@ export default function CharacterFormModal({
             }
         } catch (error: any) {
             console.error('Error saving character:', error)
-            alert(`Không lưu được nhân vật: ${error?.message || 'Vui lòng thử lại.'}`)
+            alert(`${t.characterForm.saveError}: ${error?.message || ''}`)
         } finally {
             setIsLoading(false)
         }
@@ -212,7 +214,7 @@ export default function CharacterFormModal({
                     {/* Sticky Header */}
                     <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
                         <h2 className="text-xl sm:text-2xl font-bold gradient-text">
-                            {mode === 'create' ? '✨ Tạo Nhân Vật Mới' : mode === 'duplicate' ? '📋 Nhân bản Nhân Vật' : '✏️ Chỉnh sửa Nhân Vật'}
+                            {mode === 'create' ? t.characterForm.createTitle : mode === 'duplicate' ? t.characterForm.duplicateTitle : t.characterForm.editTitle}
                         </h2>
                         <button
                             onClick={onClose}
@@ -278,7 +280,7 @@ export default function CharacterFormModal({
                                             value={formData.avatarUrl}
                                             onChange={(e) => updateField('avatarUrl', e.target.value)}
                                             className="input-field text-sm flex-1 min-w-0"
-                                            placeholder="Hoặc dán URL..."
+                                            placeholder={t.characterForm.avatarUrlPlaceholder}
                                         />
                                     </div>
                                 </div>
@@ -288,42 +290,42 @@ export default function CharacterFormModal({
                         {/* Basic Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium mb-2">Tên nhân vật *</label>
+                                <label className="block text-sm font-medium mb-2">{t.characterForm.name} *</label>
                                 <input
                                     type="text"
                                     value={formData.name}
                                     onChange={(e) => updateField('name', e.target.value)}
                                     className="input-field"
                                     required
-                                    placeholder="Ví dụ: Minh Anh, Tuấn Kiệt..."
+                                    placeholder={t.characterForm.namePlaceholder}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-2">Giới tính *</label>
+                                <label className="block text-sm font-medium mb-2">{t.characterForm.gender} *</label>
                                 <select
                                     value={formData.gender}
                                     onChange={(e) => updateField('gender', e.target.value)}
                                     className="input-field"
                                     required
                                 >
-                                    <option value="female">Nữ</option>
-                                    <option value="male">Nam</option>
-                                    <option value="non-binary">Phi nhị nguyên</option>
+                                    <option value="female">{t.characterForm.genderFemale}</option>
+                                    <option value="male">{t.characterForm.genderMale}</option>
+                                    <option value="non-binary">{t.characterForm.genderNonBinary}</option>
                                 </select>
                             </div>
                         </div>
 
                         {/* Short Description */}
                         <div>
-                            <label className="block text-sm font-medium mb-2">Mô tả ngắn *</label>
+                            <label className="block text-sm font-medium mb-2">{t.characterForm.shortDesc} *</label>
                             <input
                                 type="text"
                                 value={formData.shortDescription}
                                 onChange={(e) => updateField('shortDescription', e.target.value)}
                                 className="input-field"
                                 required
-                                placeholder="Một dòng mô tả hiển thị trên thẻ nhân vật"
+                                placeholder={t.characterForm.shortDescPlaceholder}
                                 maxLength={100}
                             />
                         </div>
@@ -331,42 +333,42 @@ export default function CharacterFormModal({
                         {/* Persona */}
                         <div>
                             <label className="block text-sm font-medium mb-2">
-                                Nhân dạng (Persona) * <span className="text-xs text-gray-400">(Họ là ai, nền tảng, tính cách)</span>
+                                {t.characterForm.persona} * <span className="text-xs text-gray-400">{t.characterForm.personaHelper}</span>
                             </label>
                             <textarea
                                 value={formData.persona}
                                 onChange={(e) => updateField('persona', e.target.value)}
                                 className="input-field min-h-[150px] resize-none"
                                 required
-                                placeholder="Ví dụ: Cách hai người gặp nhau, nghề nghiệp, tính cách chi tiết, điểm yếu, cách thể hiện tình cảm... Càng cụ thể, AI càng giống người thật."
+                                placeholder={t.characterForm.personaPlaceholder}
                             />
                         </div>
 
                         {/* Speaking Style */}
                         <div>
                             <label className="block text-sm font-medium mb-2">
-                                Phong cách nói chuyện * <span className="text-xs text-gray-400">(Cách họ nói, emoji, giọng điệu)</span>
+                                {t.characterForm.speakingStyle} * <span className="text-xs text-gray-400">{t.characterForm.speakingStyleHelper}</span>
                             </label>
                             <textarea
                                 value={formData.speakingStyle}
                                 onChange={(e) => updateField('speakingStyle', e.target.value)}
                                 className="input-field min-h-[100px] resize-none"
                                 required
-                                placeholder="Ví dụ: Xưng hô anh/em, giọng trêu ghẹo hay dịu dàng, hay dùng emoji gì, nói câu ngắn hay dài, có hay cà khịa không..."
+                                placeholder={t.characterForm.speakingStylePlaceholder}
                             />
                         </div>
 
                         {/* Boundaries */}
                         <div>
                             <label className="block text-sm font-medium mb-2">
-                                Ranh giới (Boundaries) * <span className="text-xs text-gray-400">(Những điều cần tránh)</span>
+                                {t.characterForm.boundaries} * <span className="text-xs text-gray-400">{t.characterForm.boundariesHelper}</span>
                             </label>
                             <textarea
                                 value={formData.boundaries}
                                 onChange={(e) => updateField('boundaries', e.target.value)}
                                 className="input-field min-h-[80px] resize-none"
                                 required
-                                placeholder="Những điều nhân vật sẽ KHÔNG làm hoặc không nói đến (ví dụ: không chửi thề nặng, không nhắc chuyện công việc, không nói về chủ đề nhạy cảm...)."
+                                placeholder={t.characterForm.boundariesPlaceholder}
                             />
                         </div>
 
@@ -374,31 +376,31 @@ export default function CharacterFormModal({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium mb-2">
-                                    Tags <span className="text-xs text-gray-400">(phân cách bằng dấu phẩy)</span>
+                                    {t.characterForm.tags} <span className="text-xs text-gray-400">{t.characterForm.tagsHelper}</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.tags}
                                     onChange={(e) => updateField('tags', e.target.value)}
                                     className="input-field"
-                                    placeholder="Ví dụ: dịu dàng, quan tâm, tsundere"
+                                    placeholder={t.characterForm.tagsPlaceholder}
                                 />
                             </div>
 
                             {(mode === 'create' || mode === 'duplicate') && (
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Mối quan hệ ban đầu</label>
+                                    <label className="block text-sm font-medium mb-2">{t.characterForm.initialRelationship}</label>
                                     <select
                                         value={formData.relationshipStatus}
                                         onChange={(e) => updateField('relationshipStatus', e.target.value)}
                                         className="input-field"
                                     >
-                                        <option value="crush">Đang thích</option>
-                                        <option value="đang hẹn hò">Đang hẹn hò</option>
-                                        <option value="yêu nhau">Yêu nhau</option>
-                                        <option value="đính hôn">Đính hôn</option>
-                                        <option value="kết hôn">Kết hôn</option>
-                                        <option value="ở chung">Ở chung</option>
+                                        <option value="crush">{t.characterForm.relationshipCrush}</option>
+                                        <option value="đang hẹn hò">{t.characterForm.relationshipDating}</option>
+                                        <option value="yêu nhau">{t.characterForm.relationshipInLove}</option>
+                                        <option value="đính hôn">{t.characterForm.relationshipEngaged}</option>
+                                        <option value="kết hôn">{t.characterForm.relationshipMarried}</option>
+                                        <option value="ở chung">{t.characterForm.relationshipLivingTogether}</option>
                                     </select>
                                 </div>
                             )}
@@ -407,14 +409,14 @@ export default function CharacterFormModal({
                         {/* Provider Selection */}
                         <div className="pt-4 border-t border-white/10">
                             <label className="block text-sm font-medium mb-2">
-                                AI Provider
+                                {t.characterForm.aiProvider}
                             </label>
                             <select
                                 value={formData.provider || 'default'}
                                 onChange={(e) => updateField('provider', e.target.value)}
                                 className="input-field mb-4"
                             >
-                                <option value="default">Mặc định (theo hệ thống)</option>
+                                <option value="default">{t.characterForm.defaultProvider}</option>
                                 <option value="silicon">SiliconFlow</option>
                                 <option value="gemini">Gemini (Google AI)</option>
                             </select>
@@ -423,7 +425,7 @@ export default function CharacterFormModal({
                         {/* Model Selection */}
                         <div className="pt-4 border-t border-white/10">
                             <label className="block text-sm font-medium mb-2">
-                                AI Model <span className="text-xs text-gray-400">(Tùy chọn - nâng cao)</span>
+                                {t.characterForm.aiModel} <span className="text-xs text-gray-400">{t.characterForm.aiModelHelper}</span>
                             </label>
 
                             {formData.provider === 'silicon' ? (
@@ -438,7 +440,7 @@ export default function CharacterFormModal({
                                                 }}
                                                 className="radio-input"
                                             />
-                                            <span>Model có sẵn</span>
+                                            <span>{t.characterForm.presetModel}</span>
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer">
                                             <input
@@ -447,7 +449,7 @@ export default function CharacterFormModal({
                                                 onChange={() => setUsePresetModel(false)}
                                                 className="radio-input"
                                             />
-                                            <span>Nhập Model ID tùy chỉnh</span>
+                                            <span>{t.characterForm.customModelId}</span>
                                         </label>
                                     </div>
 
@@ -461,18 +463,18 @@ export default function CharacterFormModal({
                                             }}
                                             className="input-field mb-1"
                                         >
-                                            <option value="">-- Chọn model SiliconFlow --</option>
+                                            <option value="">{t.characterForm.selectSiliconModel}</option>
 
-                                            {/* Nhóm đề xuất trước */}
+                                            {/* Recommended models first */}
                                             {siliconPresets.filter(p => p.recommended).map(preset => (
                                                 <option key={preset.key} value={preset.id}>
                                                     {preset.label}
                                                 </option>
                                             ))}
 
-                                            {/* Divider và các model khác */}
+                                            {/* Divider and other models */}
                                             {siliconPresets.some(p => !p.recommended) && (
-                                                <optgroup label="── Các model khác ──">
+                                                <optgroup label={t.characterForm.otherModels}>
                                                     {siliconPresets.filter(p => !p.recommended).map(preset => (
                                                         <option key={preset.key} value={preset.id}>
                                                             {preset.label}
@@ -504,7 +506,7 @@ export default function CharacterFormModal({
                                                 }}
                                                 className="radio-input"
                                             />
-                                            <span>Model có sẵn</span>
+                                            <span>{t.characterForm.presetModel}</span>
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer">
                                             <input
@@ -513,7 +515,7 @@ export default function CharacterFormModal({
                                                 onChange={() => setUsePresetModel(false)}
                                                 className="radio-input"
                                             />
-                                            <span>Nhập Model ID tùy chỉnh</span>
+                                            <span>{t.characterForm.customModelId}</span>
                                         </label>
                                     </div>
 
@@ -527,18 +529,18 @@ export default function CharacterFormModal({
                                             }}
                                             className="input-field mb-1"
                                         >
-                                            <option value="">-- Chọn model Gemini --</option>
+                                            <option value="">{t.characterForm.selectGeminiModel}</option>
 
-                                            {/* Nhóm đề xuất trước */}
+                                            {/* Recommended models first */}
                                             {googlePresets.filter(p => p.recommended).map(preset => (
                                                 <option key={preset.key} value={preset.id}>
                                                     {preset.label}
                                                 </option>
                                             ))}
 
-                                            {/* Divider và các model khác */}
+                                            {/* Divider and other models */}
                                             {googlePresets.some(p => !p.recommended) && (
-                                                <optgroup label="── Các model khác ──">
+                                                <optgroup label={t.characterForm.otherModels}>
                                                     {googlePresets.filter(p => !p.recommended).map(preset => (
                                                         <option key={preset.key} value={preset.id}>
                                                             {preset.label}
@@ -563,17 +565,17 @@ export default function CharacterFormModal({
                                     value={formData.modelName || ''}
                                     onChange={(e) => updateField('modelName', e.target.value)}
                                     className="input-field mb-1"
-                                    placeholder="mặc định (dùng cài đặt hệ thống)"
+                                    placeholder={t.characterForm.defaultProvider}
                                 />
                             )}
 
                             <p className="text-xs text-gray-400 mt-2">
                                 {(formData.provider === 'silicon' || formData.provider === 'gemini') && usePresetModel
-                                    ? `Chọn từ các model ${formData.provider === 'silicon' ? 'SiliconFlow' : 'Gemini'} đã cấu hình.`
-                                    : "Nhập model ID cụ thể hoặc để trống để dùng mặc định."}
+                                    ? `Select from configured ${formData.provider === 'silicon' ? 'SiliconFlow' : 'Gemini'} models.`
+                                    : "Enter specific model ID or leave empty for default."}
                                 <br />
                                 <span className="text-primary">
-                                    Lưu ý: Nhân vật sẽ giữ ký ức và mối quan hệ, nhưng giọng điệu có thể thay đổi nhẹ nếu đổi model.
+                                    {t.characterForm.modelNote}
                                 </span>
                             </p>
                         </div>
@@ -582,7 +584,7 @@ export default function CharacterFormModal({
                     {/* Sticky Footer Actions */}
                     <div className="flex gap-3 pt-4 border-t border-white/10 shrink-0 bg-inherit">
                         <button type="button" onClick={onClose} className="btn-secondary flex-1" disabled={isLoading || isUploading}>
-                            Hủy
+                            {t.characterForm.cancel}
                         </button>
                         <button
                             type="submit"
@@ -590,7 +592,7 @@ export default function CharacterFormModal({
                             className="btn-primary flex-1"
                             disabled={isLoading || isUploading}
                         >
-                            {isLoading ? 'Đang lưu...' : mode === 'create' ? '✨ Tạo nhân vật' : mode === 'duplicate' ? '📋 Tạo bản sao' : '💾 Lưu thay đổi'}
+                            {isLoading ? t.characterForm.creating : mode === 'create' ? t.characterForm.createCharacter : mode === 'duplicate' ? t.characterForm.createCopy : t.characterForm.saveChanges}
                         </button>
                     </div>
                 </div>
