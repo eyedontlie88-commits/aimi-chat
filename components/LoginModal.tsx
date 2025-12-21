@@ -7,6 +7,7 @@ import {
     signInWithEmail,
     createAccount,
 } from '@/lib/firebase/client'
+import { useLanguage } from '@/lib/i18n'
 
 interface LoginModalProps {
     isOpen: boolean
@@ -15,9 +16,9 @@ interface LoginModalProps {
 }
 
 /**
- * Translate Firebase auth error codes to user-friendly Vietnamese messages
+ * Get localized Firebase auth error messages
  */
-function getFriendlyErrorMessage(error: any): string {
+function getFriendlyErrorMessage(error: any, t: any): string {
     const errorCode = error?.code || ''
     const errorMessage = error?.message || ''
 
@@ -30,23 +31,23 @@ function getFriendlyErrorMessage(error: any): string {
         case 'auth/invalid-credential':
         case 'auth/wrong-password':
         case 'auth/user-not-found':
-            return 'Email hoặc mật khẩu không chính xác.'
+            return t.auth.errorInvalidCredential
         case 'auth/email-already-in-use':
-            return 'Email này đã được đăng ký rồi.'
+            return t.auth.errorEmailInUse
         case 'auth/weak-password':
-            return 'Mật khẩu quá yếu (cần ít nhất 6 ký tự).'
+            return t.auth.errorWeakPassword
         case 'auth/invalid-email':
-            return 'Định dạng email không hợp lệ.'
+            return t.auth.errorInvalidEmail
         case 'auth/too-many-requests':
-            return 'Thử lại quá nhiều lần. Vui lòng đợi 5 phút.'
+            return t.auth.errorTooManyRequests
         case 'auth/network-request-failed':
-            return 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.'
+            return t.auth.errorNetwork
         case 'auth/popup-closed-by-user':
-            return 'Bạn đã đóng cửa sổ đăng nhập.'
+            return t.auth.errorPopupClosed
         case 'auth/cancelled-popup-request':
-            return 'Đăng nhập bị hủy.'
+            return t.auth.errorCancelled
         default:
-            return 'Đã có lỗi xảy ra. Vui lòng thử lại.'
+            return t.auth.errorGeneric
     }
 }
 
@@ -59,6 +60,7 @@ const AUTH_TIMEOUT_MS = 15000
  * z-[9999] ensures it's always on top
  */
 export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
+    const { t } = useLanguage()
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [isSignUp, setIsSignUp] = useState(false)
@@ -94,7 +96,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
         // SAFETY: Auto-timeout after 15 seconds
         const safetyTimer = setTimeout(() => {
             setIsLoading(false)
-            setError('Quá thời gian chờ. Vui lòng kiểm tra mạng và thử lại.')
+            setError(t.auth.timeout)
         }, AUTH_TIMEOUT_MS)
 
         try {
@@ -105,7 +107,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
         } catch (e: any) {
             clearTimeout(safetyTimer)
             console.error('[LoginModal] Google sign in error:', e)
-            setError(getFriendlyErrorMessage(e))
+            setError(getFriendlyErrorMessage(e, t))
             setIsLoading(false)
         }
     }
@@ -122,7 +124,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
         // SAFETY: Auto-timeout after 15 seconds
         const safetyTimer = setTimeout(() => {
             setIsLoading(false)
-            setError('Quá thời gian chờ. Vui lòng kiểm tra mạng và thử lại.')
+            setError(t.auth.timeout)
         }, AUTH_TIMEOUT_MS)
 
         try {
@@ -137,7 +139,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
         } catch (e: any) {
             clearTimeout(safetyTimer)
             console.error('[LoginModal] Email auth error:', e)
-            setError(getFriendlyErrorMessage(e))
+            setError(getFriendlyErrorMessage(e, t))
             setIsLoading(false)
         }
     }
@@ -167,7 +169,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
-                    aria-label="Đóng"
+                    aria-label={t.common.close}
                 >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -183,7 +185,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
 
                 {/* Title */}
                 <h2 className="text-lg text-white text-center mb-6">
-                    {isSignUp ? 'Tạo tài khoản mới' : 'Chào mừng quay trở lại!'}
+                    {isSignUp ? t.auth.createAccount : t.auth.welcomeBack}
                 </h2>
 
                 {/* Error message */}
@@ -211,7 +213,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Mật khẩu..."
+                        placeholder={t.auth.passwordPlaceholder}
                         className="w-full p-4 bg-gray-800 rounded-xl border border-gray-700 focus:border-pink-500 outline-none transition-all text-white placeholder-gray-400"
                         required
                         disabled={isLoading}
@@ -224,11 +226,11 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                         className="w-full p-4 bg-gradient-to-r from-pink-600 to-rose-600 rounded-xl font-bold text-white shadow-lg hover:shadow-pink-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
                         {isLoading ? (
-                            <span className="animate-pulse">Đang xử lý...</span>
+                            <span className="animate-pulse">{t.auth.processing}</span>
                         ) : isSignUp ? (
-                            'ĐĂNG KÝ'
+                            t.auth.signUp.toUpperCase()
                         ) : (
-                            'ĐĂNG NHẬP'
+                            t.auth.signIn.toUpperCase()
                         )}
                     </button>
                 </form>
@@ -240,13 +242,13 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                     disabled={isLoading}
                     className="w-full text-sm text-gray-400 hover:text-pink-400 transition-colors mt-4"
                 >
-                    {isSignUp ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký'}
+                    {isSignUp ? t.auth.hasAccount : t.auth.noAccount}
                 </button>
 
                 {/* Divider */}
                 <div className="flex items-center gap-3 my-4">
                     <div className="flex-1 h-px bg-white/20"></div>
-                    <span className="text-gray-400 text-sm font-medium">HOẶC</span>
+                    <span className="text-gray-400 text-sm font-medium">{t.auth.or}</span>
                     <div className="flex-1 h-px bg-white/20"></div>
                 </div>
 
@@ -274,7 +276,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
                             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                         />
                     </svg>
-                    Tiếp tục với Google
+                    {t.auth.continueGoogle}
                 </button>
             </div>
         </div>

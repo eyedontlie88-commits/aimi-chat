@@ -145,24 +145,14 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const loadingStartRef = useRef<number>(0)
     const loadingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Comforting loading messages based on elapsed time - LOCALIZED
-    const getComfortingMessage = (elapsedMs: number, charName: string, lang: 'en' | 'vi' = 'vi'): string => {
-        if (lang === 'en') {
-            if (elapsedMs < 3000) {
-                return `${charName} is thinking...`
-            } else if (elapsedMs < 8000) {
-                return `Just a moment, network is a bit slow...`
-            } else {
-                return `Running towards you as fast as I can... 💨`
-            }
+    // Comforting loading messages based on elapsed time - uses t translations
+    const getComfortingMessage = (elapsedMs: number, charName: string): string => {
+        if (elapsedMs < 3000) {
+            return t.chat.thinking.replace('{name}', charName)
+        } else if (elapsedMs < 8000) {
+            return t.chat.networkDelay
         } else {
-            if (elapsedMs < 3000) {
-                return `${charName} đang suy nghĩ...`
-            } else if (elapsedMs < 8000) {
-                return `Đợi em xíu, mạng đang hơi lag...`
-            } else {
-                return `Em đang chạy thật nhanh về phía anh đây... 💨`
-            }
+            return t.chat.running
         }
     }
 
@@ -389,12 +379,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
         // Start comforting loading timer
         loadingStartRef.current = Date.now()
-        setLoadingText(getComfortingMessage(0, character?.name || 'AI', userLanguage))
+        setLoadingText(getComfortingMessage(0, character?.name || 'AI'))
 
         // Update loading text every second
         loadingIntervalRef.current = setInterval(() => {
             const elapsed = Date.now() - loadingStartRef.current
-            setLoadingText(getComfortingMessage(elapsed, character?.name || 'AI', userLanguage))
+            setLoadingText(getComfortingMessage(elapsed, character?.name || 'AI'))
         }, 1000)
 
         try {
@@ -587,13 +577,13 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const handleAutoSaveMemory = async (trigger: 'button' | 'exit' = 'button') => {
         if (isAutoSaving) return
         if (messages.length < 3) {
-            setAutoSaveToast({ show: true, message: 'Cuộc trò chuyện quá ngắn để lưu kỷ niệm.', type: 'error' })
+            setAutoSaveToast({ show: true, message: t.chat.autoTooShort, type: 'error' })
             setTimeout(() => setAutoSaveToast(prev => ({ ...prev, show: false })), 3000)
             return
         }
 
         setIsAutoSaving(true)
-        setAutoSaveToast({ show: true, message: 'Đang ghi lại khoảnh khắc...', type: 'loading' })
+        setAutoSaveToast({ show: true, message: t.chat.autoSaving, type: 'loading' })
 
         try {
             const res = await authFetch('/api/memory/auto', {
@@ -605,16 +595,16 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             const data = await res.json()
 
             if (!res.ok) {
-                throw new Error(data.message || 'Không thể lưu kỷ niệm')
+                throw new Error(data.message || t.chat.couldNotSave)
             }
 
-            setAutoSaveToast({ show: true, message: 'Đã lưu kỷ niệm vào nhật ký! 📒', type: 'success' })
+            setAutoSaveToast({ show: true, message: t.chat.autoSaved, type: 'success' })
             loadMemories() // Refresh memories list
             setTimeout(() => setAutoSaveToast(prev => ({ ...prev, show: false })), 3000)
 
         } catch (error: any) {
             console.error('[AutoMemory] Error:', error)
-            setAutoSaveToast({ show: true, message: error.message || 'Có lỗi xảy ra', type: 'error' })
+            setAutoSaveToast({ show: true, message: error.message || t.chat.somethingWentWrong, type: 'error' })
             setTimeout(() => setAutoSaveToast(prev => ({ ...prev, show: false })), 3000)
         } finally {
             setIsAutoSaving(false)
@@ -647,7 +637,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         {fetchError.code === 403 ? '🔒' : fetchError.code === 404 ? '😔' : '⚠️'}
                     </div>
                     <h2 className="text-xl font-bold text-white mb-2">
-                        {fetchError.code === 403 ? 'Không có quyền truy cập' : 'Không tìm thấy'}
+                        {fetchError.code === 403 ? t.common.noAccess : t.common.notFound}
                     </h2>
                     <p className="text-secondary mb-6">
                         {fetchError.message}
@@ -656,7 +646,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         onClick={() => router.push('/characters')}
                         className="btn-primary px-6 py-3 rounded-xl font-medium"
                     >
-                        ← Quay về trang chủ
+                        ← {t.common.backHome}
                     </button>
                 </div>
             </div>
@@ -668,7 +658,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     if ((!character || isPageLoading) && !fetchError) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="animate-pulse text-secondary">Đang tải...</div>
+                <div className="animate-pulse text-secondary">{t.common.loading}</div>
             </div>
         )
     }

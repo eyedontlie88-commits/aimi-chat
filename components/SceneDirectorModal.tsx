@@ -194,7 +194,7 @@ export default function SceneDirectorModal({
                     ) : (
                         <div className="space-y-4">
                             <p className="text-sm text-gray-400">
-                                ⚡ Hướng dẫn cho câu trả lời <strong className="text-pink-400">TIẾP THEO</strong> của AI. Chỉ áp dụng 1 lần duy nhất.
+                                {t.director.quickHint}
                             </p>
 
                             <textarea

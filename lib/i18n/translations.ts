@@ -24,6 +24,10 @@ export const translations = {
             edit: 'Edit',
             create: 'Create',
             duplicate: 'Duplicate',
+            // Error pages
+            notFound: 'Not Found',
+            noAccess: 'Access Denied',
+            backHome: 'Back to Home',
         },
 
         // Auth
@@ -36,6 +40,27 @@ export const translations = {
             google: 'Google',
             signInFailed: 'Sign in failed',
             migratingData: 'Migrating data...',
+            // Login Modal
+            welcomeBack: 'Welcome back!',
+            createAccount: 'Create Account',
+            emailPlaceholder: 'Email...',
+            passwordPlaceholder: 'Password...',
+            processing: 'Processing...',
+            or: 'OR',
+            continueGoogle: 'Continue with Google',
+            noAccount: "Don't have an account? Sign up",
+            hasAccount: 'Already have an account? Sign in',
+            timeout: 'Request timed out. Please check your connection and try again.',
+            // Error codes
+            errorInvalidCredential: 'Incorrect email or password.',
+            errorEmailInUse: 'This email is already registered.',
+            errorWeakPassword: 'Password is too weak (min 6 characters).',
+            errorInvalidEmail: 'Invalid email format.',
+            errorTooManyRequests: 'Too many attempts. Please wait 5 minutes.',
+            errorNetwork: 'Network error. Please check your internet.',
+            errorPopupClosed: 'Sign in window was closed.',
+            errorCancelled: 'Sign in was cancelled.',
+            errorGeneric: 'An error occurred. Please try again.',
         },
 
         // Guest Login Prompt
@@ -198,6 +223,16 @@ export const translations = {
             searchMessages: 'Search messages...',
             noResults: 'No messages found',
             stage: 'STAGE',
+            // Loading states
+            thinking: '{name} is thinking...',
+            networkDelay: 'Just a moment, network is a bit slow...',
+            running: 'Running towards you as fast as I can... 💨',
+            // Auto-save memory
+            autoSaving: 'Saving memory...',
+            autoSaved: 'Memory saved to journal! 📒',
+            autoTooShort: 'Conversation too short to save a memory.',
+            couldNotSave: 'Could not save memory',
+            somethingWentWrong: 'Something went wrong',
         },
 
         // Menu
@@ -380,6 +415,10 @@ export const translations = {
             edit: 'Chỉnh sửa',
             create: 'Tạo mới',
             duplicate: 'Nhân bản',
+            // Error pages
+            notFound: 'Không tìm thấy',
+            noAccess: 'Không có quyền truy cập',
+            backHome: 'Quay về trang chủ',
         },
 
         // Auth
@@ -392,6 +431,27 @@ export const translations = {
             google: 'Google',
             signInFailed: 'Đăng nhập thất bại',
             migratingData: 'Đang import dữ liệu...',
+            // Login Modal
+            welcomeBack: 'Chào mừng quay trở lại!',
+            createAccount: 'Tạo tài khoản mới',
+            emailPlaceholder: 'Email...',
+            passwordPlaceholder: 'Mật khẩu...',
+            processing: 'Đang xử lý...',
+            or: 'HOẶC',
+            continueGoogle: 'Tiếp tục với Google',
+            noAccount: 'Chưa có tài khoản? Đăng ký',
+            hasAccount: 'Đã có tài khoản? Đăng nhập',
+            timeout: 'Quá thời gian chờ. Vui lòng kiểm tra mạng và thử lại.',
+            // Error codes
+            errorInvalidCredential: 'Email hoặc mật khẩu không chính xác.',
+            errorEmailInUse: 'Email này đã được đăng ký rồi.',
+            errorWeakPassword: 'Mật khẩu quá yếu (cần ít nhất 6 ký tự).',
+            errorInvalidEmail: 'Định dạng email không hợp lệ.',
+            errorTooManyRequests: 'Thử lại quá nhiều lần. Vui lòng đợi 5 phút.',
+            errorNetwork: 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.',
+            errorPopupClosed: 'Bạn đã đóng cửa sổ đăng nhập.',
+            errorCancelled: 'Đăng nhập bị hủy.',
+            errorGeneric: 'Đã có lỗi xảy ra. Vui lòng thử lại.',
         },
 
         // Guest Login Prompt
@@ -554,6 +614,16 @@ export const translations = {
             searchMessages: 'Tìm kiếm tin nhắn...',
             noResults: 'Không tìm thấy tin nhắn nào',
             stage: 'GĐ',
+            // Loading states
+            thinking: '{name} đang suy nghĩ...',
+            networkDelay: 'Đợi xíu, mạng đang hơi lag...',
+            running: 'Em đang chạy thật nhanh về phía anh đây... 💨',
+            // Auto-save memory
+            autoSaving: 'Đang ghi lại khoảnh khắc...',
+            autoSaved: 'Đã lưu kỷ niệm vào nhật ký! 📒',
+            autoTooShort: 'Cuộc trò chuyện quá ngắn để lưu kỷ niệm.',
+            couldNotSave: 'Không thể lưu kỷ niệm',
+            somethingWentWrong: 'Có lỗi xảy ra',
         },
 
         // Menu
