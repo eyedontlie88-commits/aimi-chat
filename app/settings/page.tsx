@@ -422,15 +422,15 @@ export default function SettingsPage() {
                 {showAIColorPopup && (
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                         <div className="glass rounded-2xl p-6 max-w-md w-full">
-                            <h3 className="text-xl font-semibold mb-4">🤖 AI Gợi ý Màu</h3>
+                            <h3 className="text-xl font-semibold mb-4">{t.settings.aiColorTitle}</h3>
                             <p className="text-sm text-secondary mb-6">
-                                Chọn một bảng màu được tối ưu cho trải nghiệm đọc
+                                {t.settings.aiColorDesc}
                             </p>
 
                             <div className="space-y-4">
                                 {/* Suggestion 1: Light Mode */}
                                 <div className="p-4 rounded-xl border border-white/20 hover:border-primary/50 transition cursor-pointer">
-                                    <h4 className="font-medium text-sm mb-2">✨ Tối ưu cho nền sáng</h4>
+                                    <h4 className="font-medium text-sm mb-2">{t.settings.optimizedLight}</h4>
                                     <div
                                         className="p-4 rounded-lg mb-3 text-center"
                                         style={{ backgroundColor: '#F5F5F5', color: '#1A1A1A' }}
@@ -438,8 +438,8 @@ export default function SettingsPage() {
                                         <p className="text-sm font-medium">Preview Text</p>
                                     </div>
                                     <div className="flex justify-between items-center text-xs text-secondary mb-3">
-                                        <span>Màu chữ: #1A1A1A</span>
-                                        <span>Màu nền: #F5F5F5</span>
+                                        <span>{t.settings.textColorLabel} #1A1A1A</span>
+                                        <span>{t.settings.bgColorLabel} #F5F5F5</span>
                                     </div>
                                     <button
                                         onClick={async () => {
@@ -459,13 +459,13 @@ export default function SettingsPage() {
                                         }}
                                         className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm transition"
                                     >
-                                        Chọn
+                                        {t.settings.select}
                                     </button>
                                 </div>
 
                                 {/* Suggestion 2: Dark Mode */}
                                 <div className="p-4 rounded-xl border border-white/20 hover:border-primary/50 transition cursor-pointer">
-                                    <h4 className="font-medium text-sm mb-2">✨ Tối ưu cho nền tối</h4>
+                                    <h4 className="font-medium text-sm mb-2">{t.settings.optimizedDark}</h4>
                                     <div
                                         className="p-4 rounded-lg mb-3 text-center"
                                         style={{ backgroundColor: '#1A1A1A', color: '#F9D47E' }}
@@ -473,8 +473,8 @@ export default function SettingsPage() {
                                         <p className="text-sm font-medium">Preview Text</p>
                                     </div>
                                     <div className="flex justify-between items-center text-xs text-secondary mb-3">
-                                        <span>Màu chữ: #F9D47E</span>
-                                        <span>Màu nền: #1A1A1A</span>
+                                        <span>{t.settings.textColorLabel} #F9D47E</span>
+                                        <span>{t.settings.bgColorLabel} #1A1A1A</span>
                                     </div>
                                     <button
                                         onClick={async () => {
@@ -494,7 +494,7 @@ export default function SettingsPage() {
                                         }}
                                         className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm transition"
                                     >
-                                        Chọn
+                                        {t.settings.select}
                                     </button>
                                 </div>
                             </div>
@@ -504,7 +504,7 @@ export default function SettingsPage() {
                                 onClick={() => setShowAIColorPopup(false)}
                                 className="w-full mt-6 py-2 rounded-lg border border-white/20 hover:bg-white/10 text-sm transition"
                             >
-                                Đóng
+                                {t.common.close}
                             </button>
                         </div>
                     </div>

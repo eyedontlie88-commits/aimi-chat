@@ -21,8 +21,7 @@ import { useModal } from '@/contexts/ModalContext'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
 
-// Intimacy level labels and emojis
-const LEVEL_LABELS = ['Người lạ', 'Đã biết', 'Thân quen', 'Người yêu', 'Rất thân']
+// Intimacy level emojis (labels come from t.chat.intimacyLevels)
 const LEVEL_EMOJIS = ['🙂', '😊', '🤝', '💖', '💍']
 
 interface RelationshipConfig {
@@ -705,7 +704,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                 <div className={`text-xs space-y-0.5 ${theme.bubbles.aiText}`}>
                                     <div className="flex items-center gap-1">
                                         <span className="text-[10px]">{LEVEL_EMOJIS[intimacyLevel]}</span>
-                                        <span className="truncate text-[10px]">{LEVEL_LABELS[intimacyLevel]}</span>
+                                        <span className="truncate text-[10px]">{t.chat.intimacyLevels[intimacyLevel]}</span>
                                         <span className="text-[9px] opacity-70 whitespace-nowrap">
                                             {affectionPoints}/100
                                         </span>
@@ -943,7 +942,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                         }
                                     }
                                 }}
-                                placeholder={`Nhắn cho ${character.name}...`}
+                                placeholder={t.chat.placeholder.replace('{character}', character.name)}
                                 className={`flex-1 px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none overflow-y-auto ${theme.layout.inputBg} ${theme.layout.inputBorder}`}
                                 disabled={isLoading}
                                 rows={1}

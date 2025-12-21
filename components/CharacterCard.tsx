@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useModal } from '@/contexts/ModalContext'
+import { useLanguage } from '@/lib/i18n'
 
 interface CharacterCardProps {
     id: string
@@ -40,8 +41,30 @@ export default function CharacterCard({
 }: CharacterCardProps) {
     const router = useRouter()
     const { user, openLogin } = useModal()
+    const { t } = useLanguage()
     const [isDeleting, setIsDeleting] = useState(false)
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+    // Map Vietnamese DB status to translation key
+    const mapStatus = (status?: string): string => {
+        if (!status) return ''
+        const statusMap: Record<string, keyof typeof t.relationship> = {
+            'crush': 'crush',
+            'Crush': 'crush',
+            'đang hẹn hò': 'dating',
+            'dating': 'dating',
+            'yêu nhau': 'lover',
+            'lover': 'lover',
+            'đính hôn': 'engaged',
+            'engaged': 'engaged',
+            'kết hôn': 'married',
+            'married': 'married',
+            'sống chung': 'livingTogether',
+            'living_together': 'livingTogether',
+        }
+        const key = statusMap[status.toLowerCase()] || statusMap[status]
+        return key ? (t.relationship as any)[key] || status : status
+    }
 
     // Navigate to chat - AUTH GATEKEEPER
     const handleChatClick = (e: React.MouseEvent) => {
@@ -141,7 +164,7 @@ export default function CharacterCard({
                     <button
                         onClick={handleEditClick}
                         type="button"
-                        title="Chỉnh sửa"
+                        title={t.common.edit}
                         style={{
                             width: '36px',
                             height: '36px',
@@ -163,7 +186,7 @@ export default function CharacterCard({
                         onClick={handleDeleteClick}
                         disabled={isDeleting}
                         type="button"
-                        title="Xóa vĩnh viễn"
+                        title={t.common.delete}
                         style={{
                             width: '36px',
                             height: '36px',
@@ -209,7 +232,7 @@ export default function CharacterCard({
                     {/* Status */}
                     {relationshipStatus && (
                         <p className="text-xs text-pink-300/80 mt-0.5 font-medium text-center">
-                            {relationshipStatus}
+                            {mapStatus(relationshipStatus)}
                         </p>
                     )}
                 </div>
@@ -234,7 +257,7 @@ export default function CharacterCard({
                         type="button"
                         className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-center py-2.5 rounded-xl font-semibold text-sm shadow-lg transition-all active:scale-95"
                     >
-                        💬 Chat ngay
+                        {t.characters.chatNow}
                     </button>
                 </div>
             </div>
@@ -288,7 +311,7 @@ export default function CharacterCard({
                             textAlign: 'center',
                             marginBottom: '8px'
                         }}>
-                            Xóa vĩnh viễn?
+                            {t.characters.deleteForever}
                         </h3>
 
                         {/* Character Name */}
@@ -315,10 +338,10 @@ export default function CharacterCard({
                                 textAlign: 'center',
                                 lineHeight: '1.6'
                             }}>
-                                ❌ Tất cả tin nhắn chat<br />
-                                ❌ Tất cả ký ức AI<br />
-                                ❌ Dữ liệu điện thoại<br />
-                                <strong style={{ color: '#f87171' }}>Không thể hoàn tác!</strong>
+                                ❌ {t.characters.deleteWarningChat}<br />
+                                ❌ {t.characters.deleteWarningMemory}<br />
+                                ❌ {t.characters.deleteWarningPhone}<br />
+                                <strong style={{ color: '#f87171' }}>{t.characters.deleteCannotUndo}</strong>
                             </p>
                         </div>
 
@@ -338,7 +361,7 @@ export default function CharacterCard({
                                     cursor: 'pointer',
                                 }}
                             >
-                                Hủy
+                                {t.common.cancel}
                             </button>
                             <button
                                 onClick={confirmDelete}
@@ -354,7 +377,7 @@ export default function CharacterCard({
                                     cursor: 'pointer',
                                 }}
                             >
-                                🗑️ Xóa luôn
+                                {t.characters.deleteConfirm}
                             </button>
                         </div>
                     </div>

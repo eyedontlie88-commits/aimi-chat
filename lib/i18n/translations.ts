@@ -120,6 +120,14 @@ export const translations = {
                 female: 'Female',
                 nonBinary: 'Non-binary',
             },
+            // AI Color Popup
+            aiColorTitle: '🤖 AI Color Suggestions',
+            aiColorDesc: 'Choose a color palette optimized for reading experience',
+            optimizedLight: '✨ Optimized for light background',
+            optimizedDark: '✨ Optimized for dark background',
+            textColorLabel: 'Text color:',
+            bgColorLabel: 'Background:',
+            select: 'Select',
         },
 
         // Characters / Dashboard
@@ -135,6 +143,17 @@ export const translations = {
             viewDetails: 'View Details',
             noCharacters: 'No characters yet',
             createFirst: 'Create your first character to start chatting!',
+            limitHint: 'You can create up to {max} characters.',
+            limitReached: 'This limit is for personal use only. Will increase in future updates.',
+            deleteError: 'Could not delete character. Please try again.',
+            deleteErrorGeneric: 'Error deleting character.',
+            // Delete modal
+            deleteForever: 'Delete Forever?',
+            deleteWarningChat: 'All chat messages',
+            deleteWarningMemory: 'All AI memories',
+            deleteWarningPhone: 'Phone data',
+            deleteCannotUndo: 'Cannot be undone!',
+            deleteConfirm: '🗑️ Delete Now',
         },
 
         // Character Form
@@ -233,6 +252,8 @@ export const translations = {
             autoTooShort: 'Conversation too short to save a memory.',
             couldNotSave: 'Could not save memory',
             somethingWentWrong: 'Something went wrong',
+            // Intimacy levels
+            intimacyLevels: ['Stranger', 'Known', 'Acquaintance', 'Lover', 'Very Close'],
         },
 
         // Menu
@@ -326,6 +347,10 @@ export const translations = {
             maps: 'Maps',
             wallet: 'Wallet',
             browser: 'Browser',
+            // Coming soon
+            comingSoon: 'In Development',
+            comingSoonDesc: 'This feature will be available in the next update!',
+            backToHome: 'Back to home',
         },
 
         // Narrative Syntax
@@ -511,6 +536,14 @@ export const translations = {
                 female: 'Nữ',
                 nonBinary: 'Phi nhị nguyên',
             },
+            // AI Color Popup
+            aiColorTitle: '🤖 AI Gợi ý Màu',
+            aiColorDesc: 'Chọn một bảng màu được tối ưu cho trải nghiệm đọc',
+            optimizedLight: '✨ Tối ưu cho nền sáng',
+            optimizedDark: '✨ Tối ưu cho nền tối',
+            textColorLabel: 'Màu chữ:',
+            bgColorLabel: 'Màu nền:',
+            select: 'Chọn',
         },
 
         // Characters / Dashboard
@@ -526,6 +559,17 @@ export const translations = {
             viewDetails: 'Xem chi tiết',
             noCharacters: 'Chưa có nhân vật nào',
             createFirst: 'Tạo nhân vật đầu tiên để bắt đầu trò chuyện!',
+            limitHint: 'Bạn có thể tạo tối đa {max} nhân vật.',
+            limitReached: 'Giới hạn này chỉ áp dụng cho bản cá nhân. Sau này sẽ nâng giới hạn lên.',
+            deleteError: 'Không thể xóa nhân vật. Vui lòng thử lại.',
+            deleteErrorGeneric: 'Lỗi khi xóa nhân vật.',
+            // Delete modal
+            deleteForever: 'Xóa vĩnh viễn?',
+            deleteWarningChat: 'Tất cả tin nhắn chat',
+            deleteWarningMemory: 'Tất cả ký ức AI',
+            deleteWarningPhone: 'Dữ liệu điện thoại',
+            deleteCannotUndo: 'Không thể hoàn tác!',
+            deleteConfirm: '🗑️ Xóa luôn',
         },
 
         // Character Form
@@ -624,6 +668,8 @@ export const translations = {
             autoTooShort: 'Cuộc trò chuyện quá ngắn để lưu kỷ niệm.',
             couldNotSave: 'Không thể lưu kỷ niệm',
             somethingWentWrong: 'Có lỗi xảy ra',
+            // Intimacy levels
+            intimacyLevels: ['Người lạ', 'Đã biết', 'Thân quen', 'Người yêu', 'Rất thân'],
         },
 
         // Menu
@@ -717,6 +763,10 @@ export const translations = {
             maps: 'Bản đồ',
             wallet: 'Ví',
             browser: 'Trình duyệt',
+            // Coming soon
+            comingSoon: 'Đang phát triển',
+            comingSoonDesc: 'Tính năng này sẽ sớm có mặt trong phiên bản tiếp theo!',
+            backToHome: 'Quay lại trang chủ',
         },
 
         // Narrative Syntax

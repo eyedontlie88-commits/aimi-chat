@@ -146,10 +146,10 @@ export default function PhoneHomeScreen({
                         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
                             <span className="text-6xl mb-4">🚧</span>
                             <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                                Đang phát triển
+                                {t.phone.comingSoon}
                             </h3>
                             <p className="text-sm text-gray-500">
-                                Tính năng này sẽ sớm có mặt trong phiên bản tiếp theo!
+                                {t.phone.comingSoonDesc}
                             </p>
                         </div>
 
@@ -159,7 +159,7 @@ export default function PhoneHomeScreen({
                                 onClick={() => setActiveApp(null)}
                                 className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
                             >
-                                ← Quay lại trang chủ
+                                ← {t.phone.backToHome}
                             </button>
                         </div>
                     </div>

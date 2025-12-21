@@ -94,11 +94,11 @@ export default function CharactersPage() {
                 // Remove from local state immediately
                 setCharacters(prev => prev.filter(c => c.id !== characterId))
             } else {
-                alert('Không thể xóa nhân vật. Vui lòng thử lại.')
+                alert(t.characters.deleteError)
             }
         } catch (error) {
             console.error('Error deleting character:', error)
-            alert('Lỗi khi xóa nhân vật.')
+            alert(t.characters.deleteErrorGeneric)
         }
     }
 
@@ -117,7 +117,7 @@ export default function CharactersPage() {
 
                 {isLoading ? (
                     <div className="text-center py-20 text-secondary">
-                        <div className="animate-pulse">Đang tải...</div>
+                        <div className="animate-pulse">{t.common.loading}</div>
                     </div>
                 ) : characters.length === 0 ? (
                     /* Empty State */
@@ -135,7 +135,7 @@ export default function CharactersPage() {
                                 {t.characters.createNew}
                             </button>
                             <p className="text-xs text-hint mt-6">
-                                Bạn có thể tạo tối đa {MAX_CHARACTERS} nhân vật.
+                                {t.characters.limitHint.replace('{max}', String(MAX_CHARACTERS))}
                             </p>
                         </div>
                     </div>
@@ -183,7 +183,7 @@ export default function CharactersPage() {
                         {/* Limit Info */}
                         {hasReachedLimit && (
                             <div className="text-center mt-8 text-sm text-secondary">
-                                <p>Giới hạn này chỉ áp dụng cho bản cá nhân. Sau này mở rộng, chúng ta sẽ nâng giới hạn lên.</p>
+                                <p>{t.characters.limitReached}</p>
                             </div>
                         )}
                     </>
