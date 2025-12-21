@@ -107,52 +107,70 @@ TASK: Generate 3-5 realistic message threads from DIFFERENT SENDERS in ${charact
 ${recentHistory.length > 0 ? 'Messages SHOULD be RELEVANT to the chat history events if meaningful content was found.' : ''}
 
 === CRITICAL SENDER PERSONA RULES ===
-
-1. "Mẹ" / "Mẹ yêu" / "Mom" (Parent):
+${isEnglish ? `
+1. "${langConfig.mom}" (Parent):
    - MUST speak affectionately as a mother to her child
-   - Uses: "con" (referring to child), "mẹ" (referring to self)
-   - NEVER use formal greetings like "Dạ", "anh/chị", "em chào"
-   - Examples: "Con về chưa?", "Mẹ nấu cơm rồi.", "Nhớ ăn đủ bữa nha con."
-   - Tone: Loving, caring, warm, casual family talk
+   - Loving, caring, warm, casual family talk
+   - Examples: "Come home early!", "Did you eat yet?", "Remember your jacket!"
 
-2. "Sếp" / "Boss" (Workplace superior):
-   - Professional but direct
-   - Talks about work: deadlines, meetings, tasks
-   - Can be slightly demanding
-   - Examples: "Deadline slide gửi chưa em?", "Mai họp 9h nhé.", "Báo cáo xong chưa?"
+2. "${langConfig.boss}" (Workplace superior):
+   - Professional but direct about work
+   - Talks about: deadlines, meetings, tasks
+   - Examples: "Where's the report?", "Meeting at 9am tomorrow", "Please review this ASAP"
 
-3. "Bank" / "Ngân hàng" (Bank notifications):
+3. "${langConfig.bank}" (Bank notifications):
    - ROBOTIC, transaction-only format
-   - NO human conversation
-   - Format: "TK ****XXXX +/-[amount] VND từ [source]"
-   - Examples: "TK ****1234 +5,000,000 VND từ NGUYEN VAN A"
+   - Format: "Acc ****XXXX +/-$XXX from [source]"
+   - Examples: "Acc ****1234 +$500 from John Doe"
 
-4. "Bạn thân" / "Best Friend" / "Nhóm bạn":
-   - Casual, fun, uses slang
-   - Topics: hangouts, gossip, jokes
-   - Examples: "Cuối tuần đi cafe k?", "Ê có drama mới kìa!", "Mai rảnh không?"
+4. "${langConfig.friend}" (Best Friend):
+   - Casual, fun, uses modern slang
+   - Examples: "Wanna grab coffee?", "OMG did you see that?!", "Free this weekend?"
 
-5. "Shopee" / "Lazada" / "Grab" (Apps/Ads):
+5. "Grab" / "Amazon" / "Uber" (Apps/Ads):
    - Promotional, notification style
-   - Examples: "Đơn hàng của bạn đang được giao...", "Flash Sale 50% OFF!"
+   - Examples: "Your order is on the way!", "Flash Sale 50% OFF!"
+` : `
+1. "${langConfig.mom}" (Phụ huynh):
+   - PHẢI nói chuyện thân mật như mẹ với con
+   - Dùng: "con" (gọi con), "mẹ" (xưng mẹ)
+   - KHÔNG BAO GIỜ dùng "Dạ", "anh/chị"
+   - Ví dụ: "Con về chưa?", "Mẹ nấu cơm rồi.", "Nhớ ăn đủ bữa nha con."
 
-6. "Crush" / "Người yêu" / "Lover" (if applicable):
-   - Sweet, flirty, caring
-   - Examples: "Nhớ anh/em quá.", "Tối nay gặp nhau nhé 💕"
+2. "${langConfig.boss}" (Sếp):
+   - Chuyên nghiệp, trực tiếp về công việc
+   - Ví dụ: "Deadline slide gửi chưa em?", "Mai họp 9h nhé.", "Báo cáo xong chưa?"
+
+3. "${langConfig.bank}" (Ngân hàng):
+   - ROBOTIC, chỉ thông báo giao dịch
+   - Format: "TK ****XXXX +/-XXX,XXX VND từ [nguồn]"
+   - Ví dụ: "TK ****1234 +5,000,000 VND từ NGUYEN VAN A"
+
+4. "${langConfig.friend}" (Bạn thân):
+   - Casual, vui vẻ, dùng slang
+   - Ví dụ: "Cuối tuần đi cafe k?", "Ê có drama mới kìa!", "Mai rảnh không?"
+
+5. "Shopee" / "Grab" / "Lazada" (Apps/Ads):
+   - Thông báo, quảng cáo
+   - Ví dụ: "Đơn hàng đang được giao...", "Flash Sale 50% OFF!"
+`}
 
 === ABSOLUTE RULES ===
 - Each sender MUST stay in character
-- Mom NEVER says "Dạ" or uses formal honorifics to her own child
+- ${isEnglish ? 'ALL messages MUST be in English - NO Vietnamese' : 'ALL messages MUST be in Vietnamese - NO English'}
 - Messages must feel authentic and natural
-- Language: Vietnamese (unless character context suggests otherwise)
 
 === OUTPUT FORMAT ===
 Return ONLY a valid JSON array (no markdown, no explanation):
-[
-  { "id": 1, "name": "Mẹ yêu 💕", "avatar": "👩", "lastMessage": "Con nhớ về sớm nhé!", "time": "14:00", "unread": 2 },
-  { "id": 2, "name": "Sếp", "avatar": "👔", "lastMessage": "...", "time": "Hôm qua", "unread": 0 },
+${isEnglish ? `[
+  { "id": 1, "name": "${langConfig.mom}", "avatar": "👩", "lastMessage": "Remember to come home early!", "time": "2:00 PM", "unread": 2 },
+  { "id": 2, "name": "${langConfig.boss}", "avatar": "👔", "lastMessage": "Where's the report?", "time": "Yesterday", "unread": 0 },
   ...
-]`
+]` : `[
+  { "id": 1, "name": "${langConfig.mom}", "avatar": "👩", "lastMessage": "Con nhớ về sớm nhé!", "time": "14:00", "unread": 2 },
+  { "id": 2, "name": "${langConfig.boss}", "avatar": "👔", "lastMessage": "Deadline slide gửi chưa?", "time": "Hôm qua", "unread": 0 },
+  ...
+]`}`
 
         const userPrompt = `Generate phone inbox messages for ${characterName}. Return JSON array only.`
 

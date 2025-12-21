@@ -164,6 +164,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const lastAnalysedMsgCountRef = useRef<number>(0)
     const [hasNewPhoneMessages, setHasNewPhoneMessages] = useState(false)
     const [isGeneratingPhoneMessages, setIsGeneratingPhoneMessages] = useState(false)
+    const lastSeenPhoneTimestampRef = useRef<number>(0) // Track when user last viewed phone messages
 
     // Get user's custom colors from ColorContext (must be before any conditional returns)
     const { textColor, backgroundColor } = useColors()
@@ -456,6 +457,10 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             setReplyTarget(null)
             setIsPhoneCheckOpen(false)
 
+            // Clean Sync: Reset phone notification when user sends new message
+            // This ensures stale data doesn't trigger fake notifications
+            setHasNewPhoneMessages(false)
+
             // Đạo diễn Cảnh: Clear one-time direction after sending
             if (nextDirection) {
                 setNextDirection('')
@@ -665,18 +670,34 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             // Stage 2: Check if AI generated or skipped
             if (data.skipped) {
                 console.log(`[SilentGen] AI skipped: ${data.reason}`)
-                // No notification - content wasn't meaningful
+                // CRITICAL: Keep notification FALSE - don't use stale data to "bait" user
+                // Even if there's old cached data, we don't show notification
             } else if (data.messages && data.messages.length > 0) {
-                console.log(`[SilentGen] Generated ${data.messages.length} messages!`)
-                // Cache the new messages
+                const generationTimestamp = Date.now()
+                console.log(`[SilentGen] Generated ${data.messages.length} messages! ts=${generationTimestamp}`)
+
+                // Cache the new messages with timestamp - MUST match MessagesApp getCacheKey format
                 sessionStorage.setItem(
-                    `phone_messages_${characterId}`,
+                    `phone_cached_messages_${characterId}`,
                     JSON.stringify(data.messages)
                 )
-                setHasNewPhoneMessages(true)
+                // Store generation timestamp to detect freshness
+                sessionStorage.setItem(
+                    `phone_generation_ts_${characterId}`,
+                    generationTimestamp.toString()
+                )
+
+                // Only show notification if this generation is NEWER than last seen
+                if (generationTimestamp > lastSeenPhoneTimestampRef.current) {
+                    setHasNewPhoneMessages(true)
+                    console.log(`[SilentGen] Fresh messages! Showing notification.`)
+                } else {
+                    console.log(`[SilentGen] User already saw these messages, no notification.`)
+                }
             }
         } catch (error) {
             console.error('[SilentGen] Error:', error)
+            // On error, keep notification FALSE - don't use stale cache
         } finally {
             setIsGeneratingPhoneMessages(false)
         }
@@ -1154,6 +1175,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 }}
                 onPhone={() => {
                     // 📱 Phone - opens new Phone OS screen
+                    // Mark messages as "seen" - prevents stale notifications
+                    lastSeenPhoneTimestampRef.current = Date.now()
+                    setHasNewPhoneMessages(false)
                     setShowPhoneOS(true)
                 }}
                 onMemory={() => {
@@ -1233,6 +1257,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                 <button
                                     onClick={() => {
                                         setShowExitConfirm(false)
+                                        // Mark messages as "seen" - prevents stale notifications
+                                        lastSeenPhoneTimestampRef.current = Date.now()
+                                        setHasNewPhoneMessages(false)
                                         setShowPhoneOS(true)
                                     }}
                                     className="mt-2 text-xs text-primary hover:underline"
