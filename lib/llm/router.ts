@@ -1,9 +1,10 @@
 import { LLMMessage, LLMProviderId, GenerateOptions } from './types'
 import { siliconProvider } from './providers/silicon'
 import { geminiProvider } from './providers/gemini-provider'
+import { zhipuProvider } from './providers/zhipu'
 
-// Valid provider IDs (deepseek and moonshot removed)
-const VALID_PROVIDERS: LLMProviderId[] = ['silicon', 'gemini']
+// Valid provider IDs
+const VALID_PROVIDERS: LLMProviderId[] = ['silicon', 'gemini', 'zhipu']
 
 /**
  * Check if error is retriable (quota/rate limit/overloaded)
@@ -28,6 +29,24 @@ function isRetriableLLMError(error: any): boolean {
  */
 function filterValidProviders(providers: string[]): LLMProviderId[] {
     return providers.filter(p => VALID_PROVIDERS.includes(p as LLMProviderId)) as LLMProviderId[]
+}
+
+/**
+ * 🔑 CHECK IF PROVIDER HAS API KEY
+ * CRITICAL: Never add a provider to the candidate list if it has no key!
+ */
+function hasProviderKey(provider: string): boolean {
+    if (provider === 'gemini' || provider === 'google') {
+        return !!process.env.GEMINI_API_KEY
+    }
+    if (provider === 'silicon' || provider === 'siliconflow') {
+        return !!process.env.SILICON_API_KEY
+    }
+    if (provider === 'zhipu' || provider === 'bigmodel') {
+        return !!process.env.ZHIPU_API_KEY
+    }
+    // Unknown providers - assume they have keys (might fail later with clear error)
+    return true
 }
 
 export async function generateWithProviders(
@@ -112,10 +131,26 @@ function getCandidateProviders(preferred: LLMProviderId | 'default'): LLMProvide
     // If no valid preferred, use default
     if (candidates.length === 0) {
         const envDefault = process.env.LLM_DEFAULT_PROVIDER as string
-        const defaultProvider = VALID_PROVIDERS.includes(envDefault as LLMProviderId)
-            ? envDefault as LLMProviderId
-            : 'gemini' // Default to gemini
-        console.log(`[LLM Router] Using default provider from env: ${process.env.LLM_DEFAULT_PROVIDER} → ${defaultProvider}`)
+
+        // Smart default: only use providers that have API keys configured
+        let defaultProvider: LLMProviderId
+
+        // Check if env default is valid AND has a key
+        if (VALID_PROVIDERS.includes(envDefault as LLMProviderId) && hasProviderKey(envDefault)) {
+            defaultProvider = envDefault as LLMProviderId
+        } else if (process.env.SILICON_API_KEY) {
+            // Prefer Silicon if key is available (most reliable)
+            defaultProvider = 'silicon'
+        } else if (process.env.GEMINI_API_KEY) {
+            // Fall back to Gemini if key is available
+            defaultProvider = 'gemini'
+        } else {
+            // No keys configured - will fail gracefully with clear error
+            console.error('[LLM Router] ⚠️ No API keys configured! Set SILICON_API_KEY or GEMINI_API_KEY in .env')
+            defaultProvider = 'silicon' // Will fail with clear "missing key" message
+        }
+
+        console.log(`[LLM Router] Selected default provider: ${defaultProvider} (env: ${process.env.LLM_DEFAULT_PROVIDER || 'not set'})`)
         candidates.push(defaultProvider)
     }
 
@@ -126,9 +161,10 @@ function getCandidateProviders(preferred: LLMProviderId | 'default'): LLMProvide
             .map(p => p.trim())
             .filter(p => p && p !== candidates[0])
 
-        const fallbackList = filterValidProviders(fallbackRaw)
+        // 🔑 CRITICAL: Filter out providers WITHOUT keys!
+        const fallbackList = filterValidProviders(fallbackRaw).filter(p => hasProviderKey(p))
         candidates.push(...fallbackList)
-        console.log(`[LLM Router] Fallback providers: ${fallbackList.join(', ') || 'none'}`)
+        console.log(`[LLM Router] Fallback providers (key-filtered): ${fallbackList.join(', ') || 'none'}`)
     }
 
     return Array.from(new Set(candidates)) // Unique
@@ -144,6 +180,8 @@ async function callProvider(
             return siliconProvider.generateResponse(messages, { model })
         case 'gemini':
             return geminiProvider.generateResponse(messages, { model })
+        case 'zhipu':
+            return zhipuProvider.generateResponse(messages, { model })
         default:
             throw new Error(`Unknown provider: ${id}`)
     }

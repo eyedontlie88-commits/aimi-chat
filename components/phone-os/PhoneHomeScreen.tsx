@@ -12,6 +12,7 @@ interface PhoneHomeScreenProps {
     characterName: string
     characterDescription?: string  // For AI-generated content
     messageCount?: number         // Current chat message count for smart caching
+    userEmail?: string            // For DEV identity check (Rule #7)
     onAppClick?: (appId: string) => void
 }
 
@@ -22,6 +23,7 @@ export default function PhoneHomeScreen({
     characterName,
     characterDescription,
     messageCount,
+    userEmail,
     onAppClick
 }: PhoneHomeScreenProps) {
     const { t } = useLanguage()
@@ -125,6 +127,7 @@ export default function PhoneHomeScreen({
                         characterName={characterName}
                         characterDescription={characterDescription}
                         messageCount={messageCount}
+                        userEmail={userEmail}
                     />
                 )
             default:

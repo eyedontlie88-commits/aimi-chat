@@ -34,49 +34,61 @@ const getGeminiFlashModel = (): string => {
     return process.env.GOOGLE_MODEL_3 || 'gemini-2.5-flash'
 }
 
-// Build fallback chains dynamically to pick up env vars
+// Check which providers have valid API keys
+const hasGeminiKey = (): boolean => !!process.env.GEMINI_API_KEY
+const hasSiliconKey = (): boolean => !!process.env.SILICON_API_KEY
+
+// Build fallback chains dynamically, EXCLUDING providers without keys
 export const getFallbackChains = (): Record<string, FallbackModel[]> => {
     const geminiFlash = getGeminiFlashModel()
+    const geminiAvailable = hasGeminiKey()
+    const siliconAvailable = hasSiliconKey()
 
-    return {
+    // Log available providers for debugging
+    console.log(`[Fallback] Provider availability: Gemini=${geminiAvailable}, Silicon=${siliconAvailable}`)
+
+    // Define all possible models
+    const geminiModel: FallbackModel = { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' }
+    const qwenModel: FallbackModel = { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' }
+    const deepseekModel: FallbackModel = { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' }
+
+    // Filter function to only include models with valid keys
+    const filterByAvailableKeys = (models: FallbackModel[]): FallbackModel[] => {
+        return models.filter(model => {
+            if (model.provider === 'gemini') return geminiAvailable
+            if (model.provider === 'silicon') return siliconAvailable
+            return true // Unknown providers pass through
+        })
+    }
+
+    // Build chains with filtering
+    const rawChains = {
         // Google Gemini chain
-        gemini: [
-            { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' },
-            { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' },
-            { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' },
-        ],
-        google: [
-            { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' },
-            { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' },
-            { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' },
-        ],
+        gemini: [geminiModel, qwenModel, deepseekModel],
+        google: [geminiModel, qwenModel, deepseekModel],
 
         // SiliconFlow chain
-        silicon: [
-            { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' },
-            { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' },
-            { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' },
-        ],
-        siliconflow: [
-            { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' },
-            { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' },
-            { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' },
-        ],
+        silicon: [deepseekModel, qwenModel, geminiModel],
+        siliconflow: [deepseekModel, qwenModel, geminiModel],
 
         // DeepSeek chain (hosted on SiliconFlow)
-        deepseek: [
-            { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' },
-            { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' },
-            { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' },
-        ],
+        deepseek: [deepseekModel, qwenModel, geminiModel],
 
-        // Default fallback chain for unknown providers
-        default: [
-            { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' },
-            { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' },
-            { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' },
-        ],
+        // Default: Silicon first (most reliable), then Gemini, then more Silicon
+        default: [qwenModel, deepseekModel, geminiModel],
     }
+
+    // Apply filtering to all chains
+    const filteredChains: Record<string, FallbackModel[]> = {}
+    for (const [key, chain] of Object.entries(rawChains)) {
+        filteredChains[key] = filterByAvailableKeys(chain)
+        // Ensure at least one provider is available
+        if (filteredChains[key].length === 0) {
+            console.error(`[Fallback] ⚠️ No providers available for chain '${key}'! Check your API keys.`)
+        }
+    }
+
+    return filteredChains
 }
 
 export interface FallbackResult {

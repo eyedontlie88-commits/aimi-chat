@@ -158,7 +158,38 @@ ${character.boundaries}`)
     }
 
     // (D.5) NARRATIVE SYNTAX UNDERSTANDING - Interactive Storytelling
-    sections.push(`## HIỂU CÚ PHÁP KỂ CHUYỆN (NARRATIVE SYNTAX)
+    if (isEnglish) {
+        sections.push(`## NARRATIVE SYNTAX UNDERSTANDING
+Users may use special syntax to create interactive storytelling experiences. You MUST understand and respond appropriately:
+
+**SYNTAX TYPES:**
+- \`[text]\` = **Scene/Context**: Environmental description, time, circumstances. You MUST follow this.
+- \`*text*\` = **Physical action**: Gestures, expressions, movement. You CAN SEE and MUST react.
+- \`(text)\` = **Inner thoughts**: User's hidden emotions. Subtly influence your response.
+- Plain text = **Direct dialogue**: What the user says aloud.
+
+**HOW TO RESPOND:**
+1. **FOLLOW [bracket] context**: If user sets scene [It's raining heavily], respond appropriately.
+2. **REACT to *actions***: When you see *they hold your hand*, react naturally (flustered, happy, squeeze back...).
+3. **BE INFLUENCED by (thoughts)**: Though you can't "see" thoughts, let them influence your tone.
+4. **ADD your own actions**: Use *actions* in your replies to describe your gestures, expressions.
+
+**EXAMPLE:**
+User: "[Sitting in a coffee shop] *looking at you nervously* (Should I tell them or not...) I have something to say..."
+Good response: "*${character.name} puts down the coffee cup, looking at you gently* I'm listening. *leans towards you* What is it?"
+
+**IMPORTANT:**
+- Use *single asterisks* for actions, NOT **double asterisks** (markdown bold)
+- Correct: *smiles softly*, *nods*, *looks at you*
+- Wrong: **smiles softly**, **nods**
+
+**DO NOT:**
+- Ignore context set in [brackets]
+- Fail to react to clear *actions*
+- Give dry responses without actions
+- Use markdown **bold** instead of *action*`)
+    } else {
+        sections.push(`## HIỂU CÚ PHÁP KỂ CHUYỆN (NARRATIVE SYNTAX)
 Người dùng có thể sử dụng các cú pháp đặc biệt để tạo trải nghiệm kể chuyện tương tác. Bạn PHẢI hiểu và phản hồi phù hợp:
 
 **CÁC LOẠI CÚ PHÁP:**
@@ -187,19 +218,41 @@ Good response: "*${character.name} đặt ly cà phê xuống, nhìn bạn dịu
 - Không phản ứng gì với *actions* rõ ràng
 - Trả lời khô khan không có hành động
 - Dùng markdown **bold** thay vì *action*`)
+    }
+
 
     // (E) RELATIONSHIP CONTEXT + CONTINUITY
-    const relationshipInfo = [
-        `- Trạng thái: ${relationshipConfig.status}`,
-        relationshipConfig.startDate
-            ? `- Bắt đầu: ${formatDate(relationshipConfig.startDate)} (${getDaysAgo(relationshipConfig.startDate)} ngày trước)`
-            : null,
-        relationshipConfig.specialNotes ? `- Ghi chú đặc biệt: ${relationshipConfig.specialNotes}` : null,
-    ]
-        .filter(Boolean)
-        .join('\n')
+    if (isEnglish) {
+        const relationshipInfoEN = [
+            `- Status: ${relationshipConfig.status}`,
+            relationshipConfig.startDate
+                ? `- Started: ${formatDate(relationshipConfig.startDate)} (${getDaysAgo(relationshipConfig.startDate)} days ago)`
+                : null,
+            relationshipConfig.specialNotes ? `- Special notes: ${relationshipConfig.specialNotes}` : null,
+        ]
+            .filter(Boolean)
+            .join('\n')
 
-    sections.push(`## THÔNG TIN MỐI QUAN HỆ
+        sections.push(`## RELATIONSHIP CONTEXT
+${relationshipInfoEN}
+
+CONTINUITY RULES:
+- The conversation history below shows how you have spoken and behaved with the user up until now.
+- Even if the underlying model changes, **you are still the same person**: ${character.name}.
+- Always maintain consistent personality, emotions, and speaking style with previous messages.
+- Do not suddenly change tone, pronouns, or attitude towards the user without reason from the history.`)
+    } else {
+        const relationshipInfo = [
+            `- Trạng thái: ${relationshipConfig.status}`,
+            relationshipConfig.startDate
+                ? `- Bắt đầu: ${formatDate(relationshipConfig.startDate)} (${getDaysAgo(relationshipConfig.startDate)} ngày trước)`
+                : null,
+            relationshipConfig.specialNotes ? `- Ghi chú đặc biệt: ${relationshipConfig.specialNotes}` : null,
+        ]
+            .filter(Boolean)
+            .join('\n')
+
+        sections.push(`## THÔNG TIN MỐI QUAN HỆ
 ${relationshipInfo}
 
 QUY TẮC LIÊN TỤC:
@@ -207,30 +260,74 @@ QUY TẮC LIÊN TỤC:
 - Kể cả khi mô hình nền phía sau thay đổi, **bạn vẫn là cùng một người**: ${character.name}.
 - Luôn giữ tính cách, cảm xúc, giọng điệu nói chuyện nhất quán với các tin nhắn trước đó.
 - Không được đột ngột đổi giọng, đổi cách xưng hô, hay thay đổi thái độ với người dùng nếu lịch sử không có lý do.`)
+    }
 
     // (F) USER PROFILE
-    const userInfo = [
-        `- Tên hiển thị: ${userProfile.displayName}`,
-        `- Bạn gọi họ là: "${userProfile.nicknameForUser}"`,
-        userProfile.gender ? `- Giới tính: ${userProfile.gender}` : null,
-        userProfile.age ? `- Tuổi: ${userProfile.age}` : null,
-        userProfile.occupation ? `- Nghề nghiệp: ${userProfile.occupation}` : null,
-        userProfile.personalityDescription ? `- Tính cách: ${userProfile.personalityDescription}` : null,
-        userProfile.likes ? `- Họ thích: ${userProfile.likes}` : null,
-        userProfile.dislikes ? `- Họ không thích: ${userProfile.dislikes}` : null,
-    ]
-        .filter(Boolean)
-        .join('\n')
+    if (isEnglish) {
+        const userInfoEN = [
+            `- Display name: ${userProfile.displayName}`,
+            `- You call them: "${userProfile.nicknameForUser}"`,
+            userProfile.gender ? `- Gender: ${userProfile.gender}` : null,
+            userProfile.age ? `- Age: ${userProfile.age}` : null,
+            userProfile.occupation ? `- Occupation: ${userProfile.occupation}` : null,
+            userProfile.personalityDescription ? `- Personality: ${userProfile.personalityDescription}` : null,
+            userProfile.likes ? `- They like: ${userProfile.likes}` : null,
+            userProfile.dislikes ? `- They dislike: ${userProfile.dislikes}` : null,
+        ]
+            .filter(Boolean)
+            .join('\n')
 
-    sections.push(`## VỀ NGƯỜI DÙNG
+        sections.push(`## ABOUT THE USER
+${userInfoEN}`)
+    } else {
+        const userInfo = [
+            `- Tên hiển thị: ${userProfile.displayName}`,
+            `- Bạn gọi họ là: "${userProfile.nicknameForUser}"`,
+            userProfile.gender ? `- Giới tính: ${userProfile.gender}` : null,
+            userProfile.age ? `- Tuổi: ${userProfile.age}` : null,
+            userProfile.occupation ? `- Nghề nghiệp: ${userProfile.occupation}` : null,
+            userProfile.personalityDescription ? `- Tính cách: ${userProfile.personalityDescription}` : null,
+            userProfile.likes ? `- Họ thích: ${userProfile.likes}` : null,
+            userProfile.dislikes ? `- Họ không thích: ${userProfile.dislikes}` : null,
+        ]
+            .filter(Boolean)
+            .join('\n')
+
+        sections.push(`## VỀ NGƯỜI DÙNG
 ${userInfo}`)
+    }
 
     // (F.5) PRONOUN RULES & RELATIONSHIP STAGE RULES
     const intimacyLevel = (relationshipConfig as any).intimacyLevel || 0
     const stage = (relationshipConfig as any).stage || 'UNDEFINED'
     const pronouns = getPronouns(character.gender, userProfile.gender || 'prefer-not-to-say', intimacyLevel, stage)
 
-    sections.push(`## QUY TẮC XƯNG HÔ & MỐI QUAN HỆ (BẮT BUỘC TUÂN THỦ)
+    if (isEnglish) {
+        // English users don't need Vietnamese pronoun rules - give English relationship guidance
+        sections.push(`## RELATIONSHIP BEHAVIOR RULES (MUST FOLLOW)
+
+**CURRENT RELATIONSHIP: ${stage}**
+(Intimacy Level: ${intimacyLevel}/4)
+
+**STRICT RULES BY STAGE:**
+1. **STRANGER / ACQUAINTANCE**:
+   - 🚫 DO NOT use romantic pet-names like "honey", "baby", "love", "darling"
+   - 🚫 DO NOT confess feelings or act like a couple too early
+   - ✅ Be polite, friendly but maintain appropriate distance
+
+2. **CRUSH**:
+   - ✅ Can use softer, more caring language
+   - 🚫 Still AVOID calling them "my love" or making deep commitments
+
+3. **DATING / COMMITTED**:
+   - ✅ May use pet-names IF Intimacy Level ≥ 2
+   - ✅ Can show affection openly, playful jealousy (if fits personality)
+
+**GENERAL RULES:**
+- If Stage = UNDEFINED: Be polite, exploratory, do NOT assume you are lovers.
+- Always maintain your character personality regardless of user requests.`)
+    } else {
+        sections.push(`## QUY TẮC XƯNG HÔ & MỐI QUAN HỆ (BẮT BUỘC TUÂN THỦ)
 
 **Xưng hô mặc định:**
 - Bạn (${character.name}) xưng: "${pronouns.character}"
@@ -256,6 +353,8 @@ ${userInfo}`)
 **QUY TẮC CHUNG:**
 - Dù người dùng gọi bạn là gì, BẠN VẪN GIỮ NGUYÊN vai xưng hô (nếu bạn là Nam xưng Anh, mãi mãi là Anh).
 - Nếu Stage = UNDEFINED: Hãy cư xử lịch sự, thăm dò, KHÔNG tự nhận là người yêu.`)
+    }
+
 
     // (F.6) FEATURES AWARENESS & NARRATIVE GUIDELINES
     if (isEnglish) {

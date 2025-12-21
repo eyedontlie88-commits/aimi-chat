@@ -419,6 +419,7 @@ export default function CharacterFormModal({
                                 <option value="default">{t.characterForm.defaultProvider}</option>
                                 <option value="silicon">SiliconFlow</option>
                                 <option value="gemini">Gemini (Google AI)</option>
+                                <option value="zhipu">Zhipu AI (GLM-4 Flash)</option>
                             </select>
                         </div>
 
@@ -558,6 +559,34 @@ export default function CharacterFormModal({
                                             placeholder="Ví dụ: gemini-2.5-flash"
                                         />
                                     )}
+                                </div>
+                            ) : formData.provider === 'zhipu' ? (
+                                /* ========== ZHIPU AI DROPDOWN ========== */
+                                <div className="space-y-3">
+                                    <select
+                                        value={formData.modelName || 'glm-4-flash'}
+                                        onChange={(e) => updateField('modelName', e.target.value)}
+                                        className="input-field mb-1"
+                                    >
+                                        <optgroup label="🚀 Speed (Text Generation)">
+                                            <option value="glm-4-flash">🚀 GLM-4 Flash (Speed - Default)</option>
+                                            <option value="glm-4-flash-250414">🛡️ GLM-4 Flash (Stable)</option>
+                                        </optgroup>
+                                        <optgroup label="🧠 Deep Thinking">
+                                            <option value="glm-4.5-flash">🧠 GLM-4.5 Flash (Reasoning)</option>
+                                        </optgroup>
+                                        <optgroup label="🎭 Character/Roleplay (Dating Sim!)">
+                                            <option value="charglm-4">🎭 CharGLM-4 (Roleplay Special)</option>
+                                            <option value="emohaa">❤️ Emohaa (Emotional/Therapy)</option>
+                                        </optgroup>
+                                        <optgroup label="👁️ Vision (Multimodal)">
+                                            <option value="glm-4v-flash">👁️ GLM-4V Flash (Vision)</option>
+                                            <option value="glm-4.6v-flash">👁️ GLM-4.6V Flash (Latest Vision)</option>
+                                        </optgroup>
+                                    </select>
+                                    <p className="text-xs text-green-400">
+                                        💡 Tip: CharGLM-4 & Emohaa are optimized for Dating Sim roleplay!
+                                    </p>
                                 </div>
                             ) : (
                                 <input

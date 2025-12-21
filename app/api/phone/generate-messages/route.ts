@@ -18,21 +18,9 @@ interface MessageItem {
     unread: number
 }
 
-// Language-aware fallback mock data
-const getFallbackMessages = (userLanguage: string): MessageItem[] => {
-    if (userLanguage === 'en') {
-        return [
-            { id: 1, name: 'Mom ❤️', avatar: '👩', lastMessage: 'Remember to come home early!', time: '2:00 PM', unread: 2 },
-            { id: 2, name: 'Boss', avatar: '👔', lastMessage: 'Did you send the slides yet?', time: 'Yesterday', unread: 0 },
-            { id: 3, name: 'Bank', avatar: '🏦', lastMessage: 'Acct ****1234 +$500.00', time: 'Yesterday', unread: 0 },
-        ]
-    }
-    return [
-        { id: 1, name: 'Mẹ yêu 💕', avatar: '👩', lastMessage: 'Con nhớ về sớm nhé!', time: '14:00', unread: 2 },
-        { id: 2, name: 'Sếp', avatar: '👔', lastMessage: 'Deadline slide gửi chưa em?', time: 'Hôm qua', unread: 0 },
-        { id: 3, name: 'Bank', avatar: '🏦', lastMessage: 'TK ****1234 +500,000 VND', time: 'Hôm qua', unread: 0 },
-    ]
-}
+// FALLBACK STRATEGY: Return empty array instead of fake messages
+// UI will show "Locked State" - "Chat more to unlock their private messages!"
+// This is more realistic than fake System messages
 
 export async function POST(req: NextRequest) {
     try {
@@ -42,11 +30,32 @@ export async function POST(req: NextRequest) {
             characterDescription,
             relationshipContext,
             userLanguage = 'vi',
-            recentHistory = [] // Array of recent chat messages for context
+            recentHistory = [], // Array of recent chat messages for context
+            isInitial = false,  // Flag for first-time phone open (persona-based generation)
+            forceGenerate = false, // DEV bypass - force AI generation without thresholds
+            currentMessages = [] // 🧠 RULE #6: Existing phone messages for context
         } = body
 
         if (!characterName) {
             return NextResponse.json({ error: 'Missing characterName' }, { status: 400 })
+        }
+
+        // DEBUG: Log flags
+        console.log(`[Phone Messages] API called: char=${characterName}, lang=${userLanguage}, isInitial=${isInitial}, forceGenerate=${forceGenerate}, existingMsgs=${currentMessages?.length || 0}`)
+
+        // 🔓 DEV BYPASS: Explicit server-side logging
+        if (forceGenerate) {
+            console.log('🔓🔓🔓 [DEV BYPASS] ==========================================')
+            console.log('🔓 [DEV BYPASS] forceGenerate=true TRIGGERED!')
+            console.log('🔓 [DEV BYPASS] Bypassing ALL thresholds and cooldowns')
+            console.log('🔓 [DEV BYPASS] Forcing AI generation immediately...')
+            console.log(`🔓 [DEV BYPASS] Character: ${characterName}`)
+            console.log(`🔓 [DEV BYPASS] Language: ${userLanguage}`)
+            console.log(`🔓 [DEV BYPASS] Persona: ${characterDescription?.slice(0, 100)}...`)
+            console.log('🔑 [DEV BYPASS] API Key Status:')
+            console.log(`   - SILICON_API_KEY: ${!!process.env.SILICON_API_KEY ? '✅ SET' : '❌ MISSING'}`)
+            console.log(`   - GEMINI_API_KEY: ${!!process.env.GEMINI_API_KEY ? '✅ SET' : '❌ MISSING'}`)
+            console.log('🔓🔓🔓 ========================================================')
         }
 
         // Language-specific configuration
@@ -67,18 +76,80 @@ export async function POST(req: NextRequest) {
             skipReason: 'Không có nội dung đáng để phản hồi',
         }
 
-        // Build context from recent history if provided
-        const historyContext = recentHistory.length > 0
+        // Build context from recent history if provided (only for non-initial)
+        const historyContext = (!isInitial && recentHistory.length > 0)
             ? `\n\n=== RECENT CHAT HISTORY (ANALYZE THIS) ===\n${recentHistory.slice(-15).map((msg: { role: string; content: string }, i: number) =>
                 `${i + 1}. [${msg.role}]: ${msg.content.slice(0, 200)}`
             ).join('\n')}\n=== END HISTORY ===`
             : ''
 
+        // 🧠 RULE #6: THREAD CONTINUITY - AI must FOLLOW the exact conversation topic!
+        // Build per-sender thread context for precise follow-up
+        const existingMessagesContext = (currentMessages && currentMessages.length > 0)
+            ? `
+
+=== 🔒 STRICT THREAD CONTINUITY MODE ===
+⚠️ CRITICAL: You are NOT creating new conversations. You MUST CONTINUE existing threads!
+
+**EXISTING THREADS TO CONTINUE:**
+${currentMessages.slice(-10).map((msg: { name: string; lastMessage: string }, i: number) =>
+                `📱 [${msg.name}] Last said: "${msg.lastMessage}"
+   → Your follow-up MUST relate to this topic!`
+            ).join('\n')}
+
+**THREAD-FOLLOWING RULES:**
+1. Each sender's NEW message MUST logically follow their LAST message above
+2. If last was about FOOD → follow-up about food ("Ăn chưa?" / "Cơm nguội rồi")
+3. If last was a QUESTION → nag for answer ("Hello?" / "Sao không rep?")
+4. If last was about WORK → continue work topic ("Báo cáo xong chưa?")
+5. ❌ FORBIDDEN: Random new topics like "Trời đẹp" when last was about food
+
+**OUTPUT:** 1-3 NEW messages that CONTINUE the topics above. Do NOT repeat old messages.
+
+=== END THREAD CONTINUITY ===
+`
+            : ''
+
         // Build the prompt with SEMANTIC EVALUATION + sender persona rules
+        // SPECIAL HANDLING: isInitial uses persona-based sender generation
         const systemPrompt = `You are generating a list of phone messages that appear in ${characterName}'s phone inbox.
 ${characterDescription ? `About ${characterName}: ${characterDescription}` : ''}
-${relationshipContext ? `Relationship context: ${relationshipContext}` : ''}${historyContext}
+${relationshipContext ? `Relationship context: ${relationshipContext}` : ''}${historyContext}${existingMessagesContext}
 
+=== CRITICAL LANGUAGE REQUIREMENT - READ FIRST! ===
+${isEnglish
+                ? `OUTPUT LANGUAGE: ENGLISH ONLY
+- ALL sender names MUST be in English (e.g., "Mom", "Boss", "Manager")
+- ALL message content MUST be in English
+- ALL time formats MUST be English (e.g., "Yesterday", "2:00 PM")
+- DO NOT use ANY Vietnamese words, names, or phrases
+- Violation of this rule = INVALID response`
+                : `OUTPUT LANGUAGE: VIETNAMESE ONLY
+- ALL sender names MUST be in Vietnamese (e.g., "Mẹ yêu", "Sếp", "Quản lý")
+- ALL message content MUST be in Vietnamese
+- ALL time formats MUST be Vietnamese (e.g., "Hôm qua", "14:00")
+- If the chat history is in English, STILL output Vietnamese messages`}
+
+${isInitial ? `
+=== INITIAL PHONE STATE - PERSONA-BASED GENERATION ===
+This is the FIRST TIME the user opens this character's phone. 
+You MUST create messages that FIT the character's persona PERFECTLY.
+
+**ANALYZE THE PERSONA ABOVE** and create senders that match:
+
+EXAMPLE MAPPINGS:
+- If character is an Idol/Singer/Kpop star → Senders: "Manager", "Bandmate", "Fanclub", "Stylist", "Mom"
+- If character is a CEO/Business person → Senders: "Secretary", "Board Member", "Client", "Mom (nagging about marriage)"
+- If character is a Student → Senders: "Classmate", "Professor", "Study Group", "Mom"
+- If character is a Doctor/Nurse → Senders: "Hospital Admin", "Colleague Dr.", "Patient", "Mom"
+- If character is a Chef → Senders: "Supplier", "Restaurant Owner", "Food Critic", "Mom"
+
+**CRITICAL RULES FOR INITIAL STATE:**
+- NEVER use generic "Boss" or "Sếp" if it doesn't fit the persona
+- Messages should feel like you're peeking into their REAL phone
+- Include at least one message from family (Mom/Dad)
+- Make messages reference things appropriate to their profession/life
+` : `
 === SEMANTIC EVALUATION (MANDATORY FIRST STEP) ===
 ${recentHistory.length > 0 ? `
 You MUST first analyze the RECENT CHAT HISTORY above.
@@ -98,13 +169,11 @@ JUDGE: Does this contain MEANINGFUL conversation worth responding to?
 
 IF FAIL: Return ONLY this JSON: {"skipped": true, "reason": "${langConfig.skipReason}"}
 IF PASS: Continue to generate messages below.` : 'No history provided, generate generic daily messages.'}
-
-=== LANGUAGE REQUIREMENT ===
-${langConfig.langInstruction}
-Sender names: Use "${langConfig.mom}" for mom, "${langConfig.boss}" for boss, "${langConfig.bank}" for bank, "${langConfig.friend}" for friend.
+`}
 
 TASK: Generate 3-5 realistic message threads from DIFFERENT SENDERS in ${characterName}'s phone.
-${recentHistory.length > 0 ? 'Messages SHOULD be RELEVANT to the chat history events if meaningful content was found.' : ''}
+${isInitial ? 'Create senders that match the character persona above. Be creative and contextual!' : ''}
+${!isInitial && recentHistory.length > 0 ? 'Messages SHOULD be RELEVANT to the chat history events if meaningful content was found.' : ''}
 
 === CRITICAL SENDER PERSONA RULES ===
 ${isEnglish ? `
@@ -172,15 +241,20 @@ ${isEnglish ? `[
   ...
 ]`}`
 
-        const userPrompt = `Generate phone inbox messages for ${characterName}. Return JSON array only.`
+        const userPrompt = isEnglish
+            ? `Generate phone inbox messages for ${characterName}. REMINDER: ALL content must be in ENGLISH only. Return JSON array only.`
+            : `Generate phone inbox messages for ${characterName}. REMINDER: Tất cả nội dung phải bằng TIẾNG VIỆT. Return JSON array only.`
 
-        // Call LLM
+        // Call LLM - Force Silicon on DEV bypass to avoid Gemini routing issues
+        const providerToUse = forceGenerate && process.env.SILICON_API_KEY ? 'silicon' : 'default'
+        console.log(`[Phone Messages] Using provider: ${providerToUse}`)
+
         const result = await generateWithProviders(
             [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }
             ],
-            { provider: 'default' }
+            { provider: providerToUse as any }
         )
 
         // Parse the JSON response using robust parser
@@ -211,14 +285,14 @@ ${isEnglish ? `[
 
         let messages: MessageItem[] = parseJsonArray<MessageItem>(result.reply)
 
-        // If parsing returned empty array, use fallback
+        // If parsing returned empty array, return empty - UI will show "Locked State"
         if (messages.length === 0) {
-            console.warn('[Phone Messages] JSON parsing returned empty, using fallback')
+            console.warn('[Phone Messages] JSON parsing returned empty, returning empty array for Locked State UI')
             return NextResponse.json({
                 skipped: false,
-                messages: getFallbackMessages(userLanguage),
-                source: 'fallback',
-                error: 'Parse returned empty'
+                messages: [],
+                source: 'empty',
+                error: 'AI returned no messages'
             })
         }
 
@@ -241,10 +315,10 @@ ${isEnglish ? `[
 
     } catch (error: any) {
         console.error('[Phone Messages] API error:', error)
-        // Note: userLanguage may not be available in catch block, default to 'vi'
+        // Return empty array - UI will show "Locked State" (Chat more to unlock)
         return NextResponse.json({
-            messages: getFallbackMessages('vi'),
-            source: 'fallback',
+            messages: [],
+            source: 'empty',
             error: error.message
         })
     }

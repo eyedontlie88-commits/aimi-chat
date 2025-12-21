@@ -63,9 +63,10 @@ export default function PlusDropdownModal({
         return () => document.removeEventListener('keydown', handleEsc)
     }, [isOpen, onClose])
 
-    if (!isOpen) return null
-
+    // CRITICAL: All hooks MUST be called before any conditional return
     const { t } = useLanguage()
+
+    if (!isOpen) return null
 
     // Menu items configuration
     const menuItems: MenuItem[] = [

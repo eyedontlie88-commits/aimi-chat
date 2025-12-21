@@ -178,6 +178,15 @@ ${nextDirection.trim()}`
             },
         ]
 
+        // LANGUAGE LOCKDOWN: Add final English reminder if user prefers English
+        // This is the last safeguard to prevent Vietnamese responses
+        if (userLanguage === 'en') {
+            promptMessages.push({
+                role: 'system' as const,
+                content: '⚠️ CRITICAL REMINDER: Reply in ENGLISH ONLY. Do NOT use Vietnamese AT ALL. This is a strict requirement.',
+            })
+        }
+
         // Generate AI response with Smart Fallback Chain
         // "Không bỏ lại User phía sau" - tries multiple models if primary fails
         const { reply: aiResponse, providerUsed, modelUsed, attemptCount, fallbackUsed } = await generateWithFallback(

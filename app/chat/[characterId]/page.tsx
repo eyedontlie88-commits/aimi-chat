@@ -35,6 +35,7 @@ interface Character {
     id: string
     name: string
     avatarUrl: string
+    persona?: string       // ADDED: Character persona/description for AI generation
     provider?: string | null
     modelName?: string | null
     relationshipConfig?: RelationshipConfig
@@ -122,7 +123,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [devForceReaction, setDevForceReaction] = useState<'OFF' | 'LIKE' | 'HEARTBEAT'>('OFF')
     const isDev = process.env.NODE_ENV !== 'production'
     const { t } = useLanguage()
-
+    // user is obtained from useModal() at line 175 for auth gating
     // TASK B: Micro-feedback for impact display
     const [impactFeedback, setImpactFeedback] = useState<{ value: number; show: boolean }>({ value: 0, show: false })
 
@@ -634,6 +635,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 triggerSilentMessageGeneration()
             } else {
                 console.log(`[SilentGen] Skipped - not enough new messages (${diff} < 10)`)
+                // CRITICAL: Clear any stale notification to prevent "bait" from old messages
+                setHasNewPhoneMessages(false)
             }
         } else {
             router.back()
@@ -878,9 +881,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         )}
                         {messages.length === 0 ? (
                             <div className="text-center py-12 text-secondary">
-                                <p className="text-lg mb-2">Bắt đầu cuộc trò chuyện!</p>
+                                <p className="text-lg mb-2">{t.chat.startConversation}</p>
                                 <p className="text-sm">
-                                    {character.name} đang chờ nghe từ bạn 💕
+                                    {t.chat.waitingFrom.replace('{name}', character.name)}
                                 </p>
                             </div>
                         ) : (
@@ -1212,7 +1215,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 onClose={() => setShowPhoneOS(false)}
                 characterId={characterId}
                 characterName={character.name}
+                characterDescription={character?.persona} // CRITICAL: Pass persona for AI generation!
                 messageCount={messages.length}
+                userEmail={user?.email || undefined} // For DEV identity check (Rule #7)
                 onAppClick={(appId) => {
                     console.log('Phone app clicked:', appId)
                 }}

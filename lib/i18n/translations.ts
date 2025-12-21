@@ -255,6 +255,10 @@ export const translations = {
             autoTooShort: 'Conversation too short to save a memory.',
             couldNotSave: 'Could not save memory',
             somethingWentWrong: 'Something went wrong',
+            // Empty state
+            startConversation: 'Start a conversation!',
+            waitingFrom: '{name} is waiting to hear from you 💕',
+            updateNow: 'Update now',
             // Intimacy levels
             intimacyLevels: ['Stranger', 'Known', 'Acquaintance', 'Lover', 'Very Close'],
         },
@@ -707,6 +711,10 @@ export const translations = {
             autoTooShort: 'Cuộc trò chuyện quá ngắn để lưu kỷ niệm.',
             couldNotSave: 'Không thể lưu kỷ niệm',
             somethingWentWrong: 'Có lỗi xảy ra',
+            // Empty state
+            startConversation: 'Bắt đầu cuộc trò chuyện!',
+            waitingFrom: '{name} đang chờ nghe từ bạn 💕',
+            updateNow: 'Cập nhật ngay',
             // Intimacy levels
             intimacyLevels: ['Người lạ', 'Đã biết', 'Thân quen', 'Người yêu', 'Rất thân'],
         },
