@@ -161,6 +161,21 @@ export default function MessagesApp({
         fetchMessages(true)
     }
 
+    // Handle conversation click - mark as read
+    const handleConversationClick = (conv: ConversationItem) => {
+        // 1. Update local state: Set unread to 0 for this conversation
+        const updatedConversations = conversations.map(c =>
+            c.id === conv.id ? { ...c, unread: 0 } : c
+        )
+        setConversations(updatedConversations)
+
+        // 2. Update Cache (SessionStorage) to persist read status
+        sessionStorage.setItem(getCacheKey(characterId), JSON.stringify(updatedConversations))
+
+        // 3. Open conversation detail with unread set to 0
+        setSelectedConversation({ ...conv, unread: 0 })
+    }
+
     // If a conversation is selected, show the detail view
     if (selectedConversation) {
         return (
@@ -239,7 +254,7 @@ export default function MessagesApp({
                     {conversations.map((conv) => (
                         <button
                             key={conv.id}
-                            onClick={() => setSelectedConversation(conv)}
+                            onClick={() => handleConversationClick(conv)}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-50"
                         >
                             {/* Avatar */}
