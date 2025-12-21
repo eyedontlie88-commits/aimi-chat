@@ -34,24 +34,62 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing characterName' }, { status: 400 })
         }
 
-        // Build the prompt
-        const systemPrompt = `Bạn là ${characterName}. ${characterDescription || ''}
-Nhiệm vụ: Tạo danh sách 5-6 tin nhắn gần đây trong điện thoại của bạn.
-Bao gồm tin nhắn từ: gia đình, bạn bè, công việc, thông báo ngân hàng/app.
-Tin nhắn phải phù hợp với tính cách và hoàn cảnh của nhân vật.
-${relationshipContext ? `Bối cảnh quan hệ: ${relationshipContext}` : ''}
+        // Build the prompt with STRICT sender persona rules
+        const systemPrompt = `You are generating a list of phone messages that appear in ${characterName}'s phone inbox.
+${characterDescription ? `About ${characterName}: ${characterDescription}` : ''}
+${relationshipContext ? `Relationship context: ${relationshipContext}` : ''}
 
-Trả về CHÍNH XÁC JSON array với format sau (không giải thích, không markdown):
+TASK: Generate 5-6 realistic message threads from DIFFERENT SENDERS in ${characterName}'s phone.
+
+=== CRITICAL SENDER PERSONA RULES ===
+
+1. "Mẹ" / "Mẹ yêu" / "Mom" (Parent):
+   - MUST speak affectionately as a mother to her child
+   - Uses: "con" (referring to child), "mẹ" (referring to self)
+   - NEVER use formal greetings like "Dạ", "anh/chị", "em chào"
+   - Examples: "Con về chưa?", "Mẹ nấu cơm rồi.", "Nhớ ăn đủ bữa nha con."
+   - Tone: Loving, caring, warm, casual family talk
+
+2. "Sếp" / "Boss" (Workplace superior):
+   - Professional but direct
+   - Talks about work: deadlines, meetings, tasks
+   - Can be slightly demanding
+   - Examples: "Deadline slide gửi chưa em?", "Mai họp 9h nhé.", "Báo cáo xong chưa?"
+
+3. "Bank" / "Ngân hàng" (Bank notifications):
+   - ROBOTIC, transaction-only format
+   - NO human conversation
+   - Format: "TK ****XXXX +/-[amount] VND từ [source]"
+   - Examples: "TK ****1234 +5,000,000 VND từ NGUYEN VAN A"
+
+4. "Bạn thân" / "Best Friend" / "Nhóm bạn":
+   - Casual, fun, uses slang
+   - Topics: hangouts, gossip, jokes
+   - Examples: "Cuối tuần đi cafe k?", "Ê có drama mới kìa!", "Mai rảnh không?"
+
+5. "Shopee" / "Lazada" / "Grab" (Apps/Ads):
+   - Promotional, notification style
+   - Examples: "Đơn hàng của bạn đang được giao...", "Flash Sale 50% OFF!"
+
+6. "Crush" / "Người yêu" / "Lover" (if applicable):
+   - Sweet, flirty, caring
+   - Examples: "Nhớ anh/em quá.", "Tối nay gặp nhau nhé 💕"
+
+=== ABSOLUTE RULES ===
+- Each sender MUST stay in character
+- Mom NEVER says "Dạ" or uses formal honorifics to her own child
+- Messages must feel authentic and natural
+- Language: Vietnamese (unless character context suggests otherwise)
+
+=== OUTPUT FORMAT ===
+Return ONLY a valid JSON array (no markdown, no explanation):
 [
-  { "id": 1, "name": "Tên người gửi", "avatar": "emoji phù hợp", "lastMessage": "Nội dung tin nhắn ngắn", "time": "thời gian (vd: 14:00, Hôm qua, T6)", "unread": số tin chưa đọc (0-5) }
-]
+  { "id": 1, "name": "Mẹ yêu 💕", "avatar": "👩", "lastMessage": "Con nhớ về sớm nhé!", "time": "14:00", "unread": 2 },
+  { "id": 2, "name": "Sếp", "avatar": "👔", "lastMessage": "...", "time": "Hôm qua", "unread": 0 },
+  ...
+]`
 
-QUAN TRỌNG: 
-- Chỉ trả về JSON array, không có text khác
-- Avatar phải là emoji (👩, 👔, 🏦, 👥, 🛒, etc.)
-- Tin nhắn phải tự nhiên, phù hợp văn hóa Việt Nam`
-
-        const userPrompt = `Hãy tạo danh sách tin nhắn trong điện thoại của ${characterName}. Trả về JSON array.`
+        const userPrompt = `Generate phone inbox messages for ${characterName}. Return JSON array only.`
 
         // Call LLM
         const result = await generateWithProviders(

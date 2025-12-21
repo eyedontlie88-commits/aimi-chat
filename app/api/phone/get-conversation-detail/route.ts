@@ -17,14 +17,59 @@ interface GeneratedMessage {
     is_from_character: boolean
 }
 
-// Fallback messages if AI/DB fails
-const getFallbackMessages = (senderName: string): GeneratedMessage[] => [
-    { content: `Chào ${senderName}!`, is_from_character: true },
-    { content: 'Dạ, em chào anh/chị!', is_from_character: false },
-    { content: 'Hôm nay có gì vui không?', is_from_character: true },
-    { content: 'Dạ cũng bình thường thôi ạ.', is_from_character: false },
-    { content: 'Oke, nhớ giữ sức khỏe nhé!', is_from_character: true },
-]
+// Smart fallback messages based on sender persona
+const getFallbackMessages = (senderName: string): GeneratedMessage[] => {
+    const senderLower = senderName.toLowerCase()
+
+    // Mom/Parent - NEVER uses formal greetings
+    if (senderLower.includes('mẹ') || senderLower.includes('mom') || senderLower.includes('má')) {
+        return [
+            { content: 'Con ơi!', is_from_character: false },
+            { content: 'Dạ mẹ, có gì không ạ?', is_from_character: true },
+            { content: 'Tối nay về sớm nhé, mẹ nấu món con thích.', is_from_character: false },
+            { content: 'Dạ con về liền!', is_from_character: true },
+            { content: 'Nhớ mang áo ấm, trời lạnh lắm con.', is_from_character: false },
+        ]
+    }
+
+    // Boss - Professional
+    if (senderLower.includes('sếp') || senderLower.includes('boss') || senderLower.includes('manager')) {
+        return [
+            { content: 'Em ơi, báo cáo tuần này xong chưa?', is_from_character: false },
+            { content: 'Dạ em đang hoàn thiện ạ.', is_from_character: true },
+            { content: 'Ok, deadline 5h chiều nay nhé.', is_from_character: false },
+            { content: 'Dạ em hiểu ạ.', is_from_character: true },
+            { content: 'Nhớ gửi qua email trước khi về.', is_from_character: false },
+        ]
+    }
+
+    // Bank - Robotic
+    if (senderLower.includes('bank') || senderLower.includes('ngân hàng')) {
+        return [
+            { content: 'TK ****1234: +5,000,000 VND từ NGUYEN VAN A. SD: 12,500,000 VND.', is_from_character: false },
+        ]
+    }
+
+    // Friend - Casual
+    if (senderLower.includes('bạn') || senderLower.includes('friend') || senderLower.includes('nhóm')) {
+        return [
+            { content: 'Ê mày!', is_from_character: false },
+            { content: 'Gì vậy?', is_from_character: true },
+            { content: 'Cuối tuần đi cafe không?', is_from_character: false },
+            { content: 'Ok luôn, mấy giờ?', is_from_character: true },
+            { content: '3h chiều đi, quán cũ nhé!', is_from_character: false },
+        ]
+    }
+
+    // Generic fallback (no more "Dạ em chào anh/chị")
+    return [
+        { content: `Chào bạn!`, is_from_character: true },
+        { content: 'Hi!', is_from_character: false },
+        { content: 'Khỏe không?', is_from_character: true },
+        { content: 'Khỏe nè, còn bạn?', is_from_character: false },
+        { content: 'Mình cũng ổn!', is_from_character: true },
+    ]
+}
 
 export async function POST(req: NextRequest) {
     try {
@@ -126,26 +171,45 @@ export async function POST(req: NextRequest) {
         // Step 3: Generate new messages with AI
         console.log(`[Phone Detail] Generating messages for ${senderName}...`)
 
-        const systemPrompt = `Bạn là AI tạo đoạn hội thoại tin nhắn điện thoại.
-Tạo đoạn chat 8-12 tin nhắn giữa một nhân vật và "${senderName}".
+        // Determine sender type for persona
+        const senderLower = senderName.toLowerCase()
+        let senderPersona = ''
 
-Thông tin nhân vật: ${characterDescription || 'Người bình thường'}
+        if (senderLower.includes('mẹ') || senderLower.includes('mom') || senderLower.includes('má')) {
+            senderPersona = `"${senderName}" is the CHARACTER'S MOTHER. She MUST:
+- Speak affectionately as a mom to her child
+- Use "con" (referring to child), "mẹ" (referring to self)
+- NEVER use formal greetings like "Dạ", "anh/chị", "em chào"
+- Be loving, caring, warm, casual`
+        } else if (senderLower.includes('sếp') || senderLower.includes('boss')) {
+            senderPersona = `"${senderName}" is the CHARACTER'S BOSS. Speaks professionally about work, deadlines, meetings.`
+        } else if (senderLower.includes('bank') || senderLower.includes('ngân hàng')) {
+            senderPersona = `"${senderName}" is a BANK NOTIFICATION. ONLY send transaction messages in format: "TK ****XXXX +/-amount VND". No human conversation.`
+        } else if (senderLower.includes('bạn') || senderLower.includes('friend') || senderLower.includes('nhóm')) {
+            senderPersona = `"${senderName}" is the CHARACTER'S FRIEND. Casual, fun, uses slang, talks about hangouts.`
+        }
 
-Quy tắc:
-- Tin nhắn ngắn gọn, tự nhiên như nhắn tin thật
-- Xen kẽ giữa nhân vật và ${senderName}
-- Nội dung phù hợp với mối quan hệ (gia đình, bạn bè, đồng nghiệp...)
-- Sử dụng tiếng Việt tự nhiên
-${lastMessagePreview ? `- QUAN TRỌNG: Đoạn chat PHẢI KẾT THÚC bằng tin nhắn này từ ${senderName}: "${lastMessagePreview}"` : ''}
+        const systemPrompt = `You are generating a message conversation thread between a character and "${senderName}".
 
-Trả về CHÍNH XÁC JSON array, không markdown:
+Character info: ${characterDescription || 'A normal person'}
+
+=== SENDER PERSONA (CRITICAL) ===
+${senderPersona || `"${senderName}" should speak appropriately for their relationship with the character.`}
+
+=== RULES ===
+- Generate 8-12 short messages alternating between character and ${senderName}
+- Messages must be natural, like real texting
+- Language: Vietnamese
+- is_from_character = true if CHARACTER sends, false if ${senderName} sends
+${lastMessagePreview ? `- IMPORTANT: The conversation MUST END with this message from ${senderName}: "${lastMessagePreview}"` : ''}
+
+=== OUTPUT FORMAT ===
+Return ONLY a JSON array (no markdown, no explanation):
 [
-  { "content": "Nội dung tin nhắn", "is_from_character": true/false }
-]
+  { "content": "Message text", "is_from_character": true/false }
+]`
 
-is_from_character = true nếu nhân vật gửi, false nếu ${senderName} gửi.`
-
-        const userPrompt = `Tạo đoạn chat giữa nhân vật và "${senderName}". Trả về JSON array.`
+        const userPrompt = `Generate a conversation thread between the character and "${senderName}". Return JSON array only.`
 
         let generatedMessages: GeneratedMessage[]
 
