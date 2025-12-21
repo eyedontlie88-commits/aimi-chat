@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, Loader2, RotateCw } from 'lucide-react'
 import MessageDetail from './MessageDetail'
+import { useLanguage } from '@/lib/i18n'
 
 interface MessagesAppProps {
     onBack: () => void
@@ -21,15 +22,6 @@ interface ConversationItem {
     unread: number
 }
 
-// Fallback mock data
-const fallbackConversations: ConversationItem[] = [
-    { id: 1, name: 'Mẹ yêu 💕', avatar: '👩', lastMessage: 'Con nhớ về sớm nhé, nay có canh chua.', time: '14:00', unread: 2 },
-    { id: 2, name: 'Sếp', avatar: '👔', lastMessage: 'Deadline slide gửi chưa em?', time: 'Hôm qua', unread: 0 },
-    { id: 3, name: 'Bank Notification', avatar: '🏦', lastMessage: 'TK ****1234 +5,000,000 VND từ NGUYEN...', time: 'Hôm qua', unread: 0 },
-    { id: 4, name: 'Nhóm Bạn Thân', avatar: '👥', lastMessage: 'Cuối tuần đi cafe không?', time: 'T6', unread: 5 },
-    { id: 5, name: 'Shopee', avatar: '🛒', lastMessage: 'Đơn hàng của bạn đang được giao...', time: 'T5', unread: 0 },
-]
-
 // Cache keys
 const getCacheKey = (characterId: string) => `phone_cached_messages_${characterId}`
 const getCountKey = (characterId: string) => `phone_last_fetch_count_${characterId}`
@@ -47,11 +39,21 @@ export default function MessagesApp({
     characterDescription,
     messageCount = 0
 }: MessagesAppProps) {
+    const { t } = useLanguage()
     const [conversations, setConversations] = useState<ConversationItem[]>([])
     const [loading, setLoading] = useState(true)
     const [source, setSource] = useState<'ai' | 'cached' | 'fallback'>('fallback')
     const [cooldownRemaining, setCooldownRemaining] = useState(0)
     const [isRefreshing, setIsRefreshing] = useState(false)
+
+    // Localized fallback data
+    const fallbackConversations: ConversationItem[] = [
+        { id: 1, name: t.phone.fakeMessages.momName, avatar: '👩', lastMessage: t.phone.fakeMessages.momMsg, time: '14:00', unread: 2 },
+        { id: 2, name: t.phone.fakeMessages.bossName, avatar: '👔', lastMessage: t.phone.fakeMessages.bossMsg, time: t.common.yesterday || 'Yesterday', unread: 0 },
+        { id: 3, name: t.phone.fakeMessages.bankName, avatar: '🏦', lastMessage: t.phone.fakeMessages.bankMsg, time: t.common.yesterday || 'Yesterday', unread: 0 },
+        { id: 4, name: t.phone.fakeMessages.friendsName, avatar: '👥', lastMessage: t.phone.fakeMessages.friendsMsg, time: 'Fri', unread: 5 },
+        { id: 5, name: t.phone.fakeMessages.shopeeName, avatar: '🛒', lastMessage: t.phone.fakeMessages.shopeeMsg, time: 'Thu', unread: 0 },
+    ]
 
     // Selected conversation for detail view
     const [selectedConversation, setSelectedConversation] = useState<ConversationItem | null>(null)
@@ -183,17 +185,17 @@ export default function MessagesApp({
                 >
                     <ChevronLeft className="w-6 h-6 text-gray-600" />
                 </button>
-                <h2 className="text-lg font-semibold text-gray-800">Tin nhắn</h2>
+                <h2 className="text-lg font-semibold text-gray-800">{t.phone.messagesTitle}</h2>
 
                 {/* Source badge */}
                 {source === 'ai' && (
                     <span className="text-[10px] text-green-500 bg-green-50 px-2 py-0.5 rounded-full">
-                        Mới
+                        {t.phone.newBadge}
                     </span>
                 )}
                 {source === 'cached' && (
                     <span className="text-[10px] text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">
-                        Đã lưu
+                        {t.phone.cachedBadge}
                     </span>
                 )}
 
@@ -205,7 +207,7 @@ export default function MessagesApp({
                         ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
                         : 'hover:bg-white/50 text-gray-500 hover:text-gray-700'
                         }`}
-                    title={cooldownRemaining > 0 ? `Chờ ${cooldownRemaining}s` : 'Làm mới tin nhắn'}
+                    title={cooldownRemaining > 0 ? t.phone.waitSeconds.replace('{n}', String(cooldownRemaining)) : t.phone.refreshTitle}
                 >
                     {isRefreshing ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -221,16 +223,15 @@ export default function MessagesApp({
             {source === 'cached' && !loading && (
                 <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
                     <p className="text-xs text-amber-600 text-center">
-                        📋 Đang hiển thị tin nhắn đã lưu (Chat thêm {MESSAGE_THRESHOLD - (messageCount - parseInt(sessionStorage.getItem(getCountKey(characterId)) || '0'))} tin để cập nhật)
+                        {t.phone.cachedNotice.replace('{n}', String(MESSAGE_THRESHOLD - (messageCount - parseInt(sessionStorage.getItem(getCountKey(characterId)) || '0'))))}
                     </p>
                 </div>
             )}
 
-            {/* Loading State */}
             {loading ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-3">
                     <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-                    <p className="text-sm text-gray-400">Đang tải tin nhắn...</p>
+                    <p className="text-sm text-gray-400">{t.phone.loadingMessages}</p>
                 </div>
             ) : (
                 /* Conversations List */
@@ -278,10 +279,10 @@ export default function MessagesApp({
             <div className="px-4 py-2 border-t border-gray-100 text-center bg-[#FFF9F0]">
                 <p className="text-[10px] text-gray-400">
                     {source === 'ai'
-                        ? `Tin nhắn được tạo bởi AI dựa trên ${characterName || 'nhân vật'}`
+                        ? t.phone.aiGenerated.replace('{character}', characterName || 'character')
                         : source === 'cached'
-                            ? 'Tin nhắn đã được lưu trong phiên này'
-                            : 'Đây là tin nhắn mô phỏng trong điện thoại của nhân vật'}
+                            ? t.phone.cachedSession
+                            : t.phone.simulatedMessages}
                 </p>
             </div>
         </div>

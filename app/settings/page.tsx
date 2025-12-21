@@ -70,6 +70,20 @@ export default function SettingsPage() {
     const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null)
     const [showAIColorPopup, setShowAIColorPopup] = useState(false)
 
+    // Helper to map DB status values (Vietnamese/English) to localized strings
+    const getLocalizedStatus = (status: string): string => {
+        const statusMap: Record<string, string> = {
+            'crush': 'crush',
+            'đang hẹn hò': 'dating', 'dating': 'dating',
+            'yêu nhau': 'lover', 'lover': 'lover',
+            'đính hôn': 'engaged', 'engaged': 'engaged',
+            'kết hôn': 'married', 'married': 'married',
+            'sống chung': 'livingTogether', 'living_together': 'livingTogether',
+        }
+        const key = statusMap[status.toLowerCase()] || statusMap[status]
+        return key ? (t.relationship as any)[key] || status : status
+    }
+
     // Default profile for graceful fallback
     const defaultProfile: UserProfile = {
         id: '',
@@ -540,8 +554,7 @@ export default function SettingsPage() {
                                     <div className="text-left">
                                         <p className="font-medium">{rel.character.name}</p>
                                         <p className="text-sm text-secondary">
-                                            {(t.relationship as any)[rel.status.replace('_', '')] ||
-                                                (t.relationship as any)[rel.status] || rel.status}
+                                            {getLocalizedStatus(rel.status)}
                                         </p>
                                     </div>
                                 </div>
@@ -605,7 +618,7 @@ export default function SettingsPage() {
                         </div>
                     ))}
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     )
 }
