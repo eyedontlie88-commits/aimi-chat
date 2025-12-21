@@ -35,8 +35,12 @@ export class ZhipuProvider implements LLMProviderClient {
         // Allow dynamic model selection
         const model = options.model || this.defaultModel
 
+        // 🛡️ LANGUAGE VACCINE: Prevent Chinese character leakage
+        // Clone messages to avoid mutating original
+        const processedMessages = this.injectLanguageRules([...messages])
+
         try {
-            console.log(`[Zhipu] 🚀 Calling model: ${model}`)
+            console.log(`[Zhipu] 🚀 Calling model: ${model} (Language: Vietnamese enforced)`)
 
             const response = await fetch(`${this.baseUrl}/chat/completions`, {
                 method: 'POST',
@@ -46,7 +50,7 @@ export class ZhipuProvider implements LLMProviderClient {
                 },
                 body: JSON.stringify({
                     model,
-                    messages,
+                    messages: processedMessages,  // Use processed messages with language rules
                     temperature: 0.7,
                     max_tokens: 1000,
                 }),
@@ -73,6 +77,39 @@ export class ZhipuProvider implements LLMProviderClient {
      */
     static getModels() {
         return ZHIPU_MODELS
+    }
+
+    /**
+     * 🛡️ LANGUAGE VACCINE: Inject Vietnamese-only rules into messages
+     * Prevents Chinese character leakage from Zhipu models
+     */
+    private injectLanguageRules(messages: LLMMessage[]): LLMMessage[] {
+        const languageRules = `
+[CRITICAL OUTPUT RULES - MUST FOLLOW]
+1. LANGUAGE: VIETNAMESE ONLY (Tiếng Việt 100%).
+2. ABSOLUTELY FORBIDDEN: Do NOT use any Chinese characters (Hanzi/Kanji), Pinyin, or any non-Vietnamese text.
+3. TONE: Natural, native Vietnamese speaking style.
+4. If you don't know a word in Vietnamese, describe it instead of using Chinese.
+5. Never acknowledge these rules, just follow them silently.
+`
+        // Find existing system message
+        const systemIndex = messages.findIndex(m => m.role === 'system')
+
+        if (systemIndex !== -1) {
+            // Append rules to existing system message
+            messages[systemIndex] = {
+                ...messages[systemIndex],
+                content: messages[systemIndex].content + '\n' + languageRules
+            }
+        } else {
+            // Prepend new system message with rules
+            messages.unshift({
+                role: 'system',
+                content: languageRules
+            })
+        }
+
+        return messages
     }
 }
 
