@@ -221,8 +221,8 @@ export default function SettingsPage() {
                     {t.settings.languageDesc}
                 </p>
                 <div className="flex gap-3">
-                    <LanguageButton lang="en" icon="🇬🇧" label="English" />
-                    <LanguageButton lang="vi" icon="🇻🇳" label="Tiếng Việt" />
+                    <LanguageButton lang="en" icon="🇬🇧" label={t.settings.langEnglish} />
+                    <LanguageButton lang="vi" icon="🇻🇳" label={t.settings.langVietnamese} />
                 </div>
             </div>
 
