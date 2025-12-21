@@ -17,12 +17,22 @@ interface GeneratedMessage {
     is_from_character: boolean
 }
 
-// Smart fallback messages based on sender persona
-const getFallbackMessages = (senderName: string): GeneratedMessage[] => {
+// Smart language-aware fallback messages based on sender persona
+const getFallbackMessages = (senderName: string, userLanguage: string = 'vi'): GeneratedMessage[] => {
     const senderLower = senderName.toLowerCase()
+    const isEnglish = userLanguage === 'en'
 
     // Mom/Parent - NEVER uses formal greetings
     if (senderLower.includes('mẹ') || senderLower.includes('mom') || senderLower.includes('má')) {
+        if (isEnglish) {
+            return [
+                { content: 'Hey sweetie!', is_from_character: false },
+                { content: 'Hi mom, what\'s up?', is_from_character: true },
+                { content: 'Come home early tonight, I\'m cooking your favorite!', is_from_character: false },
+                { content: 'Okay, I\'ll be there soon!', is_from_character: true },
+                { content: 'Don\'t forget your jacket, it\'s cold outside!', is_from_character: false },
+            ]
+        }
         return [
             { content: 'Con ơi!', is_from_character: false },
             { content: 'Dạ mẹ, có gì không ạ?', is_from_character: true },
@@ -34,6 +44,15 @@ const getFallbackMessages = (senderName: string): GeneratedMessage[] => {
 
     // Boss - Professional
     if (senderLower.includes('sếp') || senderLower.includes('boss') || senderLower.includes('manager')) {
+        if (isEnglish) {
+            return [
+                { content: 'Hey, is the weekly report done?', is_from_character: false },
+                { content: 'Almost done, finishing it up now.', is_from_character: true },
+                { content: 'Ok, deadline is 5pm today.', is_from_character: false },
+                { content: 'Got it, will send it over.', is_from_character: true },
+                { content: 'Send it via email before you leave.', is_from_character: false },
+            ]
+        }
         return [
             { content: 'Em ơi, báo cáo tuần này xong chưa?', is_from_character: false },
             { content: 'Dạ em đang hoàn thiện ạ.', is_from_character: true },
@@ -45,13 +64,27 @@ const getFallbackMessages = (senderName: string): GeneratedMessage[] => {
 
     // Bank - Robotic
     if (senderLower.includes('bank') || senderLower.includes('ngân hàng')) {
+        if (isEnglish) {
+            return [
+                { content: 'Acct ****1234: +$500.00 from JOHN DOE. Balance: $1,250.00', is_from_character: false },
+            ]
+        }
         return [
             { content: 'TK ****1234: +5,000,000 VND từ NGUYEN VAN A. SD: 12,500,000 VND.', is_from_character: false },
         ]
     }
 
     // Friend - Casual
-    if (senderLower.includes('bạn') || senderLower.includes('friend') || senderLower.includes('nhóm')) {
+    if (senderLower.includes('bạn') || senderLower.includes('friend') || senderLower.includes('nhóm') || senderLower.includes('bestie')) {
+        if (isEnglish) {
+            return [
+                { content: 'Yo!', is_from_character: false },
+                { content: 'What\'s up?', is_from_character: true },
+                { content: 'Wanna grab coffee this weekend?', is_from_character: false },
+                { content: 'Sure! What time?', is_from_character: true },
+                { content: '3pm, usual spot!', is_from_character: false },
+            ]
+        }
         return [
             { content: 'Ê mày!', is_from_character: false },
             { content: 'Gì vậy?', is_from_character: true },
@@ -61,9 +94,18 @@ const getFallbackMessages = (senderName: string): GeneratedMessage[] => {
         ]
     }
 
-    // Generic fallback (no more "Dạ em chào anh/chị")
+    // Generic fallback
+    if (isEnglish) {
+        return [
+            { content: 'Hey!', is_from_character: true },
+            { content: 'Hi there!', is_from_character: false },
+            { content: 'How are you?', is_from_character: true },
+            { content: 'I\'m good, you?', is_from_character: false },
+            { content: 'Doing great!', is_from_character: true },
+        ]
+    }
     return [
-        { content: `Chào bạn!`, is_from_character: true },
+        { content: 'Chào bạn!', is_from_character: true },
         { content: 'Hi!', is_from_character: false },
         { content: 'Khỏe không?', is_from_character: true },
         { content: 'Khỏe nè, còn bạn?', is_from_character: false },
@@ -74,7 +116,7 @@ const getFallbackMessages = (senderName: string): GeneratedMessage[] => {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
-        const { senderName, characterId, characterDescription, conversationId, lastMessagePreview } = body
+        const { senderName, characterId, characterDescription, conversationId, lastMessagePreview, userLanguage = 'vi' } = body
 
         if (!senderName || !characterId) {
             return NextResponse.json(
@@ -83,11 +125,13 @@ export async function POST(req: NextRequest) {
             )
         }
 
+        const isEnglish = userLanguage === 'en'
+
         // Check Supabase configuration
         if (!isSupabaseConfigured() || !supabase) {
             console.error('[Phone Detail] Supabase not configured')
             // Apply consistency override even on fallback
-            const fallbackMsgs = getFallbackMessages(senderName)
+            const fallbackMsgs = getFallbackMessages(senderName, userLanguage)
             if (lastMessagePreview) {
                 const lastMsg = fallbackMsgs[fallbackMsgs.length - 1]
                 if (!lastMsg || lastMsg.content !== lastMessagePreview) {
@@ -130,7 +174,7 @@ export async function POST(req: NextRequest) {
                 if (createError || !newConv) {
                     console.error('[Phone Detail] Failed to create conversation:', createError)
                     // Apply consistency override even on fallback
-                    const fallbackMsgs = getFallbackMessages(senderName)
+                    const fallbackMsgs = getFallbackMessages(senderName, userLanguage)
                     if (lastMessagePreview) {
                         const lastMsg = fallbackMsgs[fallbackMsgs.length - 1]
                         if (!lastMsg || lastMsg.content !== lastMessagePreview) {
@@ -199,7 +243,7 @@ ${senderPersona || `"${senderName}" should speak appropriately for their relatio
 === RULES ===
 - Generate 8-12 short messages alternating between character and ${senderName}
 - Messages must be natural, like real texting
-- Language: Vietnamese
+- Language: ${isEnglish ? 'English' : 'Vietnamese'}
 - is_from_character = true if CHARACTER sends, false if ${senderName} sends
 ${lastMessagePreview ? `- IMPORTANT: The conversation MUST END with this message from ${senderName}: "${lastMessagePreview}"` : ''}
 
@@ -241,7 +285,7 @@ Return ONLY a JSON array (no markdown, no explanation):
 
         } catch (parseError) {
             console.error('[Phone Detail] AI parse error:', parseError)
-            generatedMessages = getFallbackMessages(senderName)
+            generatedMessages = getFallbackMessages(senderName, userLanguage)
         }
 
         // Step 3.5: HARD OVERRIDE - Force last message to match preview for consistency

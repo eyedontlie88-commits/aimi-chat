@@ -160,6 +160,11 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [autoSaveToast, setAutoSaveToast] = useState<{ show: boolean; message: string; type: 'loading' | 'success' | 'error' }>({ show: false, message: '', type: 'loading' })
     const [showExitConfirm, setShowExitConfirm] = useState(false)
 
+    // Smart Semantic Gatekeeper state
+    const lastAnalysedMsgCountRef = useRef<number>(0)
+    const [hasNewPhoneMessages, setHasNewPhoneMessages] = useState(false)
+    const [isGeneratingPhoneMessages, setIsGeneratingPhoneMessages] = useState(false)
+
     // Get user's custom colors from ColorContext (must be before any conditional returns)
     const { textColor, backgroundColor } = useColors()
 
@@ -615,8 +620,65 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         // If conversation has meaningful content, show exit confirmation
         if (messages.length >= 5) {
             setShowExitConfirm(true)
+
+            // Stage 1 Gate: Check if 10+ new messages since last analysis
+            const diff = messages.length - lastAnalysedMsgCountRef.current
+            if (diff >= 10) {
+                console.log(`[SilentGen] Triggering generation (${diff} new messages)`)
+                lastAnalysedMsgCountRef.current = messages.length
+                triggerSilentMessageGeneration()
+            } else {
+                console.log(`[SilentGen] Skipped - not enough new messages (${diff} < 10)`)
+            }
         } else {
             router.back()
+        }
+    }
+
+    // Silent message generation for retention hook
+    const triggerSilentMessageGeneration = async () => {
+        if (isGeneratingPhoneMessages || !character) return
+
+        setIsGeneratingPhoneMessages(true)
+        setHasNewPhoneMessages(false)
+
+        try {
+            // Extract last 15 messages for context
+            const recentHistory = messages.slice(-15).map(m => ({
+                role: m.role,
+                content: m.content
+            }))
+
+            const response = await fetch('/api/phone/generate-messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    characterName: character.name,
+                    characterDescription: '',
+                    userLanguage: userLanguage,
+                    recentHistory: recentHistory
+                })
+            })
+
+            const data = await response.json()
+
+            // Stage 2: Check if AI generated or skipped
+            if (data.skipped) {
+                console.log(`[SilentGen] AI skipped: ${data.reason}`)
+                // No notification - content wasn't meaningful
+            } else if (data.messages && data.messages.length > 0) {
+                console.log(`[SilentGen] Generated ${data.messages.length} messages!`)
+                // Cache the new messages
+                sessionStorage.setItem(
+                    `phone_messages_${characterId}`,
+                    JSON.stringify(data.messages)
+                )
+                setHasNewPhoneMessages(true)
+            }
+        } catch (error) {
+            console.error('[SilentGen] Error:', error)
+        } finally {
+            setIsGeneratingPhoneMessages(false)
         }
     }
 
@@ -1160,6 +1222,32 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         <p className="text-sm text-secondary">
                             {t.exit.message}
                         </p>
+
+                        {/* Phone messages notification hook */}
+                        {hasNewPhoneMessages && (
+                            <div className="bg-primary/20 border border-primary/40 rounded-xl p-3 animate-pulse">
+                                <div className="flex items-center justify-center gap-2 text-sm">
+                                    <span className="text-lg">📱</span>
+                                    <span className="font-medium">{userLanguage === 'en' ? 'New phone messages!' : 'Có tin nhắn mới trong điện thoại!'}</span>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setShowExitConfirm(false)
+                                        setShowPhoneOS(true)
+                                    }}
+                                    className="mt-2 text-xs text-primary hover:underline"
+                                >
+                                    {userLanguage === 'en' ? '→ Check phone' : '→ Xem điện thoại'}
+                                </button>
+                            </div>
+                        )}
+                        {isGeneratingPhoneMessages && (
+                            <div className="text-xs text-secondary/70 flex items-center justify-center gap-1">
+                                <span className="animate-spin">⏳</span>
+                                <span>{userLanguage === 'en' ? 'Checking for updates...' : 'Đang kiểm tra...'}</span>
+                            </div>
+                        )}
+
                         <div className="flex flex-col gap-2">
                             <button
                                 onClick={async () => {

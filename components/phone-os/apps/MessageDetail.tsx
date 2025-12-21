@@ -30,7 +30,7 @@ export default function MessageDetail({
     conversationId: initialConvId,
     lastMessagePreview
 }: MessageDetailProps) {
-    const { t } = useLanguage()
+    const { t, lang } = useLanguage()
     const [messages, setMessages] = useState<MessageBubble[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -62,7 +62,8 @@ export default function MessageDetail({
                         characterId,
                         characterDescription,
                         conversationId: initialConvId,
-                        lastMessagePreview
+                        lastMessagePreview,
+                        userLanguage: lang, // 'en' or 'vi'
                     })
                 })
 
