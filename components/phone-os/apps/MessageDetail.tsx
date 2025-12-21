@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, Loader2, Send } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n'
 
 interface MessageDetailProps {
     onBack: () => void
@@ -29,6 +30,7 @@ export default function MessageDetail({
     conversationId: initialConvId,
     lastMessagePreview
 }: MessageDetailProps) {
+    const { t } = useLanguage()
     const [messages, setMessages] = useState<MessageBubble[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -118,7 +120,7 @@ export default function MessageDetail({
                 <div className="flex-1">
                     <h2 className="text-base font-semibold text-gray-800">{senderName}</h2>
                     {source === 'ai' && (
-                        <span className="text-[10px] text-green-500">✨ Mới tạo bởi AI</span>
+                        <span className="text-[10px] text-green-500">{t.phone.aiNewlyGenerated}</span>
                     )}
                 </div>
             </div>
@@ -129,26 +131,26 @@ export default function MessageDetail({
                     // Loading Skeleton
                     <div className="flex flex-col items-center justify-center h-full gap-3">
                         <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-                        <p className="text-sm text-gray-400">Đang tải tin nhắn...</p>
-                        <p className="text-xs text-gray-300">Có thể mất vài giây nếu là lần đầu</p>
+                        <p className="text-sm text-gray-400">{t.phone.loadingDetail}</p>
+                        <p className="text-xs text-gray-300">{t.phone.loadingFirstTime}</p>
                     </div>
                 ) : error ? (
                     // Error State
                     <div className="flex flex-col items-center justify-center h-full gap-2">
                         <span className="text-4xl">😢</span>
-                        <p className="text-sm text-gray-500">Không thể tải tin nhắn</p>
+                        <p className="text-sm text-gray-500">{t.phone.cannotLoadMessages}</p>
                         <button
                             onClick={onBack}
                             className="text-xs text-blue-500 hover:underline"
                         >
-                            Quay lại
+                            {t.phone.goBack}
                         </button>
                     </div>
                 ) : messages.length === 0 ? (
                     // Empty State
                     <div className="flex flex-col items-center justify-center h-full gap-2">
                         <span className="text-4xl">💬</span>
-                        <p className="text-sm text-gray-500">Chưa có tin nhắn nào</p>
+                        <p className="text-sm text-gray-500">{t.phone.noMessagesYet}</p>
                     </div>
                 ) : (
                     // Message Bubbles
@@ -181,7 +183,7 @@ export default function MessageDetail({
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
-                        placeholder="Nhập tin nhắn..."
+                        placeholder={t.phone.inputPlaceholder}
                         className="flex-1 px-4 py-2 rounded-full border border-gray-200 text-sm focus:outline-none focus:border-blue-300"
                     />
                     <button
@@ -196,7 +198,7 @@ export default function MessageDetail({
                     </button>
                 </div>
                 <p className="text-[10px] text-gray-400 text-center mt-1">
-                    Tin nhắn sẽ hiển thị trong phiên này
+                    {t.phone.sessionOnly}
                 </p>
             </div>
         </div>
