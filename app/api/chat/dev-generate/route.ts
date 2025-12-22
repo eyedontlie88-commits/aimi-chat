@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateWithProviders } from '@/lib/llm/router'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import { createClient } from '@supabase/supabase-js'
 
 /**
  * 🔐 DEV ONLY: Auto-Conversation Generator for MAIN CHAT
@@ -8,12 +8,19 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
  * 
  * "Bàn tay của Chúa" - Generates a complete conversation with BOTH roles
  * Saves to `messages` table (MAIN CHAT, not phone)
+ * Uses SERVICE_ROLE_KEY to bypass RLS
  * 
  * Body: { 
  *   userEmail, userId, characterId, characterName, topic, messageCount, userLanguage,
  *   saveToDb (optional - if true, saves to database)
  * }
  */
+
+// 🔥 ADMIN CLIENT - BYPASSES RLS (Service Role Key)
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 // 🔐 DEV EMAILS WHITELIST
 const DEV_EMAILS = ['eyedontlie88@gmail.com', 'giangcm987@gmail.com']
@@ -130,16 +137,17 @@ Return ONLY a valid JSON array (no markdown, no explanation):
 
         console.log(`✅ [DEV CHAT GEN] Generated ${messages.length} messages successfully`)
 
-        // If saveToDb is true, save to MAIN messages table
-        if (saveToDb && isSupabaseConfigured() && supabase && userId) {
+        // If saveToDb is true, save to MAIN messages table using ADMIN client
+        if (saveToDb && userId) {
+            console.log(`💾 [DEV CHAT GEN] Using ADMIN client to save for User: ${userId}`)
             const savedMessages = []
 
             for (const msg of messages) {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseAdmin
                     .from('messages')
                     .insert({
                         character_id: characterId,
-                        user_id: userId,  // Use userId from request body
+                        user_id: userId,
                         role: msg.role,
                         content: msg.content,
                     })
@@ -157,8 +165,8 @@ Return ONLY a valid JSON array (no markdown, no explanation):
 
             // Update relationship stats (trigger intimacy recalculation)
             try {
-                await supabase.rpc('recalculate_relationship', {
-                    p_user_id: userId,  // Use userId from request body
+                await supabaseAdmin.rpc('recalculate_relationship', {
+                    p_user_id: userId,
                     p_character_id: characterId
                 })
                 console.log(`💕 [DEV CHAT GEN] Relationship stats recalculated`)
