@@ -199,6 +199,7 @@ export default function MessagesApp({
                     isInitial: isInitial, // Flag for first-time persona-based generation
                     forceGenerate: forceRefresh, // Pass forceRefresh to API for DEV bypass
                     currentMessages: conversationsRef.current, // 🧠 RULE #6: Use ref for fresh data
+                    userEmail: userEmail, // 🔐 For server-side DEV verification
                 }),
             })
 
@@ -432,6 +433,7 @@ export default function MessagesApp({
                                                 userLanguage: lang,
                                                 isInitial: true,
                                                 forceGenerate: true, // DEV bypass flag
+                                                userEmail: userEmail, // 🔐 For server-side DEV verification
                                             }),
                                         })
                                             .then(res => res.json())

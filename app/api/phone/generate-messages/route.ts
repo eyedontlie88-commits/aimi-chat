@@ -33,11 +33,24 @@ export async function POST(req: NextRequest) {
             recentHistory = [], // Array of recent chat messages for context
             isInitial = false,  // Flag for first-time phone open (persona-based generation)
             forceGenerate = false, // DEV bypass - force AI generation without thresholds
-            currentMessages = [] // 🧠 RULE #6: Existing phone messages for context
+            currentMessages = [], // 🧠 RULE #6: Existing phone messages for context
+            userEmail = '' // 🔐 For DEV verification
         } = body
 
         if (!characterName) {
             return NextResponse.json({ error: 'Missing characterName' }, { status: 400 })
+        }
+
+        // 🔐 SERVER-SIDE DEV EMAIL VERIFICATION
+        // Only whitelisted emails can use forceGenerate
+        const DEV_EMAILS = ['eyedontlie88@gmail.com', 'giangcm987@gmail.com']
+
+        if (forceGenerate && !DEV_EMAILS.includes(userEmail)) {
+            console.error(`🚫 [SECURITY] Unauthorized forceGenerate attempt from: ${userEmail || 'unknown'}`)
+            return NextResponse.json(
+                { error: 'Unauthorized: DEV access required' },
+                { status: 403 }
+            )
         }
 
         // DEBUG: Log flags
@@ -47,6 +60,7 @@ export async function POST(req: NextRequest) {
         if (forceGenerate) {
             console.log('🔓🔓🔓 [DEV BYPASS] ==========================================')
             console.log('🔓 [DEV BYPASS] forceGenerate=true TRIGGERED!')
+            console.log(`🔓 [DEV BYPASS] Authorized user: ${userEmail}`)
             console.log('🔓 [DEV BYPASS] Bypassing ALL thresholds and cooldowns')
             console.log('🔓 [DEV BYPASS] Forcing AI generation immediately...')
             console.log(`🔓 [DEV BYPASS] Character: ${characterName}`)
