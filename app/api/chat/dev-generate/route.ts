@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateWithProviders } from '@/lib/llm/router'
+import { createClient } from '@supabase/supabase-js'
 
 /**
  * 🔐 DEV ONLY: Auto-Conversation Generator for MAIN CHAT
  * POST /api/chat/dev-generate
  * 
  * "Bàn tay của Chúa" - Generates a complete conversation with BOTH roles
- * Saves to `messages` table (MAIN CHAT, not phone)
- * Uses SERVICE_ROLE_KEY via REST API to bypass RLS
+ * Saves to `Message` table (MAIN CHAT) via RPC function with SECURITY DEFINER
  * 
  * Body: { 
  *   userEmail, userId, characterId, characterName, topic, messageCount, userLanguage,
  *   saveToDb (optional - if true, saves to database)
  * }
  */
+
+// 🔥 ADMIN CLIENT - for RPC calls
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 // 🔐 DEV EMAILS WHITELIST
 const DEV_EMAILS = ['eyedontlie88@gmail.com', 'giangcm987@gmail.com']
@@ -130,67 +136,62 @@ Return ONLY a valid JSON array (no markdown, no explanation):
 
         console.log(`✅ [DEV CHAT GEN] Generated ${messages.length} messages successfully`)
 
-        // If saveToDb is true, save to MAIN messages table using REST API
+        // If saveToDb is true, save to Message table via RPC function
         if (saveToDb) {
-            console.log(`💾 [DEV CHAT GEN] Using REST API to save for Character: ${characterId}`)
+            console.log(`💾 [DEV CHAT GEN] Using RPC function to save for Character: ${characterId}`)
 
-            // 1. Prepare data array for BULK INSERT (Prisma schema: Message table with camelCase columns)
-            // Note: Message table has: id, characterId, role, content, sceneState, createdAt, replyToMessageId, reactionType
-            const messagesToInsert = messages.map(msg => ({
-                id: `dev-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
-                characterId: characterId,  // camelCase for Prisma
+            // 1. Prepare data array for insert
+            const messagesToInsert = messages.map((msg, idx) => ({
+                id: `dev-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+                characterId: characterId,
                 role: msg.role,
                 content: msg.content,
                 createdAt: new Date().toISOString(),
             }))
 
-            // 2. BULK INSERT via REST API - Table name is "Message" (Prisma style, capital M)
-            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/Message`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
-                    'Prefer': 'return=representation' // Return inserted data
-                },
-                body: JSON.stringify(messagesToInsert)
+            // 2. Call RPC function (SECURITY DEFINER = runs with admin privileges)
+            const { data, error } = await supabaseAdmin.rpc('insert_dev_messages', {
+                messages: messagesToInsert
             })
 
-            if (!response.ok) {
-                const errorText = await response.text()
-                console.error('[DEV CHAT GEN] REST insert error:', errorText)
-                return NextResponse.json({ error: `REST Error: ${errorText}` }, { status: 500 })
+            if (error) {
+                console.error('[DEV CHAT GEN] RPC insert error:', error)
+                return NextResponse.json({ error: `RPC Error: ${error.message}` }, { status: 500 })
             }
 
-            const data = await response.json()
-            console.log(`💾 [DEV CHAT GEN] Saved ${data?.length || 0} messages to DB`)
+            console.log(`💾 [DEV CHAT GEN] Saved ${messagesToInsert.length} messages to DB via RPC`)
 
-            // Update relationship stats (trigger intimacy recalculation via REST)
+            // 💉 FORCE UPDATE: Max out relationship stats to unlock phone!
             try {
-                const rpcResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/recalculate_relationship`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
-                    },
-                    body: JSON.stringify({
-                        p_user_id: userId,
-                        p_character_id: characterId
+                console.log(`💉 [DEV CHAT GEN] Force updating RelationshipConfig for character: ${characterId}`)
+
+                const { error: updateError } = await supabaseAdmin
+                    .from('RelationshipConfig')  // Prisma table name
+                    .update({
+                        affectionPoints: 100,        // MAX AFFECTION
+                        intimacyLevel: 4,            // 4 = tri kỷ (soulmate)
+                        stage: 'SOULMATES',          // Max stage
+                        messageCount: 100,           // Boost message count
+                        emotionalMomentum: 1.0,      // Positive momentum
+                        trustDebt: 0.0,              // No debt
                     })
-                })
-                if (rpcResponse.ok) {
-                    console.log(`💕 [DEV CHAT GEN] Relationship stats recalculated`)
+                    .eq('characterId', characterId)
+
+                if (updateError) {
+                    console.error('[DEV CHAT GEN] Force update error:', updateError)
+                } else {
+                    console.log(`💕 [DEV CHAT GEN] RelationshipConfig MAXED OUT! Phone should be unlocked!`)
                 }
             } catch (e) {
-                console.warn('[DEV CHAT GEN] Could not recalculate relationship:', e)
+                console.warn('[DEV CHAT GEN] Could not force update relationship:', e)
             }
 
             return NextResponse.json({
-                messages: data || [],
+                messages: data || messagesToInsert,
                 saved: true,
-                count: data?.length || 0,
-                source: 'ai-saved'
+                count: messagesToInsert.length,
+                relationshipForced: true,  // Flag to indicate we forced the update
+                source: 'ai-saved-rpc'
             })
         }
 
