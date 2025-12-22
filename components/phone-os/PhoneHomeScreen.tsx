@@ -178,10 +178,27 @@ export default function PhoneHomeScreen({
                 onClick={onClose}
             />
 
-            {/* Phone Container */}
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Phone Container - Instagram Sheet Style */}
+            <div
+                className="fixed inset-x-0 bottom-0 z-[9999] flex flex-col"
+                style={{
+                    height: '100dvh',
+                    paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+                }}
+            >
+                {/* Tap to close area (top portion) */}
                 <div
-                    className="w-full max-w-sm bg-[#FFF5EB] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300"
+                    className="flex-shrink-0 h-16 cursor-pointer"
+                    onClick={onClose}
+                />
+
+                {/* Phone Sheet */}
+                <div
+                    className="flex-1 w-full max-w-md mx-auto bg-[#FFF5EB] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300"
+                    style={{
+                        maxHeight: 'calc(100dvh - 64px)',
+                        animation: 'slideUpSpring 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                    }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Show active app OR home screen */}

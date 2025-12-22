@@ -203,6 +203,36 @@ textarea::placeholder {
   background-size: 1000px 100%;
 }
 
+/* 🚀 Spring Slide Up Animation (Phone Modal) */
+@keyframes slideUpSpring {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  50% {
+    transform: translateY(-8%);
+    opacity: 1;
+  }
+
+  70% {
+    transform: translateY(3%);
+  }
+
+  85% {
+    transform: translateY(-1%);
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up-spring {
+  animation: slideUpSpring 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
 /* Heart Reaction Animations */
 @keyframes heartbeat {
 

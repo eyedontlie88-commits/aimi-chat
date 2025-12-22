@@ -1,5 +1,4 @@
 import { LLMProviderClient, LLMMessage } from '../types'
-import { ZHIPU_MODELS, ZHIPU_DEFAULT } from '../constants/zhipu'
 
 /**
  * 🇨🇳 Zhipu AI (BigModel) Provider
@@ -24,7 +23,7 @@ export class ZhipuProvider implements LLMProviderClient {
     constructor() {
         this.baseUrl = process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4'
         this.apiKey = process.env.ZHIPU_API_KEY || ''
-        this.defaultModel = process.env.ZHIPU_DEFAULT_MODEL || ZHIPU_DEFAULT
+        this.defaultModel = process.env.ZHIPU_DEFAULT_MODEL || 'glm-4.5-flash'
     }
 
     async generateResponse(messages: LLMMessage[], options: { model?: string }): Promise<string> {
@@ -76,7 +75,7 @@ export class ZhipuProvider implements LLMProviderClient {
      * Get available models
      */
     static getModels() {
-        return ZHIPU_MODELS
+        return { FLASH_4_5: 'glm-4.5-flash' }
     }
 
     /**

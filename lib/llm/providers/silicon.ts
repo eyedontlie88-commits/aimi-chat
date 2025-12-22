@@ -1,29 +1,57 @@
 import { LLMProviderClient, LLMMessage } from '../types'
 
+/**
+ * 🚀 SiliconFlow Provider with Multi-Key Rotation
+ * Supports multiple API keys for load balancing and quota distribution
+ * 
+ * ENV: SILICON_API_KEY=key1,key2,key3 (comma-separated)
+ */
 export class SiliconFlowProvider implements LLMProviderClient {
     private baseUrl: string
-    private apiKey: string
     private defaultModel: string
 
     constructor() {
         this.baseUrl = process.env.SILICON_BASE_URL || 'https://api.siliconflow.cn/v1'
-        this.apiKey = process.env.SILICON_API_KEY || ''
         this.defaultModel = process.env.SILICON_DEFAULT_MODEL || 'Qwen/Qwen2.5-7B-Instruct'
     }
 
+    /**
+     * 🔄 Multi-Key Rotation: Random selection from comma-separated keys
+     * Distributes load across multiple accounts to avoid quota exhaustion
+     */
+    private getRotatedKey(): string {
+        const keyString = process.env.SILICON_API_KEY || ''
+        const allKeys = keyString.split(',').map(k => k.trim()).filter(k => k.length > 0)
+
+        if (allKeys.length === 0) {
+            return ''
+        }
+
+        // Random rotation for load balancing
+        const selectedIndex = Math.floor(Math.random() * allKeys.length)
+        const selectedKey = allKeys[selectedIndex]
+
+        console.log(`[SiliconFlow] 🔄 Using key ${selectedIndex + 1}/${allKeys.length}`)
+        return selectedKey
+    }
+
     async generateResponse(messages: LLMMessage[], options: { model?: string }): Promise<string> {
-        if (!this.apiKey) {
-            throw new Error('SiliconFlow API key not configured')
+        const apiKey = this.getRotatedKey()
+
+        if (!apiKey) {
+            throw new Error('SiliconFlow API key not configured (SILICON_API_KEY)')
         }
 
         const model = options.model || this.defaultModel
 
         try {
+            console.log(`[SiliconFlow] 🚀 Calling model: ${model}`)
+
             const response = await fetch(`${this.baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${this.apiKey}`,
+                    'Authorization': `Bearer ${apiKey}`,
                 },
                 body: JSON.stringify({
                     model,
@@ -39,9 +67,12 @@ export class SiliconFlowProvider implements LLMProviderClient {
             }
 
             const data = await response.json()
-            return data.choices?.[0]?.message?.content || ''
+            const content = data.choices?.[0]?.message?.content || ''
+
+            console.log(`[SiliconFlow] ✅ Success! Length: ${content.length}`)
+            return content
         } catch (error) {
-            console.error('SiliconFlow generation error:', error)
+            console.error('[SiliconFlow] ❌ Error:', error)
             throw error
         }
     }
