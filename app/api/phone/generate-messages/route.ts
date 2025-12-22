@@ -10,7 +10,7 @@ import { generateWithProviders } from '@/lib/llm/router'
  */
 
 interface MessageItem {
-    id: number
+    id: string | number  // 🔒 Support both DB IDs (number) and AI-generated IDs (string)
     name: string
     avatar: string
     lastMessage: string
@@ -124,11 +124,31 @@ ${currentMessages.slice(-10).map((msg: { name: string; lastMessage: string }, i:
 `
             : ''
 
+        // 🔒 IMMUTABLE HISTORY RULE - NEW STRICT ENFORCEMENT
+        const immutableHistoryRule = (currentMessages && currentMessages.length > 0)
+            ? `
+=== 🔒🔒🔒 IMMUTABLE HISTORY - ABSOLUTE RULE 🔒🔒🔒 ===
+YOU ARE A CONTINUATION WRITER, NOT A HISTORY MODIFIER.
+
+**IRON-CLAD RULES:**
+1. 🚫 FORBIDDEN: Changing, editing, or rewriting ANY existing message content
+2. 🚫 FORBIDDEN: Generating messages with IDs that already exist
+3. 🚫 FORBIDDEN: Generating past messages - ONLY future messages
+4. ✅ REQUIRED: Each new message ID must be UNIQUE (use timestamp-based: "ai-" + timestamp)
+5. ✅ REQUIRED: New messages must come AFTER the last message timestamp
+6. ✅ REQUIRED: ONLY generate FOLLOW-UP messages from senders
+
+**YOU ARE ADDING TO A STORY, NOT REWRITING IT.**
+The history above is SACRED. Touch it = FAILURE.
+=== END IMMUTABLE RULE ===
+`
+            : ''
+
         // Build the prompt with SEMANTIC EVALUATION + sender persona rules
         // SPECIAL HANDLING: isInitial uses persona-based sender generation
         const systemPrompt = `You are generating a list of phone messages that appear in ${characterName}'s phone inbox.
 ${characterDescription ? `About ${characterName}: ${characterDescription}` : ''}
-${relationshipContext ? `Relationship context: ${relationshipContext}` : ''}${historyContext}${existingMessagesContext}
+${relationshipContext ? `Relationship context: ${relationshipContext}` : ''}${historyContext}${existingMessagesContext}${immutableHistoryRule}
 
 === CRITICAL LANGUAGE REQUIREMENT - READ FIRST! ===
 ${isEnglish
@@ -311,8 +331,12 @@ ${isEnglish ? `[
         }
 
         // Ensure each message has required fields
+        // 🔒 UNIQUE ID FIX: Use timestamp-based IDs to prevent conflicts
+        const timestamp = Date.now()
         messages = messages.map((msg, idx) => ({
-            id: msg.id || idx + 1,
+            id: msg.id && typeof msg.id === 'string' && msg.id.startsWith('ai-')
+                ? msg.id
+                : `ai-${timestamp}-${idx}`, // Unique ID: ai-{timestamp}-{index}
             name: msg.name || 'Unknown',
             avatar: msg.avatar || '👤',
             lastMessage: msg.lastMessage || '...',
