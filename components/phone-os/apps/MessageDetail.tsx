@@ -80,6 +80,24 @@ export default function MessageDetail({
     const isDevUser = userEmail && DEV_EMAILS.includes(userEmail)
     const [devMode, setDevMode] = useState<'NORMAL' | 'DRAMA' | 'LOVE'>('NORMAL')
 
+    // 🎬 DEV AUTO-CONVERSATION GENERATOR STATE
+    const [showDevPanel, setShowDevPanel] = useState(false)
+    const [devTopic, setDevTopic] = useState('caring')
+    const [devMessageCount, setDevMessageCount] = useState(10)
+    const [devPreviewMessages, setDevPreviewMessages] = useState<MessageBubble[]>([])
+    const [isDevGenerating, setIsDevGenerating] = useState(false)
+    const [isDevSaving, setIsDevSaving] = useState(false)
+
+    const DEV_TOPICS = [
+        { value: 'arguing', label: '🔥 Cãi nhau' },
+        { value: 'flirting', label: '💕 Thả thính' },
+        { value: 'work', label: '💼 Công việc gấp' },
+        { value: 'debt', label: '💸 Nhắc nợ' },
+        { value: 'caring', label: '❤️ Quan tâm' },
+        { value: 'gossip', label: '🗣️ Buôn chuyện' },
+        { value: 'planning', label: '📅 Lên kế hoạch' },
+    ]
+
     // Scroll to bottom when messages load
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -237,6 +255,96 @@ export default function MessageDetail({
         }
     }
 
+    // 🎬 DEV: Generate conversation preview
+    const handleDevGenerate = async () => {
+        if (!isDevUser || isDevGenerating) return
+
+        setIsDevGenerating(true)
+        setDevPreviewMessages([])
+
+        try {
+            console.log(`🎬 [DEV] Generating ${devMessageCount} messages with topic: ${devTopic}`)
+
+            const response = await fetch('/api/phone/dev-generate-conversation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userEmail,
+                    characterId,
+                    characterName,
+                    characterDescription,
+                    senderName,
+                    topic: devTopic,
+                    messageCount: devMessageCount,
+                    userLanguage: lang,
+                    saveToDb: false // Preview only
+                })
+            })
+
+            const data = await response.json()
+
+            if (data.messages && data.messages.length > 0) {
+                setDevPreviewMessages(data.messages)
+                console.log(`✅ [DEV] Preview generated: ${data.messages.length} messages`)
+            } else {
+                console.error('[DEV] No messages generated:', data.error)
+            }
+        } catch (err) {
+            console.error('[DEV] Generate error:', err)
+        } finally {
+            setIsDevGenerating(false)
+        }
+    }
+
+    // 🎬 DEV: Save preview to database
+    const handleDevSave = async () => {
+        if (!isDevUser || isDevSaving || devPreviewMessages.length === 0) return
+
+        setIsDevSaving(true)
+
+        try {
+            console.log(`💾 [DEV] Saving ${devPreviewMessages.length} messages to DB...`)
+
+            const response = await fetch('/api/phone/dev-generate-conversation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userEmail,
+                    characterId,
+                    characterName,
+                    characterDescription,
+                    senderName,
+                    topic: devTopic,
+                    messageCount: devMessageCount,
+                    userLanguage: lang,
+                    saveToDb: true, // Actually save this time
+                    conversationId: initialConvId
+                })
+            })
+
+            const data = await response.json()
+
+            if (data.saved) {
+                console.log(`✅ [DEV] Saved to DB successfully!`)
+                // Merge with existing messages
+                setMessages(prev => {
+                    const combined = [...prev, ...data.messages]
+                        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                    return combined
+                })
+                // Clear preview
+                setDevPreviewMessages([])
+                setShowDevPanel(false)
+            } else {
+                console.error('[DEV] Save failed:', data.error)
+            }
+        } catch (err) {
+            console.error('[DEV] Save error:', err)
+        } finally {
+            setIsDevSaving(false)
+        }
+    }
+
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header */}
@@ -256,7 +364,81 @@ export default function MessageDetail({
                         </span>
                     )}
                 </div>
+
+                {/* 🎬 DEV PANEL TOGGLE */}
+                {isDevUser && (
+                    <button
+                        onClick={() => setShowDevPanel(!showDevPanel)}
+                        className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${showDevPanel ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-600 hover:bg-orange-200'}`}
+                        title="DEV: Auto-Conversation Generator"
+                    >
+                        🎬
+                    </button>
+                )}
             </div>
+
+            {/* 🎬 DEV AUTO-CONVERSATION GENERATOR PANEL */}
+            {isDevUser && showDevPanel && (
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm">🎬 Auto-Conversation Generator</span>
+                        <span className="text-[10px] opacity-75">DEV ONLY</span>
+                    </div>
+
+                    {/* Topic Selector */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs">Chủ đề:</span>
+                        <select
+                            value={devTopic}
+                            onChange={(e) => setDevTopic(e.target.value)}
+                            className="flex-1 bg-white/20 text-white text-xs px-2 py-1 rounded border-none outline-none"
+                        >
+                            {DEV_TOPICS.map(t => (
+                                <option key={t.value} value={t.value} className="text-gray-800">{t.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Message Count Slider */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs">Số tin:</span>
+                        <input
+                            type="range"
+                            min="3"
+                            max="20"
+                            value={devMessageCount}
+                            onChange={(e) => setDevMessageCount(Number(e.target.value))}
+                            className="flex-1"
+                        />
+                        <span className="text-xs font-bold w-6">{devMessageCount}</span>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleDevGenerate}
+                            disabled={isDevGenerating}
+                            className="flex-1 bg-white text-orange-600 font-bold text-xs py-2 px-3 rounded hover:bg-orange-50 disabled:opacity-50 transition-colors"
+                        >
+                            {isDevGenerating ? '🔄 Đang tạo...' : '⚡ GENERATE PREVIEW'}
+                        </button>
+                        <button
+                            onClick={handleDevSave}
+                            disabled={isDevSaving || devPreviewMessages.length === 0}
+                            className="bg-green-500 text-white font-bold text-xs py-2 px-3 rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
+                        >
+                            {isDevSaving ? '💾 Saving...' : `💾 SAVE (${devPreviewMessages.length})`}
+                        </button>
+                    </div>
+
+                    {/* Preview Count */}
+                    {devPreviewMessages.length > 0 && (
+                        <div className="text-xs opacity-75 text-center">
+                            ✅ Preview: {devPreviewMessages.length} tin nhắn sẵn sàng lưu
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">

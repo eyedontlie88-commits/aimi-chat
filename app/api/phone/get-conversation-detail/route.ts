@@ -329,15 +329,21 @@ Return ONLY a JSON array (no markdown, no explanation):
 
         if (insertError) {
             console.error('[Phone Detail] Failed to save messages:', insertError)
-            // Return generated messages even if save failed
+            // 🔒 CRITICAL: Still combine existing + new temp messages
+            const tempNewMessages = generatedMessages.map((msg, idx) => ({
+                id: `temp-${Date.now()}-${idx}`,
+                conversation_id: convId,
+                content: msg.content,
+                is_from_character: msg.is_from_character,
+                created_at: new Date().toISOString()
+            }))
+            const allMessages = [
+                ...(existingMessages || []),
+                ...tempNewMessages
+            ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
             return NextResponse.json({
-                messages: generatedMessages.map((msg, idx) => ({
-                    id: `temp-${idx}`,
-                    conversation_id: convId,
-                    content: msg.content,
-                    is_from_character: msg.is_from_character,
-                    created_at: new Date().toISOString()
-                })),
+                messages: allMessages,
                 conversationId: convId,
                 source: 'ai',
                 warning: 'Messages generated but not saved to database'
@@ -356,8 +362,16 @@ Return ONLY a JSON array (no markdown, no explanation):
 
         console.log(`[Phone Detail] Generated and saved ${savedMessages?.length || 0} messages`)
 
+        // 🔒 CRITICAL: Combine existing + new messages, sorted by created_at
+        const allMessages = [
+            ...(existingMessages || []),
+            ...(savedMessages || [])
+        ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+        console.log(`[Phone Detail] Returning ${allMessages.length} total messages (${existingMessages?.length || 0} existing + ${savedMessages?.length || 0} new)`)
+
         return NextResponse.json({
-            messages: savedMessages || [],
+            messages: allMessages,
             conversationId: convId,
             source: 'ai'
         })
