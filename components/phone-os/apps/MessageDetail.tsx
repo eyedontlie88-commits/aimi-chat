@@ -52,6 +52,30 @@ export default function MessageDetail({
     const [source, setSource] = useState<'database' | 'ai' | 'fallback'>('database')
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
+    // 🧠 SessionStorage cache key for user messages (DB fallback)
+    const getLocalCacheKey = () => `phone_user_msgs_${characterId}_${senderName}`
+
+    // Helper: Save user message to sessionStorage as backup
+    const saveToLocalCache = (msg: MessageBubble) => {
+        const key = getLocalCacheKey()
+        const existing = JSON.parse(sessionStorage.getItem(key) || '[]') as MessageBubble[]
+        // Avoid duplicates
+        if (!existing.some(m => m.content === msg.content)) {
+            existing.push(msg)
+            sessionStorage.setItem(key, JSON.stringify(existing))
+            console.log(`[MessageDetail] 💾 Saved to local cache: ${msg.content.slice(0, 30)}...`)
+        }
+    }
+
+    // Helper: Get user messages from local cache
+    const getLocalCache = (): MessageBubble[] => {
+        try {
+            return JSON.parse(sessionStorage.getItem(getLocalCacheKey()) || '[]')
+        } catch {
+            return []
+        }
+    }
+
     // 🕵️‍♂️ DEV HACK STATE - Director Console
     const isDevUser = userEmail && DEV_EMAILS.includes(userEmail)
     const [devMode, setDevMode] = useState<'NORMAL' | 'DRAMA' | 'LOVE'>('NORMAL')
@@ -85,7 +109,24 @@ export default function MessageDetail({
                 })
                 if (!response.ok) throw new Error('Failed to fetch messages')
                 const data = await response.json()
-                setMessages(data.messages || [])
+
+                // 🧠 MERGE: API messages + local cache (for user messages that may have failed to save)
+                const apiMessages = data.messages || []
+                const localUserMsgs = getLocalCache()
+
+                // Merge: add local user messages that aren't in API result
+                const merged = [...apiMessages]
+                for (const localMsg of localUserMsgs) {
+                    const exists = merged.some(m => m.content === localMsg.content)
+                    if (!exists) {
+                        merged.push(localMsg)
+                        console.log(`[MessageDetail] 🔄 Merged from local cache: ${localMsg.content.slice(0, 30)}...`)
+                    }
+                }
+                // Sort by created_at
+                merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+                setMessages(merged)
                 setSource(data.source || 'database')
             } catch (err: unknown) {
                 console.error('[MessageDetail] Fetch error:', err)
@@ -175,6 +216,10 @@ export default function MessageDetail({
                     is_from_character: true,
                     created_at: new Date().toISOString()
                 }
+
+                // 🧠 HACK: Always save to local cache as backup
+                saveToLocalCache(newMessage)
+
                 setMessages(prev => [...prev, newMessage])
                 if (onUserReply) onUserReply(senderName, replyText.trim())
                 setReplyText('')

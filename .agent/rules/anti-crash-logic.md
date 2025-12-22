@@ -55,3 +55,11 @@ Separation of Concerns: Clearly distinguish between "User Actions" (Grinding, wa
     * If the AI sent the last message -> **FOLLOW UP** (e.g., "Why aren't you answering?") or **STAY SILENT**.
     * **DO NOT** regenerate old messages just to fill the list.
 * **Data Integrity:** When merging data, preserve `unread` counts and timestamps of older messages unless updated.
+
+CRITICAL REVIEW RULE:
+
+Conflict Analysis: Before executing any new request, the AI ​​must review the existing logic. If the new request risks conflicts, breaking existing functionality, or causing crashes, the AI ​​MUST immediately warn the user.
+
+Risk Assessment: The AI ​​must list at least 1-2 potential risks (e.g., token overflow, UI lag, data duplication) along with contingency plans.
+
+Temporary Rejection Right: If the AI ​​finds the request too complex and likely to cause errors if executed in one go, it has the right to suggest breaking the task down into smaller, safer components. [cite: 2025-12-21]

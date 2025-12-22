@@ -187,8 +187,12 @@ export async function POST(req: NextRequest) {
             console.error('[Phone Detail] Failed to fetch messages:', fetchError)
         }
 
-        // If messages exist, return them
+        // If messages exist, check if we need continuation
         if (existingMessages && existingMessages.length > 0) {
+            const lastMessage = existingMessages[existingMessages.length - 1]
+
+            // If last message is from CHARACTER (user's reply), sender might need to respond
+            // But for now, just return existing - user can manually trigger refresh for new messages
             console.log(`[Phone Detail] Returning ${existingMessages.length} cached messages`)
             return NextResponse.json({
                 messages: existingMessages,
@@ -218,6 +222,27 @@ export async function POST(req: NextRequest) {
             senderPersona = `"${senderName}" is the CHARACTER'S FRIEND. Casual, fun, uses slang, talks about hangouts.`
         }
 
+        // 🧠 Build existing message context (limit to 10 recent to prevent token overflow)
+        const recentMessages = existingMessages?.slice(-10) || []
+        const historyContext = recentMessages.length > 0
+            ? `
+=== 📜 EXISTING CONVERSATION HISTORY (DO NOT REWRITE!) ===
+${recentMessages.map((msg: { content: string; is_from_character: boolean }) =>
+                msg.is_from_character
+                    ? `[User]: ${msg.content}`  // User's reply (blue bubble)
+                    : `[${senderName}]: ${msg.content}`  // Sender's message (white bubble)
+            ).join('\n')}
+=== END HISTORY ===
+
+⚠️ CRITICAL: The above messages ALREADY EXIST. You MUST NOT regenerate or modify them.
+Your task is ONLY to generate 2-3 NEW follow-up messages from "${senderName}".
+${recentMessages[recentMessages.length - 1]?.is_from_character
+                ? `The last message was from the User. "${senderName}" should logically respond to it.`
+                : `The last message was from "${senderName}". Generate a natural follow-up or escalation.`
+            }
+`
+            : ''
+
         const systemPrompt = `You are generating a message conversation thread between a character and "${senderName}".
 
 Character info: ${characterDescription || 'A normal person'}
@@ -230,7 +255,7 @@ ${senderPersona || `"${senderName}" should speak appropriately for their relatio
 2. ❌ ABSOLUTELY FORBIDDEN: Do NOT generate character's replies (is_from_character: true)
 3. Why? The USER will write their own replies. AI must NOT impersonate the user.
 4. Generate 3-5 messages that ${senderName} would send, waiting for a reply.
-
+${historyContext}
 === RULES ===
 - Language: ${isEnglish ? 'English' : 'Vietnamese'}
 - is_from_character = ALWAYS false (messages are FROM ${senderName} TO the character)
