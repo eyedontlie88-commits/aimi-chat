@@ -167,6 +167,24 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [isGeneratingPhoneMessages, setIsGeneratingPhoneMessages] = useState(false)
     const lastSeenPhoneTimestampRef = useRef<number>(0) // Track when user last viewed phone messages
 
+    // 🎬 DEV AUTO-CONVERSATION GENERATOR STATE (Main Chat)
+    const [showDevChatPanel, setShowDevChatPanel] = useState(false)
+    const [devChatTopic, setDevChatTopic] = useState('flirting')
+    const [devChatMsgCount, setDevChatMsgCount] = useState(10)
+    const [isDevChatGenerating, setIsDevChatGenerating] = useState(false)
+    const [isDevChatSaving, setIsDevChatSaving] = useState(false)
+    const [devChatPreview, setDevChatPreview] = useState<{ role: string; content: string }[]>([])
+
+    const DEV_CHAT_TOPICS = [
+        { value: 'flirting', label: '💕 Thả thính' },
+        { value: 'arguing', label: '🔥 Cãi nhau' },
+        { value: 'caring', label: '❤️ Quan tâm' },
+        { value: 'jealous', label: '😤 Ghen tuông' },
+        { value: 'makeup', label: '🤝 Làm lành' },
+        { value: 'planning', label: '📅 Hẹn hò' },
+        { value: 'gossip', label: '🗣️ Tâm sự' },
+    ]
+
     // Get user's custom colors from ColorContext (must be before any conditional returns)
     const { textColor, backgroundColor } = useColors()
 
@@ -706,6 +724,91 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         }
     }
 
+    // 🎬 DEV: Generate main chat conversation preview
+    const handleDevChatGenerate = async () => {
+        if (!isDev || isDevChatGenerating) return
+
+        setIsDevChatGenerating(true)
+        setDevChatPreview([])
+
+        try {
+            console.log(`🎬 [DEV CHAT] Generating ${devChatMsgCount} messages - Topic: ${devChatTopic}`)
+
+            const response = await authFetch('/api/chat/dev-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    characterId,
+                    characterName: character?.name,
+                    characterPersona: character?.persona,
+                    topic: devChatTopic,
+                    messageCount: devChatMsgCount,
+                    userLanguage,
+                    saveToDb: false
+                })
+            })
+
+            const data = await response.json()
+
+            if (data.messages && data.messages.length > 0) {
+                setDevChatPreview(data.messages)
+                console.log(`✅ [DEV CHAT] Preview generated: ${data.messages.length} messages`)
+            } else if (data.error) {
+                console.error('[DEV CHAT] Error:', data.error)
+                alert(`DEV Error: ${data.error}`)
+            }
+        } catch (err) {
+            console.error('[DEV CHAT] Generate error:', err)
+        } finally {
+            setIsDevChatGenerating(false)
+        }
+    }
+
+    // 🎬 DEV: Save preview to database
+    const handleDevChatSave = async () => {
+        if (!isDev || isDevChatSaving || devChatPreview.length === 0) return
+
+        setIsDevChatSaving(true)
+
+        try {
+            console.log(`💾 [DEV CHAT] Saving ${devChatPreview.length} messages to DB...`)
+
+            const response = await authFetch('/api/chat/dev-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    characterId,
+                    characterName: character?.name,
+                    characterPersona: character?.persona,
+                    topic: devChatTopic,
+                    messageCount: devChatMsgCount,
+                    userLanguage,
+                    saveToDb: true
+                })
+            })
+
+            const data = await response.json()
+
+            if (data.saved) {
+                console.log(`✅ [DEV CHAT] Saved ${data.count} messages! Reloading...`)
+                // Reload messages to show the new ones
+                await loadMessages()
+                // Clear preview and close panel
+                setDevChatPreview([])
+                setShowDevChatPanel(false)
+                // Reload character to update relationship stats
+                await loadCharacter()
+            } else {
+                console.error('[DEV CHAT] Save failed:', data.error)
+                alert(`Save failed: ${data.error}`)
+            }
+        } catch (err) {
+            console.error('[DEV CHAT] Save error:', err)
+        } finally {
+            setIsDevChatSaving(false)
+        }
+    }
+
     // Goodnight keyword detection
     const GOODNIGHT_KEYWORDS = ['ngủ ngon', 'bye', 'tạm biệt', 'chúc ngủ ngon', 'good night', 'goodnight', 'bye bye']
     const checkForGoodnightKeyword = (text: string): boolean => {
@@ -840,6 +943,16 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
                         {/* Header buttons: Memory + Plus */}
                         <div className="flex items-center gap-1 flex-shrink-0">
+                            {/* 🎬 DEV CHAT PANEL TOGGLE */}
+                            {isDev && (
+                                <button
+                                    onClick={() => setShowDevChatPanel(!showDevChatPanel)}
+                                    className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition ${showDevChatPanel ? 'bg-orange-500 text-white' : theme.buttons.primaryBg + ' ' + theme.resolvedButtonText + ' ' + theme.buttons.primaryHover}`}
+                                    title="DEV: Auto-Conversation Generator"
+                                >
+                                    🎬
+                                </button>
+                            )}
                             {/* Auto-Save Memory button */}
                             <button
                                 onClick={() => handleAutoSaveMemory('button')}
@@ -860,6 +973,68 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         </div>
                     </div>
                 </div>
+
+                {/* 🎬 DEV AUTO-CONVERSATION GENERATOR PANEL (Main Chat) */}
+                {isDev && showDevChatPanel && (
+                    <div className="shrink-0 bg-gradient-to-r from-orange-500 to-red-500 text-white p-3 space-y-3">
+                        <div className="max-w-4xl mx-auto space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="font-bold text-sm">🎬 Auto-Conversation Generator (Main Chat)</span>
+                                <span className="text-[10px] opacity-75">DEV ONLY - Saves to messages table</span>
+                            </div>
+
+                            {/* Topic Selector + Message Count */}
+                            <div className="flex gap-2 items-center flex-wrap">
+                                <span className="text-xs">Chủ đề:</span>
+                                <select
+                                    value={devChatTopic}
+                                    onChange={(e) => setDevChatTopic(e.target.value)}
+                                    className="bg-white/20 text-white text-xs px-2 py-1 rounded border-none outline-none"
+                                >
+                                    {DEV_CHAT_TOPICS.map(t => (
+                                        <option key={t.value} value={t.value} className="text-gray-800">{t.label}</option>
+                                    ))}
+                                </select>
+
+                                <span className="text-xs ml-2">Số tin:</span>
+                                <input
+                                    type="range"
+                                    min="3"
+                                    max="20"
+                                    value={devChatMsgCount}
+                                    onChange={(e) => setDevChatMsgCount(Number(e.target.value))}
+                                    className="w-20"
+                                />
+                                <span className="text-xs font-bold">{devChatMsgCount}</span>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleDevChatGenerate}
+                                    disabled={isDevChatGenerating}
+                                    className="flex-1 bg-white text-orange-600 font-bold text-xs py-2 px-3 rounded hover:bg-orange-50 disabled:opacity-50 transition-colors"
+                                >
+                                    {isDevChatGenerating ? '🔄 Đang tạo...' : '⚡ GENERATE PREVIEW'}
+                                </button>
+                                <button
+                                    onClick={handleDevChatSave}
+                                    disabled={isDevChatSaving || devChatPreview.length === 0}
+                                    className="bg-green-500 text-white font-bold text-xs py-2 px-3 rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
+                                >
+                                    {isDevChatSaving ? '💾...' : `💾 SAVE (${devChatPreview.length})`}
+                                </button>
+                            </div>
+
+                            {/* Preview Count + Expected Result */}
+                            {devChatPreview.length > 0 && (
+                                <div className="text-xs opacity-90 text-center">
+                                    ✅ Preview: {devChatPreview.length} tin → Sau khi SAVE: Intimacy tăng + Phone unlock!
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Messages */}
                 <div
