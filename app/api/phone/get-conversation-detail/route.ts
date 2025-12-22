@@ -18,6 +18,7 @@ interface GeneratedMessage {
 }
 
 // Smart language-aware fallback messages based on sender persona
+// 🚫 RULE: Only sender messages (is_from_character: false) - User writes their own replies!
 const getFallbackMessages = (senderName: string, userLanguage: string = 'vi'): GeneratedMessage[] => {
     const senderLower = senderName.toLowerCase()
     const isEnglish = userLanguage === 'en'
@@ -27,17 +28,13 @@ const getFallbackMessages = (senderName: string, userLanguage: string = 'vi'): G
         if (isEnglish) {
             return [
                 { content: 'Hey sweetie!', is_from_character: false },
-                { content: 'Hi mom, what\'s up?', is_from_character: true },
                 { content: 'Come home early tonight, I\'m cooking your favorite!', is_from_character: false },
-                { content: 'Okay, I\'ll be there soon!', is_from_character: true },
                 { content: 'Don\'t forget your jacket, it\'s cold outside!', is_from_character: false },
             ]
         }
         return [
             { content: 'Con ơi!', is_from_character: false },
-            { content: 'Dạ mẹ, có gì không ạ?', is_from_character: true },
             { content: 'Tối nay về sớm nhé, mẹ nấu món con thích.', is_from_character: false },
-            { content: 'Dạ con về liền!', is_from_character: true },
             { content: 'Nhớ mang áo ấm, trời lạnh lắm con.', is_from_character: false },
         ]
     }
@@ -47,17 +44,13 @@ const getFallbackMessages = (senderName: string, userLanguage: string = 'vi'): G
         if (isEnglish) {
             return [
                 { content: 'Hey, is the weekly report done?', is_from_character: false },
-                { content: 'Almost done, finishing it up now.', is_from_character: true },
                 { content: 'Ok, deadline is 5pm today.', is_from_character: false },
-                { content: 'Got it, will send it over.', is_from_character: true },
                 { content: 'Send it via email before you leave.', is_from_character: false },
             ]
         }
         return [
             { content: 'Em ơi, báo cáo tuần này xong chưa?', is_from_character: false },
-            { content: 'Dạ em đang hoàn thiện ạ.', is_from_character: true },
             { content: 'Ok, deadline 5h chiều nay nhé.', is_from_character: false },
-            { content: 'Dạ em hiểu ạ.', is_from_character: true },
             { content: 'Nhớ gửi qua email trước khi về.', is_from_character: false },
         ]
     }
@@ -79,37 +72,29 @@ const getFallbackMessages = (senderName: string, userLanguage: string = 'vi'): G
         if (isEnglish) {
             return [
                 { content: 'Yo!', is_from_character: false },
-                { content: 'What\'s up?', is_from_character: true },
                 { content: 'Wanna grab coffee this weekend?', is_from_character: false },
-                { content: 'Sure! What time?', is_from_character: true },
                 { content: '3pm, usual spot!', is_from_character: false },
             ]
         }
         return [
             { content: 'Ê mày!', is_from_character: false },
-            { content: 'Gì vậy?', is_from_character: true },
             { content: 'Cuối tuần đi cafe không?', is_from_character: false },
-            { content: 'Ok luôn, mấy giờ?', is_from_character: true },
             { content: '3h chiều đi, quán cũ nhé!', is_from_character: false },
         ]
     }
 
-    // Generic fallback
+    // Generic fallback - only sender messages
     if (isEnglish) {
         return [
-            { content: 'Hey!', is_from_character: true },
             { content: 'Hi there!', is_from_character: false },
-            { content: 'How are you?', is_from_character: true },
-            { content: 'I\'m good, you?', is_from_character: false },
-            { content: 'Doing great!', is_from_character: true },
+            { content: 'How are you doing?', is_from_character: false },
+            { content: 'Let me know when you\'re free!', is_from_character: false },
         ]
     }
     return [
-        { content: 'Chào bạn!', is_from_character: true },
-        { content: 'Hi!', is_from_character: false },
-        { content: 'Khỏe không?', is_from_character: true },
-        { content: 'Khỏe nè, còn bạn?', is_from_character: false },
-        { content: 'Mình cũng ổn!', is_from_character: true },
+        { content: 'Chào bạn!', is_from_character: false },
+        { content: 'Bạn khỏe không?', is_from_character: false },
+        { content: 'Rảnh nhắn lại mình nhé!', is_from_character: false },
     ]
 }
 
@@ -240,20 +225,25 @@ Character info: ${characterDescription || 'A normal person'}
 === SENDER PERSONA (CRITICAL) ===
 ${senderPersona || `"${senderName}" should speak appropriately for their relationship with the character.`}
 
+=== 🚫 STRICT ROLE PROTECTION RULES 🚫 ===
+1. You are ONLY generating messages FROM "${senderName}" (is_from_character: FALSE)
+2. ❌ ABSOLUTELY FORBIDDEN: Do NOT generate character's replies (is_from_character: true)
+3. Why? The USER will write their own replies. AI must NOT impersonate the user.
+4. Generate 3-5 messages that ${senderName} would send, waiting for a reply.
+
 === RULES ===
-- Generate 8-12 short messages alternating between character and ${senderName}
-- Messages must be natural, like real texting
 - Language: ${isEnglish ? 'English' : 'Vietnamese'}
-- is_from_character = true if CHARACTER sends, false if ${senderName} sends
-${lastMessagePreview ? `- IMPORTANT: The conversation MUST END with this message from ${senderName}: "${lastMessagePreview}"` : ''}
+- is_from_character = ALWAYS false (messages are FROM ${senderName} TO the character)
+- Messages should escalate or follow a natural sender pattern (greet → ask → wait → follow-up)
+${lastMessagePreview ? `- CRITICAL: The LAST message MUST be: "${lastMessagePreview}"` : ''}
 
 === OUTPUT FORMAT ===
 Return ONLY a JSON array (no markdown, no explanation):
 [
-  { "content": "Message text", "is_from_character": true/false }
+  { "content": "Message from ${senderName}", "is_from_character": false }
 ]`
 
-        const userPrompt = `Generate a conversation thread between the character and "${senderName}". Return JSON array only.`
+        const userPrompt = `Generate 3-5 messages that "${senderName}" would send to the character. ONLY sender's messages, NO character replies. Return JSON array only.`
 
         let generatedMessages: GeneratedMessage[]
 
