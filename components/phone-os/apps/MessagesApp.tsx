@@ -88,6 +88,12 @@ export default function MessagesApp({
     const [cooldownRemaining, setCooldownRemaining] = useState(0)
     const [isRefreshing, setIsRefreshing] = useState(false)
 
+    // 🧠 RULE #6: Ref to access current conversations from callback without stale closure
+    const conversationsRef = useRef<ConversationItem[]>([])
+    useEffect(() => {
+        conversationsRef.current = conversations
+    }, [conversations])
+
     // NO MORE FAKE FALLBACK - UI will show "Locked State" when empty
 
     // Selected conversation for detail view
@@ -192,7 +198,7 @@ export default function MessagesApp({
                     userLanguage: lang, // 'en' or 'vi'
                     isInitial: isInitial, // Flag for first-time persona-based generation
                     forceGenerate: forceRefresh, // Pass forceRefresh to API for DEV bypass
-                    currentMessages: conversations, // 🧠 RULE #6: Send existing messages for context
+                    currentMessages: conversationsRef.current, // 🧠 RULE #6: Use ref for fresh data
                 }),
             })
 
@@ -205,7 +211,7 @@ export default function MessagesApp({
 
             // 🧠 RULE #6: MERGE instead of WIPE
             // Use mergeMessages to combine existing + new (not replace)
-            const mergedMessages = mergeMessages(conversations, incomingMessages)
+            const mergedMessages = mergeMessages(conversationsRef.current, incomingMessages)
 
             // Update cache with merged data
             if (mergedMessages.length > 0) {
@@ -232,6 +238,7 @@ export default function MessagesApp({
             setLoading(false)
             setIsRefreshing(false)
         }
+        // Note: conversations not in deps - we use conversationsRef.current instead to avoid infinite loop
     }, [characterId, characterName, characterDescription, messageCount, lang])
 
     // Initial fetch on mount

@@ -217,9 +217,9 @@ export default function PhoneHomeScreen({
                                 <div className="flex-1 flex justify-end">
                                     <button
                                         onClick={onClose}
-                                        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-pink-100 transition-colors"
+                                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-pink-100 hover:bg-pink-100 transition-colors z-50"
                                     >
-                                        <X className="w-5 h-5 text-gray-500" />
+                                        <X className="w-6 h-6 text-gray-600" />
                                     </button>
                                 </div>
                             </div>

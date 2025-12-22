@@ -21,9 +21,14 @@ export class SiliconFlowProvider implements LLMProviderClient {
      */
     private getRotatedKey(): string {
         const keyString = process.env.SILICON_API_KEY || ''
-        const allKeys = keyString.split(',').map(k => k.trim()).filter(k => k.length > 0)
+        // Sanitize: split, trim, remove quotes, filter empty
+        const allKeys = keyString
+            .split(',')
+            .map(k => k.trim().replace(/['"]/g, ''))
+            .filter(k => k.length > 0)
 
         if (allKeys.length === 0) {
+            console.error('[SiliconFlow] ❌ No API keys found! Check SILICON_API_KEY in .env')
             return ''
         }
 
@@ -31,7 +36,12 @@ export class SiliconFlowProvider implements LLMProviderClient {
         const selectedIndex = Math.floor(Math.random() * allKeys.length)
         const selectedKey = allKeys[selectedIndex]
 
-        console.log(`[SiliconFlow] 🔄 Using key ${selectedIndex + 1}/${allKeys.length}`)
+        // Debug log with masked key
+        const maskedKey = selectedKey.length > 8
+            ? selectedKey.substring(0, 5) + '...' + selectedKey.slice(-3)
+            : '***'
+        console.log(`[SiliconFlow] 🔑 Key ${selectedIndex + 1}/${allKeys.length}: "${maskedKey}" (len: ${selectedKey.length})`)
+
         return selectedKey
     }
 
