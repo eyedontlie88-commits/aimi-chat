@@ -739,7 +739,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userEmail: user?.email,  // Required for DEV check
-                    userId: user?.uid,       // Required for DB save
+                    userId: user?.uid,       // Firebase User.uid
                     characterId,
                     characterName: character?.name,
                     characterPersona: character?.persona,
@@ -780,7 +780,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userEmail: user?.email,  // Required for DEV check
-                    userId: user?.uid,       // Required for DB save
+                    userId: user?.uid,       // Firebase User.uid
                     characterId,
                     characterName: character?.name,
                     characterPersona: character?.persona,
