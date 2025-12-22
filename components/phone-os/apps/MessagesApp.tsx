@@ -104,6 +104,7 @@ export default function MessagesApp({
 
     // 📱 Triple-tap gesture to reveal DEV button (mobile-friendly)
     const [devVisible, setDevVisible] = useState(false)
+    const [debugToast, setDebugToast] = useState<{ message: string; details: string } | null>(null)
     const tapCountRef = useRef(0)
     const lastTapTimeRef = useRef(0)
 
@@ -324,6 +325,18 @@ export default function MessagesApp({
 
     return (
         <div className="flex flex-col h-full bg-white">
+            {/* 🚨 DEV DEBUG TOAST - Only for dev users */}
+            {debugToast && isDevUser && (
+                <div
+                    className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] max-w-[90vw] bg-red-600 text-white px-4 py-3 rounded-lg shadow-2xl cursor-pointer animate-pulse"
+                    onClick={() => setDebugToast(null)}
+                >
+                    <div className="font-bold text-sm">{debugToast.message}</div>
+                    <div className="text-xs opacity-90 mt-1 font-mono break-all">{debugToast.details}</div>
+                    <div className="text-[10px] opacity-70 mt-2">Tap to dismiss</div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center gap-2 px-2 py-3 border-b border-gray-100 bg-[#FFF9F0]">
                 <button
@@ -450,9 +463,20 @@ export default function MessagesApp({
                                                     console.log('%c⚠️ AI returned empty messages', 'color: #EAB308; font-weight: bold;')
                                                 }
                                             })
-                                            .catch(err => {
+                                            .catch(async err => {
                                                 console.error('%c❌ [DEV] Force generate FAILED!', 'background: #EF4444; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
                                                 console.error(err)
+
+                                                // 🚨 DEV DEBUG TOAST: Show detailed error info
+                                                if (isDevUser) {
+                                                    const details = err?.message || 'Unknown error'
+                                                    setDebugToast({
+                                                        message: '🚨 [DEV] API Error',
+                                                        details: details
+                                                    })
+                                                    // Auto-hide after 8 seconds
+                                                    setTimeout(() => setDebugToast(null), 8000)
+                                                }
                                             })
                                             .finally(() => setLoading(false))
                                     }}
