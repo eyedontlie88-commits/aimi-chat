@@ -224,51 +224,52 @@ export default function PhoneHomeScreen({
                                 </div>
                             </div>
 
-                            {/* Phone Screen */}
-                            <div className="p-6 min-h-[500px] flex flex-col">
-                                {/* Date/Time Widget */}
-                                <div className="bg-[#FFF9F0] rounded-3xl border-2 border-gray-200 p-6 mb-8 shadow-sm">
-                                    <div className="text-center">
-                                        <p className="text-gray-600 text-lg font-medium mb-2">
-                                            {formatDate(currentTime)}
-                                        </p>
-                                        <p className="text-6xl font-light text-gray-800 tracking-tight">
-                                            {formatTime(currentTime)}
-                                        </p>
+                            {/* Phone Screen - Fixed Header + Scrollable Body */}
+                            <div className="flex flex-col flex-1 min-h-0">
+                                {/* Date/Time Widget - STATIC (flex-shrink-0) */}
+                                <div className="flex-shrink-0 p-4 pb-2">
+                                    <div className="bg-[#FFF9F0] rounded-3xl border-2 border-gray-200 p-6 shadow-sm">
+                                        <div className="text-center">
+                                            <p className="text-gray-600 text-lg font-medium mb-2">
+                                                {formatDate(currentTime)}
+                                            </p>
+                                            <p className="text-6xl font-light text-gray-800 tracking-tight">
+                                                {formatTime(currentTime)}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* App Grid */}
-                                <div className="bg-white/60 rounded-3xl p-4 border border-pink-100">
-                                    <div className="grid grid-cols-3 gap-4">
-                                        {apps.map((app) => {
-                                            const IconComponent = app.icon
-                                            return (
-                                                <button
-                                                    key={app.id}
-                                                    onClick={() => handleAppClick(app.id)}
-                                                    className="flex flex-col items-center gap-2 group"
-                                                >
-                                                    <div
-                                                        className={`w-14 h-14 rounded-2xl ${app.bgColor} flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200`}
+                                {/* App Grid - SCROLLABLE */}
+                                <div className="flex-1 overflow-y-auto overscroll-y-contain px-4 pb-24">
+                                    <div className="bg-white/60 rounded-3xl p-4 border border-pink-100">
+                                        <div className="grid grid-cols-3 gap-4">
+                                            {apps.map((app) => {
+                                                const IconComponent = app.icon
+                                                return (
+                                                    <button
+                                                        key={app.id}
+                                                        onClick={() => handleAppClick(app.id)}
+                                                        className="flex flex-col items-center gap-2 group"
                                                     >
-                                                        <IconComponent className={`w-7 h-7 ${app.iconColor}`} />
-                                                    </div>
-                                                    <span className="text-xs text-gray-600 font-medium">
-                                                        {app.name}
-                                                    </span>
-                                                </button>
-                                            )
-                                        })}
+                                                        <div
+                                                            className={`w-14 h-14 rounded-2xl ${app.bgColor} flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200`}
+                                                        >
+                                                            <IconComponent className={`w-7 h-7 ${app.iconColor}`} />
+                                                        </div>
+                                                        <span className="text-xs text-gray-600 font-medium">
+                                                            {app.name}
+                                                        </span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Bottom spacer for phone aesthetic */}
-                                <div className="flex-1" />
-
-                                {/* Home indicator (like iPhone) */}
-                                <div className="flex justify-center mt-6">
-                                    <div className="w-32 h-1 bg-gray-300 rounded-full" />
+                                    {/* Home indicator (like iPhone) */}
+                                    <div className="flex justify-center mt-6">
+                                        <div className="w-32 h-1 bg-gray-300 rounded-full" />
+                                    </div>
                                 </div>
                             </div>
                         </>
