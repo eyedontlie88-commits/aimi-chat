@@ -295,7 +295,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         setFetchError(null)
 
         try {
-            const res = await authFetch(`/api/characters/${characterId}`)
+            // 🔥 Cache buster: Add timestamp to force fresh fetch
+            const res = await authFetch(`/api/characters/${characterId}?t=${Date.now()}`)
 
             // 2. CHECK HTTP ERRORS IMMEDIATELY - Handle ANY non-ok response
             if (!res.ok) {
@@ -517,44 +518,53 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             '• Xoá toàn bộ tin nhắn\n' +
             '• Xoá tất cả ký ức\n' +
             '• Reset mối quan hệ về STRANGER\n' +
-            '• Reset điểm tình cảm về 0\n\n' +
+            '• Reset điểm tình cảm về 0\n' +
+            '• Xoá tất cả tin nhắn điện thoại\n\n' +
             'Hành động này không thể hoàn tác!'
         )
         if (!confirmed) return
 
         setIsResetting(true)
         try {
-            const res = await authFetch(`/api/messages?characterId=${characterId}`, {
-                method: 'DELETE',
+            // 🔄 Use new comprehensive reset API
+            const res = await authFetch('/api/character/reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    characterId,
+                    userEmail: user?.email
+                })
             })
             if (!res.ok) throw new Error('Failed to reset')
 
             const data = await res.json()
+            console.log('[ChatPage] 🔄 Reset API response:', data)
 
-            // Reset all local state from API response
+            // 🧹 Clear all sessionStorage caches for this character
+            const keysToRemove: string[] = []
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i)
+                if (key && (key.includes(characterId) || key.includes('phone'))) {
+                    keysToRemove.push(key)
+                }
+            }
+            keysToRemove.forEach(key => sessionStorage.removeItem(key))
+            console.log(`[ChatPage] 🧹 Cleared ${keysToRemove.length} cache keys`)
+
+            // Reset local state
             setMessages([])
             setMemories([])
-
-            // Reset relationship state from response
-            if (data.relationship) {
-                setAffectionPoints(data.relationship.affectionPoints)
-                setIntimacyLevel(data.relationship.intimacyLevel)
-                setRelationshipStage(data.relationship.stage)
-            } else {
-                // Fallback reset
-                setAffectionPoints(0)
-                setIntimacyLevel(0)
-                setRelationshipStage('STRANGER')
-            }
-
-            // Reset dev force reaction
+            setAffectionPoints(0)
+            setIntimacyLevel(0)
+            setRelationshipStage('STRANGER')
             setDevForceReaction('OFF')
-
-            // Clear any pending toast
             setHeartToast({ show: false, charName: '' })
             lastToastTimeRef.current = 0
 
-            console.log('[ChatPage] ✅ Reset complete:', data.relationship)
+            console.log('[ChatPage] ✅ Factory reset complete! Reloading page...')
+
+            // 🔄 Reload page for completely fresh start
+            window.location.reload()
         } catch (error) {
             console.error('Error resetting chat:', error)
             alert('Không thể reset. Vui lòng thử lại.')

@@ -161,29 +161,65 @@ Return ONLY a valid JSON array (no markdown, no explanation):
 
             console.log(`💾 [DEV CHAT GEN] Saved ${messagesToInsert.length} messages to DB via RPC`)
 
-            // 💉 FORCE UPDATE: Max out relationship stats to unlock phone!
+            // 💉 TOPIC-BASED RELATIONSHIP SYNC
+            // Determine relationship changes based on conversation topic
+            let affectionChange = 5
+            let intimacyChange = 0
+            let newStage = 'ACQUAINTANCE'
+
+            switch (topic) {
+                case 'flirting':   // Thả thính
+                case 'love':       // Yêu đương
+                case 'makeup':     // Làm lành
+                    affectionChange = 50
+                    intimacyChange = 3
+                    newStage = 'DATING'
+                    break
+
+                case 'arguing':    // Cãi nhau
+                case 'jealous':    // Ghen tuông
+                case 'breakup':    // Chia tay
+                    affectionChange = 10  // Still some points for engagement
+                    intimacyChange = 1
+                    newStage = 'COMPLICATED'
+                    break
+
+                case 'caring':     // Quan tâm
+                case 'gossip':     // Buôn chuyện
+                case 'work':       // Công việc
+                    affectionChange = 30
+                    intimacyChange = 2
+                    newStage = 'FRIENDS'
+                    break
+
+                default:
+                    affectionChange = 20
+                    intimacyChange = 1
+                    newStage = 'ACQUAINTANCE'
+            }
+
             try {
-                console.log(`💉 [DEV CHAT GEN] Force updating RelationshipConfig for character: ${characterId}`)
+                console.log(`💉 [DEV CHAT GEN] Topic-based update: Topic=${topic} → Stage=${newStage}, Affection=${affectionChange}`)
 
                 const { error: updateError } = await supabaseAdmin
-                    .from('RelationshipConfig')  // Prisma table name
+                    .from('RelationshipConfig')
                     .update({
-                        affectionPoints: 100,        // MAX AFFECTION
-                        intimacyLevel: 4,            // 4 = tri kỷ (soulmate)
-                        stage: 'SOULMATES',          // Max stage
-                        messageCount: 100,           // Boost message count
-                        emotionalMomentum: 1.0,      // Positive momentum
-                        trustDebt: 0.0,              // No debt
+                        affectionPoints: affectionChange,   // ✅ Matches DB
+                        intimacyLevel: intimacyChange,      // ✅ Matches DB
+                        stage: newStage,                    // ✅ FIXED: Use 'stage' (confirmed from DB screenshot)
+                        messageCount: messagesToInsert.length,  // ✅ Matches DB
+                        emotionalMomentum: affectionChange > 20 ? 0.5 : 0.0,
+                        trustDebt: 0.0,
                     })
                     .eq('characterId', characterId)
 
                 if (updateError) {
-                    console.error('[DEV CHAT GEN] Force update error:', updateError)
+                    console.error('[DEV CHAT GEN] Relationship update error:', updateError)
                 } else {
-                    console.log(`💕 [DEV CHAT GEN] RelationshipConfig MAXED OUT! Phone should be unlocked!`)
+                    console.log(`💕 [DEV CHAT GEN] Relationship synced! Stage: ${newStage}, Points: ${affectionChange}`)
                 }
             } catch (e) {
-                console.warn('[DEV CHAT GEN] Could not force update relationship:', e)
+                console.warn('[DEV CHAT GEN] Could not update relationship:', e)
             }
 
             return NextResponse.json({

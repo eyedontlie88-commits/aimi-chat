@@ -238,9 +238,55 @@ export default function MessageDetail({
                 // 🧠 HACK: Always save to local cache as backup
                 saveToLocalCache(newMessage)
 
-                setMessages(prev => [...prev, newMessage])
-                if (onUserReply) onUserReply(senderName, replyText.trim())
+                // 🔥 FIX: Append new message immediately to state
+                const updatedMessages = [...messages, newMessage]
+                setMessages(updatedMessages)
                 setReplyText('')
+
+                // 🎯 CRITICAL FIX: Generate AI response with new message MANUALLY in context
+                // Don't wait for React state - pass the message directly!
+                console.log(`[MessageDetail] 🤖 Triggering AI response with ${updatedMessages.length} messages in context`)
+
+                try {
+                    const aiResponse = await fetch('/api/phone/get-conversation-detail', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            senderName,
+                            characterId,
+                            characterDescription,
+                            conversationId: initialConvId,
+                            lastMessagePreview,
+                            userLanguage: lang,
+                            currentMessages: updatedMessages.map(m => ({
+                                content: m.content,
+                                is_from_character: m.is_from_character,
+                                created_at: m.created_at
+                            })),
+                            forceRegenerate: true  // Trigger new AI message
+                        })
+                    })
+
+                    if (aiResponse.ok) {
+                        const aiData = await aiResponse.json()
+                        if (aiData.messages && aiData.messages.length > 0) {
+                            // 🧠 Smart merge: Keep existing + add only NEW messages from AI
+                            setMessages(prev => {
+                                const existingIds = new Set(prev.map(m => m.id))
+                                const newFromAI = aiData.messages.filter((m: MessageBubble) => !existingIds.has(m.id))
+                                if (newFromAI.length > 0) {
+                                    console.log(`[MessageDetail] 🤖 AI responded with ${newFromAI.length} new messages`)
+                                    return [...prev, ...newFromAI]
+                                }
+                                return prev
+                            })
+                        }
+                    }
+                } catch (aiErr) {
+                    console.error('[MessageDetail] AI generation error (non-blocking):', aiErr)
+                }
+
+                if (onUserReply) onUserReply(senderName, replyText.trim())
             } else {
                 // ❌ DENIED
                 console.log('[MessageDetail] ❌ Permission DENIED:', data.refusalMessage)
