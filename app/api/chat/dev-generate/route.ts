@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateWithProviders } from '@/lib/llm/router'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 /**
  * 🔐 DEV ONLY: Auto-Conversation Generator for MAIN CHAT
@@ -11,7 +10,7 @@ import { cookies } from 'next/headers'
  * Saves to `messages` table (MAIN CHAT, not phone)
  * 
  * Body: { 
- *   characterId, characterName, topic, messageCount, userLanguage,
+ *   userEmail, userId, characterId, characterName, topic, messageCount, userLanguage,
  *   saveToDb (optional - if true, saves to database)
  * }
  */
@@ -40,6 +39,8 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
         const {
+            userEmail,      // Required for DEV check
+            userId,         // Required for saving to DB
             characterId,
             characterName = 'Character',
             characterPersona = '',
@@ -49,20 +50,9 @@ export async function POST(req: NextRequest) {
             saveToDb = false,
         } = body
 
-        // 🔐 SECURITY: Get user from Supabase auth
-        const supabase = createRouteHandlerClient({ cookies })
-        const { data: { user } } = await supabase.auth.getUser()
-
-        if (!user) {
-            return NextResponse.json(
-                { error: 'Unauthorized: Not logged in' },
-                { status: 401 }
-            )
-        }
-
-        // 🔐 SECURITY: Verify DEV email
-        if (!DEV_EMAILS.includes(user.email || '')) {
-            console.error(`🚫 [DEV GEN] Unauthorized access attempt from: ${user.email}`)
+        // 🔐 SECURITY: Verify DEV email from request body
+        if (!userEmail || !DEV_EMAILS.includes(userEmail)) {
+            console.error(`🚫 [DEV CHAT GEN] Unauthorized access attempt from: ${userEmail || 'unknown'}`)
             return NextResponse.json(
                 { error: 'Unauthorized: DEV access required' },
                 { status: 403 }
@@ -141,7 +131,7 @@ Return ONLY a valid JSON array (no markdown, no explanation):
         console.log(`✅ [DEV CHAT GEN] Generated ${messages.length} messages successfully`)
 
         // If saveToDb is true, save to MAIN messages table
-        if (saveToDb) {
+        if (saveToDb && isSupabaseConfigured() && supabase && userId) {
             const savedMessages = []
 
             for (const msg of messages) {
@@ -149,7 +139,7 @@ Return ONLY a valid JSON array (no markdown, no explanation):
                     .from('messages')
                     .insert({
                         character_id: characterId,
-                        user_id: user.id,
+                        user_id: userId,  // Use userId from request body
                         role: msg.role,
                         content: msg.content,
                     })
@@ -168,7 +158,7 @@ Return ONLY a valid JSON array (no markdown, no explanation):
             // Update relationship stats (trigger intimacy recalculation)
             try {
                 await supabase.rpc('recalculate_relationship', {
-                    p_user_id: user.id,
+                    p_user_id: userId,  // Use userId from request body
                     p_character_id: characterId
                 })
                 console.log(`💕 [DEV CHAT GEN] Relationship stats recalculated`)

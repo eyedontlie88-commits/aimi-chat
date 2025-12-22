@@ -738,6 +738,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    userEmail: user?.email,  // Required for DEV check
+                    userId: user?.uid,       // Required for DB save
                     characterId,
                     characterName: character?.name,
                     characterPersona: character?.persona,
@@ -777,6 +779,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    userEmail: user?.email,  // Required for DEV check
+                    userId: user?.uid,       // Required for DB save
                     characterId,
                     characterName: character?.name,
                     characterPersona: character?.persona,
