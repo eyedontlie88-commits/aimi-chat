@@ -140,6 +140,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     // 🟢 Live AI Monitor - track which model last responded
     const [activeModel, setActiveModel] = useState<{ provider: string; model: string } | null>(null)
 
+    // 💔 AI Breakup - track if relationship is broken
+    const [isBrokenUp, setIsBrokenUp] = useState(false)
+
     // Comforting Loading Messages (timer-based rotation)
     const [loadingText, setLoadingText] = useState('')
     const loadingStartRef = useRef<number>(0)
@@ -183,6 +186,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         { value: 'makeup', label: '🤝 Làm lành' },
         { value: 'planning', label: '📅 Hẹn hò' },
         { value: 'gossip', label: '🗣️ Tâm sự' },
+        { value: 'toxic', label: '💔 Toxic (Test Chia tay)' }, // 🔥 NEW for AI Breakup testing
     ]
 
     // Get user's custom colors from ColorContext (must be before any conditional returns)
@@ -446,6 +450,14 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 setAffectionPoints(data.relationship.affectionPoints)
                 setIntimacyLevel(data.relationship.intimacyLevel)
                 setRelationshipStage(data.relationship.stage || 'UNDEFINED')
+            }
+
+            // 💔 AI BREAKUP: Check if relationship is broken
+            if (data.isBroken) {
+                console.log('💔 [AI BREAKUP] Relationship BROKEN! Showing modal...')
+                setIsBrokenUp(true)
+                setIsLoading(false)
+                return // Stop processing, show breakup modal
             }
 
             // 🟢 Live AI Monitor: Update active model from response
@@ -812,6 +824,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 setShowDevChatPanel(false)
                 // Reload character to update relationship stats
                 await loadCharacter()
+
+                // 💔 FIX: Check if topic was 'toxic' OR stage is BROKEN -> trigger breakup modal
+                if (data.newStage === 'BROKEN' || devChatTopic === 'toxic') {
+                    console.log('💔 [DEV CHAT] BROKEN stage detected! Triggering breakup modal...')
+                    setIsBrokenUp(true)
+                }
             } else {
                 console.error('[DEV CHAT] Save failed:', data.error)
                 alert(`Save failed: ${data.error}`)
@@ -906,8 +924,15 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                 {/* Affection Bar */}
                                 <div className={`text-xs space-y-0.5 ${theme.bubbles.aiText}`}>
                                     <div className="flex items-center gap-1">
-                                        <span className="text-[10px]">{LEVEL_EMOJIS[intimacyLevel]}</span>
-                                        <span className="truncate text-[10px]">{t.chat.intimacyLevels[intimacyLevel]}</span>
+                                        {/* 💔 FIX: Show broken heart for negative affection */}
+                                        <span className="text-[10px]">
+                                            {affectionPoints < 0 || relationshipStage === 'BROKEN' ? '💔' : LEVEL_EMOJIS[intimacyLevel]}
+                                        </span>
+                                        <span className="truncate text-[10px]">
+                                            {affectionPoints < 0 || relationshipStage === 'BROKEN'
+                                                ? (userLanguage === 'en' ? 'Broken' : 'Đã chia tay')
+                                                : t.chat.intimacyLevels[intimacyLevel]}
+                                        </span>
                                         <span className="text-[9px] opacity-70 whitespace-nowrap">
                                             {affectionPoints}/100
                                         </span>
@@ -1496,6 +1521,43 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                             >
                                 {t.exit.stay}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 💔 AI BREAKUP MODAL - Game Over Screen */}
+            {isBrokenUp && (
+                <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-6 animate-in fade-in duration-1000">
+                    <div className="bg-gray-900 border border-red-500/50 p-8 rounded-2xl max-w-md text-center shadow-[0_0_50px_rgba(220,38,38,0.5)]">
+                        <div className="text-6xl mb-4 animate-pulse">💔</div>
+                        <h2 className="text-2xl font-bold text-red-500 mb-4">
+                            {userLanguage === 'en' ? 'Relationship Broken' : 'Mối quan hệ đã tan vỡ'}
+                        </h2>
+                        <p className="text-gray-300 mb-8 leading-relaxed">
+                            {userLanguage === 'en'
+                                ? `${character?.name || 'They'} felt deeply hurt and doesn't want to continue this relationship anymore. Sometimes, words cut deeper than knives...`
+                                : `${character?.name || 'Người ấy'} cảm thấy tổn thương sâu sắc và không muốn tiếp tục mối quan hệ này nữa. Đôi khi, lời nói sát thương còn đau hơn dao cứa...`}
+                        </p>
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={async () => {
+                                    setIsBrokenUp(false)
+                                    await handleResetChat()
+                                }}
+                                disabled={isResetting}
+                                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isResetting
+                                    ? (userLanguage === 'en' ? '⏳ Resetting...' : '⏳ Đang reset...')
+                                    : (userLanguage === 'en' ? '↺ Reset to start over' : '↺ Reset để làm lại từ đầu')}
+                            </button>
+                            <p className="text-xs text-gray-500 italic">
+                                {userLanguage === 'en'
+                                    ? '(You must reset to start a new conversation)'
+                                    : '(Bạn buộc phải reset để bắt đầu một cuộc trò chuyện mới)'}
+                            </p>
                         </div>
                     </div>
                 </div>

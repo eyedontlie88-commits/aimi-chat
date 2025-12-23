@@ -68,6 +68,8 @@ export const INTIMACY_LEVELS = {
 }
 
 export function calcIntimacyLevel(points: number): number {
+    // Handle negative points (BROKEN state)
+    if (points < 0) return 0
     if (points >= 90) return 4
     if (points >= 70) return 3
     if (points >= 40) return 2
@@ -126,6 +128,8 @@ interface UpdateRelationshipResult {
     lastActiveAt: Date
     stageChanged?: boolean
     previousStage?: string
+    // AI Breakup feature
+    isBroken?: boolean
     // Debug info
     trustDebt?: number
     emotionalMomentum?: number
@@ -259,9 +263,13 @@ export async function updateRelationshipStats(
     // ============================================
     // Step 5: Apply Affection Change
     // ============================================
-    const newAffectionPoints = clamp(previousAffection + scaledImpact, 0, 100)
+    // 💔 AI BREAKUP: Allow negative affection down to -10
+    const newAffectionPoints = clamp(previousAffection + scaledImpact, -10, 100)
     const newIntimacyLevel = calcIntimacyLevel(newAffectionPoints)
     const newMessageCount = config.messageCount + 1
+
+    // 💔 BROKEN STATE DETECTION
+    const isBroken = newAffectionPoints <= -10
 
     // ============================================
     // Step 6: Stage Progression with Momentum Gates
@@ -269,7 +277,14 @@ export async function updateRelationshipStats(
     let newStage = config.stage
     let stageChanged = false
 
-    if (config.stage !== 'UNDEFINED') {
+    // 💔 BROKEN overrides all stage logic
+    if (isBroken) {
+        newStage = 'BROKEN'
+        stageChanged = previousStage !== 'BROKEN'
+        console.log('[Relationship] 💔 BROKEN! Affection hit -10. Game Over.')
+    }
+
+    if (config.stage !== 'UNDEFINED' && !isBroken) {
         const currentStageIdx = getStageIndex(config.stage)
         const naturalStage = getStageForPoints(newAffectionPoints)
         const naturalStageIdx = getStageIndex(naturalStage)
@@ -350,6 +365,7 @@ export async function updateRelationshipStats(
         lastActiveAt: now,
         stageChanged,
         previousStage: stageChanged ? previousStage : undefined,
+        isBroken, // 💔 AI Breakup flag
         trustDebt,
         emotionalMomentum,
     }

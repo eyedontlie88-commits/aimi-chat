@@ -34,6 +34,7 @@ const TOPICS: Record<string, { en: string; vi: string }> = {
     planning: { en: 'Making romantic plans', vi: 'Lên kế hoạch hẹn hò' },
     jealous: { en: 'Jealousy and suspicion', vi: 'Ghen tuông nghi ngờ' },
     makeup: { en: 'Making up after a fight', vi: 'Làm lành sau khi cãi nhau' },
+    toxic: { en: '💔 Toxic & Abusive (Test Breakup)', vi: '💔 Xúc phạm nặng (Test Chia tay)' }, // 🔥 NEW
 }
 
 interface GeneratedMessage {
@@ -195,6 +196,13 @@ Return ONLY a valid JSON array (no markdown, no explanation):
                     newStatus = 'Bạn bè'
                     break
 
+                case 'toxic':      // 💔 Test Breakup - Xúc phạm nặng
+                    affectionChange = -20  // Đánh sập điểm xuống âm!
+                    intimacyChange = 0
+                    newStage = 'BROKEN'
+                    newStatus = 'Đã chia tay'
+                    break
+
                 default:
                     affectionChange = 20
                     intimacyChange = 1
@@ -242,7 +250,10 @@ Return ONLY a valid JSON array (no markdown, no explanation):
                 saved: true,
                 count: messagesToInsert.length,
                 relationshipForced: true,  // Flag to indicate we forced the update
-                source: 'ai-saved-rpc'
+                source: 'ai-saved-rpc',
+                // 💔 FIX: Return stage info for frontend to detect BROKEN
+                newStage: newStage,
+                newStatus: newStatus
             })
         }
 

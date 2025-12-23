@@ -242,9 +242,9 @@ ${nextDirection.trim()}`
                 const jsonStr = jsonMatch[1]
                 const metadata = JSON.parse(jsonStr)
 
-                // Parse impact
+                // Parse impact - 💔 AI BREAKUP: Extended range from ±2 to ±5
                 if (typeof metadata.impact === 'number') {
-                    impactScore = Math.max(-2, Math.min(2, metadata.impact))
+                    impactScore = Math.max(-5, Math.min(5, metadata.impact))
                 }
 
                 // Parse reaction
@@ -398,6 +398,8 @@ ${nextDirection.trim()}`
             relationship: updatedRelationship,
             reaction: reactionType,
             reactionReason,
+            // 💔 AI BREAKUP: Include broken flag for frontend
+            isBroken: updatedRelationship.isBroken,
             // TASK B: Include impact for micro-feedback UI
             impactScaled: impactScore * 3, // Scaled impact applied to affection
             // 🟢 LIVE AI MONITOR: Include provider/model info for frontend
