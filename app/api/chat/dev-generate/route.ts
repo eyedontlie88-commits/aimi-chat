@@ -161,11 +161,11 @@ Return ONLY a valid JSON array (no markdown, no explanation):
 
             console.log(`💾 [DEV CHAT GEN] Saved ${messagesToInsert.length} messages to DB via RPC`)
 
-            // 💉 TOPIC-BASED RELATIONSHIP SYNC
-            // Determine relationship changes based on conversation topic
+            // 💉 TOPIC-BASED RELATIONSHIP SYNC (DUAL SYNC: stage + status)
             let affectionChange = 5
             let intimacyChange = 0
             let newStage = 'ACQUAINTANCE'
+            let newStatus = 'Người quen'  // Status text for display
 
             switch (topic) {
                 case 'flirting':   // Thả thính
@@ -174,14 +174,16 @@ Return ONLY a valid JSON array (no markdown, no explanation):
                     affectionChange = 50
                     intimacyChange = 3
                     newStage = 'DATING'
+                    newStatus = 'Đang hẹn hò'
                     break
 
                 case 'arguing':    // Cãi nhau
                 case 'jealous':    // Ghen tuông
                 case 'breakup':    // Chia tay
-                    affectionChange = 10  // Still some points for engagement
+                    affectionChange = 10
                     intimacyChange = 1
                     newStage = 'COMPLICATED'
+                    newStatus = 'Phức tạp'
                     break
 
                 case 'caring':     // Quan tâm
@@ -190,36 +192,49 @@ Return ONLY a valid JSON array (no markdown, no explanation):
                     affectionChange = 30
                     intimacyChange = 2
                     newStage = 'FRIENDS'
+                    newStatus = 'Bạn bè'
                     break
 
                 default:
                     affectionChange = 20
                     intimacyChange = 1
                     newStage = 'ACQUAINTANCE'
+                    newStatus = 'Người quen'
             }
 
             try {
-                console.log(`💉 [DEV CHAT GEN] Topic-based update: Topic=${topic} → Stage=${newStage}, Affection=${affectionChange}`)
+                console.log(`💉 [DEV GEN] Calling set-relationship API: Stage=${newStage}, Status=${newStatus}, Points=${affectionChange}`)
 
-                const { error: updateError } = await supabaseAdmin
-                    .from('RelationshipConfig')
-                    .update({
-                        affectionPoints: affectionChange,   // ✅ Matches DB
-                        intimacyLevel: intimacyChange,      // ✅ Matches DB
-                        stage: newStage,                    // ✅ FIXED: Use 'stage' (confirmed from DB screenshot)
-                        messageCount: messagesToInsert.length,  // ✅ Matches DB
-                        emotionalMomentum: affectionChange > 20 ? 0.5 : 0.0,
-                        trustDebt: 0.0,
+                // 🔄 Call the dedicated set-relationship API (handles insert/update properly)
+                const setRelRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(req.url).origin : 'http://localhost:3000'}/api/dev/set-relationship`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        characterId,
+                        userId,
+                        stage: newStage,
+                        status: newStatus,
+                        points: affectionChange,
+                        userEmail
                     })
-                    .eq('characterId', characterId)
+                })
 
-                if (updateError) {
-                    console.error('[DEV CHAT GEN] Relationship update error:', updateError)
+                const setRelData = await setRelRes.json()
+
+                if (!setRelRes.ok || setRelData.error) {
+                    console.error('[DEV GEN] Set-Relationship Failed:', setRelData.error)
+                    return NextResponse.json({
+                        messages: data || messagesToInsert,
+                        saved: true,
+                        count: messagesToInsert.length,
+                        devError: `Relationship Error: ${setRelData.error}`,
+                        source: 'ai-saved-rpc'
+                    })
                 } else {
-                    console.log(`💕 [DEV CHAT GEN] Relationship synced! Stage: ${newStage}, Points: ${affectionChange}`)
+                    console.log(`💕 [DEV GEN] Relationship ${setRelData.action}! Stage=${newStage}, Status=${newStatus}`)
                 }
-            } catch (e) {
-                console.warn('[DEV CHAT GEN] Could not update relationship:', e)
+            } catch (e: any) {
+                console.warn('[DEV GEN] Set-Relationship Exception:', e?.message || e)
             }
 
             return NextResponse.json({

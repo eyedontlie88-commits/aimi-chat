@@ -129,7 +129,8 @@ export async function POST(req: NextRequest) {
             const { error: relError } = await supabaseAdmin
                 .from('RelationshipConfig')
                 .update({
-                    stage: 'STRANGER',               // ✅ FIXED: Use 'stage' (confirmed from DB screenshot)
+                    stage: 'STRANGER',               // ✅ Code stage
+                    status: 'Người lạ',              // ✅ Display text (DUAL SYNC)
                     intimacyLevel: 0,
                     affectionPoints: 0,
                     messageCount: 0,

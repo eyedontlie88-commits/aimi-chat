@@ -921,10 +921,10 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                             </span>
                                         )}
                                     </div>
-                                    <div className="w-full max-w-32 h-1 bg-white/20 rounded-full overflow-hidden mt-1">
+                                    <div className="w-full max-w-32 h-1.5 bg-gray-800/50 rounded-full overflow-hidden mt-1 border border-gray-700/30">
                                         <div
-                                            className={`h-full ${theme.bubbles.userBg} transition-all duration-500`}
-                                            style={{ width: `${Math.min(100, affectionPoints)}%` }}
+                                            className="h-full bg-gradient-to-r from-pink-500 to-rose-500 transition-all duration-700 ease-out shadow-[0_0_8px_rgba(236,72,153,0.5)]"
+                                            style={{ width: `${Math.min(100, Math.max(0, affectionPoints || 0))}%` }}
                                         />
                                     </div>
                                     <div className={`mt-1 text-[9px] uppercase font-bold tracking-wider truncate ${theme.bubbles.userText}`}>
