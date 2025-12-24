@@ -24,6 +24,20 @@ import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes
 // Intimacy level emojis (labels come from t.chat.intimacyLevels)
 const LEVEL_EMOJIS = ['🙂', '😊', '🤝', '💖', '💍']
 
+// 🔒 ADMIN WHITELIST: Only these emails can see Dev Tools
+const ADMIN_EMAILS = ['eyedontlie88@gmail.com', 'giangcm987@gmail.com']
+
+// 📊 DYNAMIC SCALING: Max points for each stage (for visual progress)
+const STAGE_MAX_POINTS: Record<string, number> = {
+    'BROKEN': 0,
+    'STRANGER': 10,
+    'ACQUAINTANCE': 100,
+    'CRUSH': 1000,
+    'DATING': 3000,
+    'COMMITTED': 5000,
+    'UNDEFINED': 10
+}
+
 interface RelationshipConfig {
     intimacyLevel: number
     affectionPoints: number
@@ -121,7 +135,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
     // Dev force reaction (development only)
     const [devForceReaction, setDevForceReaction] = useState<'OFF' | 'LIKE' | 'HEARTBEAT'>('OFF')
-    const isDev = process.env.NODE_ENV !== 'production'
+    // 🔒 isDev is computed AFTER user loads - see line ~199
     const { t } = useLanguage()
     // user is obtained from useModal() at line 175 for auth gating
     // TASK B: Micro-feedback for impact display
@@ -142,6 +156,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
     // 💔 AI Breakup - track if relationship is broken
     const [isBrokenUp, setIsBrokenUp] = useState(false)
+
+    // 🔒 Client-side mount state to prevent hydration errors
+    const [isMounted, setIsMounted] = useState(false)
 
     // Comforting Loading Messages (timer-based rotation)
     const [loadingText, setLoadingText] = useState('')
@@ -195,6 +212,17 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     // Get auth state from ModalContext
     const { user, loading: authLoading, openLogin } = useModal()
     const { lang: userLanguage } = useLanguage()
+
+    // 🔒 STRICT DEV MODE: Only admin emails can see dev tools (client-side only)
+    const isDev = isMounted &&
+        process.env.NODE_ENV !== 'production' &&
+        !!user?.email &&
+        ADMIN_EMAILS.includes(user.email)
+
+    // 🔒 Mount detection: Prevent hydration errors by waiting for client-side render
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     // AUTH GATEKEEPER: Redirect to home if not authenticated
     useEffect(() => {
@@ -337,9 +365,18 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
             // Initialize relationship stats from character data
             if (data.character?.relationshipConfig) {
-                setAffectionPoints(data.character.relationshipConfig.affectionPoints || 0)
-                setIntimacyLevel(data.character.relationshipConfig.intimacyLevel || 0)
-                setRelationshipStage(data.character.relationshipConfig.stage || 'UNDEFINED')
+                const rel = data.character.relationshipConfig
+                setAffectionPoints(rel.affectionPoints || 0)
+                setIntimacyLevel(rel.intimacyLevel || 0)
+                setRelationshipStage(rel.stage || 'UNDEFINED')
+
+                // 💀 HARD LOCK: Check for BROKEN state on load - prevent Zombie bug
+                if (rel.stage === 'BROKEN' || (rel.affectionPoints !== undefined && rel.affectionPoints <= -10)) {
+                    console.log('💀 [LOAD] Character is BROKEN! Affection:', rel.affectionPoints, 'Stage:', rel.stage)
+                    console.log('💀 [LOAD] Triggering Hard Lock - UI will be blocked by breakup modal')
+                    setIsBrokenUp(true)
+                    // Don't return - let background continue loading, but modal covers everything
+                }
             }
         } catch (error) {
             // 6. CATCH NETWORK/JSON ERRORS
@@ -934,7 +971,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                                 : t.chat.intimacyLevels[intimacyLevel]}
                                         </span>
                                         <span className="text-[9px] opacity-70 whitespace-nowrap">
-                                            {affectionPoints}/100
+                                            {affectionPoints}/{STAGE_MAX_POINTS[relationshipStage] || 5000}
                                         </span>
                                         {/* TASK B: Micro-feedback (+6❤️ / -3💔) */}
                                         {impactFeedback.show && (
@@ -949,7 +986,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                     <div className="w-full max-w-32 h-1.5 bg-gray-800/50 rounded-full overflow-hidden mt-1 border border-gray-700/30">
                                         <div
                                             className="h-full bg-gradient-to-r from-pink-500 to-rose-500 transition-all duration-700 ease-out shadow-[0_0_8px_rgba(236,72,153,0.5)]"
-                                            style={{ width: `${Math.min(100, Math.max(0, affectionPoints || 0))}%` }}
+                                            style={{ width: `${Math.min(100, Math.max(0, ((affectionPoints || 0) / (STAGE_MAX_POINTS[relationshipStage] || 5000)) * 100))}%` }}
                                         />
                                     </div>
                                     <div className={`mt-1 text-[9px] uppercase font-bold tracking-wider truncate ${theme.bubbles.userText}`}>
@@ -1012,6 +1049,22 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         </div>
                     </div>
                 </div>
+
+                {/* 🧪 DEV RELATIONSHIP TOOLS (Yellow Dev Panel with Archive button) */}
+                {isDev && (
+                    <div className="shrink-0 px-4 py-2 bg-black/20">
+                        <DevRelationshipTools
+                            characterId={characterId}
+                            currentStage={relationshipStage}
+                            currentAffection={affectionPoints}
+                            onUpdate={(data) => {
+                                setAffectionPoints(data.affectionPoints)
+                                setIntimacyLevel(data.intimacyLevel)
+                                setRelationshipStage(data.stage)
+                            }}
+                        />
+                    </div>
+                )}
 
                 {/* 🎬 DEV AUTO-CONVERSATION GENERATOR PANEL (Main Chat) */}
                 {isDev && showDevChatPanel && (

@@ -35,7 +35,10 @@ export async function GET(request: NextRequest) {
         }
 
         const messages = await prisma.message.findMany({
-            where: { characterId },
+            where: {
+                characterId,
+                isDeleted: false  // 🔥 SOFT DELETE: Only show non-deleted messages
+            },
             orderBy: { createdAt: 'desc' },
             take: limit,
             include: {

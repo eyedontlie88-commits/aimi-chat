@@ -48,42 +48,44 @@ export async function POST(req: NextRequest) {
             relationshipReset: false
         }
 
-        // 1. Delete Chat History (Message table - Prisma style, capital M)
+        // 1. SOFT DELETE Chat History (Mark as deleted instead of permanent removal)
         try {
             const { data: msgData, error: msgError } = await supabaseAdmin
                 .from('Message')
-                .delete()
+                .update({ isDeleted: true })  // 🔥 SOFT DELETE
                 .eq('characterId', characterId)
+                .eq('isDeleted', false)       // Only update non-deleted
                 .select('id')
 
             if (msgError) {
-                console.error('[RESET] Message delete error:', msgError)
+                console.error('[RESET] Message soft-delete error:', msgError)
                 errors.push(`Messages: ${msgError.message}`)
             } else {
                 deletedCounts.messages = msgData?.length || 0
-                console.log(`[RESET] ✅ Deleted ${deletedCounts.messages} messages`)
+                console.log(`[RESET] ✅ Soft-deleted ${deletedCounts.messages} messages`)
             }
         } catch (e) {
-            console.error('[RESET] Message delete exception:', e)
+            console.error('[RESET] Message soft-delete exception:', e)
         }
 
-        // 2. Delete Memories (Memory table - Prisma style, capital M)
+        // 2. SOFT DELETE Memories (Mark as deleted instead of permanent removal)
         try {
             const { data: memData, error: memError } = await supabaseAdmin
                 .from('Memory')
-                .delete()
+                .update({ isDeleted: true })  // 🔥 SOFT DELETE
                 .eq('characterId', characterId)
+                .eq('isDeleted', false)       // Only update non-deleted
                 .select('id')
 
             if (memError) {
-                console.error('[RESET] Memory delete error:', memError)
+                console.error('[RESET] Memory soft-delete error:', memError)
                 errors.push(`Memories: ${memError.message}`)
             } else {
                 deletedCounts.memories = memData?.length || 0
-                console.log(`[RESET] ✅ Deleted ${deletedCounts.memories} memories`)
+                console.log(`[RESET] ✅ Soft-deleted ${deletedCounts.memories} memories`)
             }
         } catch (e) {
-            console.error('[RESET] Memory delete exception:', e)
+            console.error('[RESET] Memory soft-delete exception:', e)
         }
 
         // 3. Delete Phone Messages

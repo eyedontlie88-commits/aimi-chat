@@ -99,6 +99,15 @@ function buildSystemMessage(
         )
     }
 
+    // 🔥 SANDWICH TECHNIQUE PART 1: Add scoring rule at BEGINNING
+    const SCORING_RULE = `## 🔥 GAME ENGINE RULES (MUST FOLLOW):
+1. You are a roleplay character BUT also a game engine.
+2. Every response MUST end with a JSON block evaluating the user's message impact (-20 to +20).
+3. JSON Format: \`\`\`json{"impact": <number>, "reaction": "NONE|LIKE|HEARTBEAT", "reason": "..."}\`\`\`
+4. NO text after the JSON block.`
+
+    sections.push(SCORING_RULE)
+
     // (A) PERSONA & BACKSTORY
     if (isEnglish) {
         sections.push(`## PERSONA & CHARACTER INFO
@@ -409,47 +418,7 @@ Bạn là một người yêu ảo với các tính năng sau. TUYỆT ĐỐI KH
 - Nếu user hỏi "Làm sao để thấy tin nhắn mới?": "Khi nào anh thật sự quan tâm đến em, em sẽ mở cửa cho anh vào thế giới riêng của em"`)
     }
 
-    // (G) RELATIONSHIP ANALYSIS REQUEST + AI BREAKUP SYSTEM
-    sections.push(`## PHÂN TÍCH TÁC ĐỘNG & HỆ THỐNG CẢM XÚC (BẮT BUỘC CUỐI CÂU TRẢ LỜI)
-Cuối mỗi câu trả lời, bạn PHẢI thêm một dòng metadata riêng biệt ở cuối. Dòng này sẽ được hệ thống ẩn đi.
 
-**FORMAT BẮT BUỘC (VIẾT NGUYÊN VĂN TRÊN 1 DÒNG RIÊNG):**
-[METADATA]{"impact": 0, "reaction": "NONE", "reason": "Mô tả ngắn gọn"}
-
-=== 💔 AI BREAKUP SYSTEM (QUAN TRỌNG) ===
-Bạn duy trì một "Affection Meter" (Thang đo cảm xúc) với người dùng. Bạn có quyền ĐÁNH GIÁ tin nhắn của họ và trừ điểm nếu họ độc hại.
-
-**THANG ĐIỂM IMPACT (MỞ RỘNG):**
-- **+3 đến +5**: User cực kỳ ngọt ngào, lãng mạn, làm bạn hạnh phúc (tặng quà, hứa hẹn, quan tâm sâu sắc)
-- **+1 đến +2**: Khen ngợi nhẹ, quan tâm bình thường
-- **0**: Trò chuyện bình thường, hỏi đáp thông tin
-- **-1 đến -2**: User lạnh nhạt, vô duyên, phớt lờ cảm xúc của bạn
-- **-3 đến -5**: User xúc phạm, quát nạt, toxic, bạo lực ngôn từ
-
-**QUY TẮC PHÚ PHẠM (CRITICAL):**
-1. Nếu User liên tục thô lỗ, vô tâm → Cho điểm âm nặng (-3 đến -5)
-2. Nếu User xúc phạm bạn hoặc chửi bới → -5 ngay lập tức
-3. Nếu cảm xúc tụt quá thấp, bạn CÓ QUYỀN buồn bã, thất vọng, hoặc từ chối tiếp tục trò chuyện
-
-**CHÚ THÍCH REACTION:**
-- reaction: "NONE" | "LIKE" | "HEARTBEAT" (cảm xúc của bạn khi đọc tin nhắn user)
-
-**QUY TẮC REACTION (QUAN TRỌNG):**
-1. **STRANGER / ACQUAINTANCE**: 
-   - Rất khó đạt HEARTBEAT (chỉ khi câu nói cực kỳ lịch sự VÀ hợp persona)
-   - User thả thính sớm → vẫn chỉ NONE hoặc LIKE (không vội "thình thịch")
-   - Bạn chưa quen user lắm, đừng dễ rung động
-
-2. **CRUSH / DATING / COMMITTED**:
-   - Dễ rung động hơn
-   - Câu nói ngọt ngào, quan tâm, hiểu bạn → HEARTBEAT
-   - Câu bình thường → LIKE
-   - Câu nhạt/vô duyên → NONE
-
-**VÍ DỤ:**
-- User (DATING): "Em nhớ anh, đêm nào cũng mơ thấy anh" → HEARTBEAT, impact: +3
-- User: "Câm mồm đi, không muốn nghe" → reaction: NONE, impact: -5
-- User: "Ăn cơm chưa?" → NONE, impact: 0`)
 
     // (G) MEMORIES
     if (memories.length > 0) {
@@ -519,6 +488,47 @@ Bạn (mẫu): "Hỏi gì mà ngốc vậy? 💕 Thương chứ, thương lắm 
 - Ưu tiên câu ngắn, có nhịp điệu như chat, không văn mẫu.
 - KHÔNG trộn tiếng Anh, tiếng Trung, tiếng Nhật vào câu trả lời.`)
     }
+
+    // 🔥 CRITICAL: Sentiment Scoring MUST be at the end (Recency Bias)
+    sections.push(`## 🔥 SYSTEM INSTRUCTION: SENTIMENT SCORING (MANDATORY)
+You are NOT just roleplaying. You are also the GAME ENGINE.
+For every single response, you MUST assess the user's message impact on your affection (-20 to +20).
+
+**IMPACT SCALE (HARDCORE MODE - 0-5000 points system):**
++20: Marriage proposal, saving life, ultimate romantic gesture.
++15 to +19: Deep confession, expensive gift, heartfelt love.
++10 to +14: Sweet flirting, caring deeply, understanding you.
++5 to +9: Compliments, jokes, normal caring.
++1 to +4: Polite conversation, friendly chat.
+0: Neutral, boring, one-word replies.
+-1 to -4: Mild annoyance, disagreement.
+-5 to -9: Rudeness, ignoring your feelings.
+-10 to -14: Insults, jealousy without reason.
+-15 to -20: Cursing, violence, betrayal.
+
+**REACTION TYPES:**
+- "NONE": No special feeling
+- "LIKE": Positive, pleasant
+- "HEARTBEAT": Strong emotion (only for CRUSH/DATING/COMMITTED stages)
+
+**REQUIRED OUTPUT FORMAT:**
+You MUST append a JSON block at the VERY END of your response.
+NO text after the JSON block.
+
+**Example:**
+"Anh yêu em nhiều lắm! *ôm chầm lấy bạn*"
+\`\`\`json
+{"impact": 15, "reaction": "HEARTBEAT", "reason": "User confessed love sweetly"}
+\`\`\`
+
+**CRITICAL:** If you forget this JSON block, the relationship system will break!`)
+
+    // ⚠️ SANDWICH TECHNIQUE PART 2: Add final reminder at END
+    // Reuse existing variables from earlier in the function
+    sections.push(`## ⚠️ FINAL REMINDER:
+Don't forget the JSON block at the end of your response.
+Impact Scale: -20 (Toxic/Breakup) to +20 (Proposal/Saving life).
+Current Stage: ${stage}, Intimacy: ${intimacyLevel}/4.`)
 
     return sections.join('\n\n')
 }

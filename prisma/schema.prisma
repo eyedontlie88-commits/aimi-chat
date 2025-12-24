@@ -102,6 +102,9 @@ model Message {
   // Heart reaction from character (NONE | LIKE | HEARTBEAT)
   reactionType String?
 
+  // 🔥 SOFT DELETE: Mark as deleted instead of permanent removal
+  isDeleted Boolean @default(false)
+
   character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
   memories  Memory[]  @relation("MessageMemories")
 }
@@ -116,6 +119,9 @@ model Memory {
   category        String   @default("fact")   // "fact" | "event" | "relationship" | "diary"
   visibility      String   @default("public") // "public" | "private"
   createdAt       DateTime @default(now())
+
+  // 🔥 SOFT DELETE: Mark as deleted instead of permanent removal
+  isDeleted Boolean @default(false)
 
   character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
   sourceMessage Message?  @relation("MessageMemories", fields: [sourceMessageId], references: [id], onDelete: SetNull)

@@ -4,13 +4,13 @@ import { PrismaClient } from '@prisma/client'
 // Constants
 // ============================================
 
-// Stage thresholds (based on 0-100 affection points)
+// Stage thresholds (based on 0-5000 affection points) - HARDCORE MODE
 export const STAGE_THRESHOLDS = {
-    STRANGER: { min: 0, max: 14 },
-    ACQUAINTANCE: { min: 15, max: 34 },
-    CRUSH: { min: 35, max: 59 },
-    DATING: { min: 60, max: 84 },
-    COMMITTED: { min: 85, max: 100 },
+    STRANGER: { min: -9, max: 10 },      // -9 to 10 (BROKEN is <= -10)
+    ACQUAINTANCE: { min: 11, max: 100 },
+    CRUSH: { min: 101, max: 1000 },       // Renamed from FRIEND
+    DATING: { min: 1001, max: 3000 },
+    COMMITTED: { min: 3001, max: 5000 },
 } as const
 
 const STAGE_ORDER = ['STRANGER', 'ACQUAINTANCE', 'CRUSH', 'DATING', 'COMMITTED'] as const
@@ -70,11 +70,12 @@ export const INTIMACY_LEVELS = {
 export function calcIntimacyLevel(points: number): number {
     // Handle negative points (BROKEN state)
     if (points < 0) return 0
-    if (points >= 90) return 4
-    if (points >= 70) return 3
-    if (points >= 40) return 2
-    if (points >= 20) return 1
-    return 0
+    // Updated for 5000-point scale
+    if (points >= 3001) return 4  // COMMITTED
+    if (points >= 1001) return 3  // DATING
+    if (points >= 101) return 2  // CRUSH/FRIEND
+    if (points >= 11) return 1   // ACQUAINTANCE
+    return 0  // STRANGER
 }
 
 export const INTIMACY_LABELS = ['Người lạ', 'Người quen', 'Bạn bè', 'Người yêu', 'Tri kỷ']
@@ -263,8 +264,8 @@ export async function updateRelationshipStats(
     // ============================================
     // Step 5: Apply Affection Change
     // ============================================
-    // 💔 AI BREAKUP: Allow negative affection down to -10
-    const newAffectionPoints = clamp(previousAffection + scaledImpact, -10, 100)
+    // 💔 AI BREAKUP: Allow negative affection down to -10, max 5000
+    const newAffectionPoints = clamp(previousAffection + scaledImpact, -100, 5000)
     const newIntimacyLevel = calcIntimacyLevel(newAffectionPoints)
     const newMessageCount = config.messageCount + 1
 

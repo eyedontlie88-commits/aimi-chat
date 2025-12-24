@@ -21,7 +21,7 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// 🔐 DEV EMAILS WHITELIST
+// 🔐 DEV EMAILS WHITELIST (sync with ADMIN_EMAILS in ChatPage)
 const DEV_EMAILS = ['eyedontlie88@gmail.com', 'giangcm987@gmail.com']
 
 // Available topics
@@ -171,33 +171,64 @@ Return ONLY a valid JSON array (no markdown, no explanation):
             switch (topic) {
                 case 'flirting':   // Thả thính
                 case 'love':       // Yêu đương
-                case 'makeup':     // Làm lành
-                    affectionChange = 50
+                    affectionChange = 250  // 🔥 HARDCORE: +250
                     intimacyChange = 3
+                    newStage = 'CRUSH'
+                    newStatus = 'Bạn thân'
+                    break
+
+                case 'makeup':     // Làm lành
+                    affectionChange = 150  // 🔥 HARDCORE: +150
+                    intimacyChange = 2
+                    newStage = 'ACQUAINTANCE'
+                    newStatus = 'Người quen'
+                    break
+
+                case 'planning':   // Hẹn hò
+                    affectionChange = 80   // 🔥 HARDCORE: +80
+                    intimacyChange = 2
                     newStage = 'DATING'
                     newStatus = 'Đang hẹn hò'
                     break
 
                 case 'arguing':    // Cãi nhau
+                    affectionChange = -200  // 🔥 HARDCORE: -200
+                    intimacyChange = 1
+                    newStage = 'COMPLICATED'
+                    newStatus = 'Phức tạp'
+                    break
+
                 case 'jealous':    // Ghen tuông
                 case 'breakup':    // Chia tay
-                    affectionChange = 10
+                    affectionChange = -100  // 🔥 HARDCORE: -100
                     intimacyChange = 1
                     newStage = 'COMPLICATED'
                     newStatus = 'Phức tạp'
                     break
 
                 case 'caring':     // Quan tâm
-                case 'gossip':     // Buôn chuyện
-                case 'work':       // Công việc
-                    affectionChange = 30
+                    affectionChange = 150  // 🔥 HARDCORE: +150
                     intimacyChange = 2
-                    newStage = 'FRIENDS'
+                    newStage = 'CRUSH'
                     newStatus = 'Bạn bè'
                     break
 
+                case 'gossip':     // Buôn chuyện
+                    affectionChange = 50   // 🔥 HARDCORE: +50
+                    intimacyChange = 1
+                    newStage = 'ACQUAINTANCE'
+                    newStatus = 'Bạn bè'
+                    break
+
+                case 'work':       // Công việc
+                    affectionChange = 20   // 🔥 HARDCORE: +20
+                    intimacyChange = 1
+                    newStage = 'ACQUAINTANCE'
+                    newStatus = 'Người quen'
+                    break
+
                 case 'toxic':      // 💔 Test Breakup - Xúc phạm nặng
-                    affectionChange = -20  // Đánh sập điểm xuống âm!
+                    affectionChange = -5000  // 🔥 HARDCORE: -5000 (Instant breakup)
                     intimacyChange = 0
                     newStage = 'BROKEN'
                     newStatus = 'Đã chia tay'

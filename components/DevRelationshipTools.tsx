@@ -23,6 +23,7 @@ export default function DevRelationshipTools({
 }: DevRelationshipToolsProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [isExpanded, setIsExpanded] = useState(false)
+    const [isArchiving, setIsArchiving] = useState(false)  // 📦 Archive state
 
     const callDevApi = async (action: string, params: Record<string, any> = {}) => {
         setIsLoading(true)
@@ -77,8 +78,8 @@ export default function DevRelationshipTools({
                 <span className="text-yellow-300">❤️{currentAffection}</span>
                 <input
                     type="range"
-                    min="0"
-                    max="100"
+                    min="-100"
+                    max="5000"
                     value={currentAffection}
                     onChange={(e) => callDevApi('setAffection', { affection: parseInt(e.target.value) })}
                     disabled={isLoading}
@@ -88,18 +89,18 @@ export default function DevRelationshipTools({
 
             {/* Quick Actions */}
             <button
-                onClick={() => callDevApi('applyImpact', { impact: 2 })}
+                onClick={() => callDevApi('applyImpact', { impact: 100 })}
                 disabled={isLoading}
                 className="px-2 py-1 bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
             >
-                +6
+                +100
             </button>
             <button
-                onClick={() => callDevApi('applyImpact', { impact: -2 })}
+                onClick={() => callDevApi('applyImpact', { impact: -100 })}
                 disabled={isLoading}
                 className="px-2 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
             >
-                -6
+                -100
             </button>
 
             {/* Jump Presets */}
@@ -110,11 +111,11 @@ export default function DevRelationshipTools({
                 defaultValue=""
             >
                 <option value="">⚡ Jump to...</option>
-                <option value="STRANGER">→ STRANGER (5pts)</option>
-                <option value="ACQUAINTANCE">→ ACQUAINTANCE (25pts)</option>
-                <option value="CRUSH">→ CRUSH (45pts)</option>
-                <option value="DATING">→ DATING (70pts)</option>
-                <option value="COMMITTED">→ COMMITTED (90pts)</option>
+                <option value="STRANGER">→ STRANGER (5pts = 50%)</option>
+                <option value="ACQUAINTANCE">→ ACQUAINTANCE (50pts = 50%)</option>
+                <option value="CRUSH">→ CRUSH (500pts = 50%)</option>
+                <option value="DATING">→ DATING (1500pts = 50%)</option>
+                <option value="COMMITTED">→ COMMITTED (4000pts = 80%)</option>
             </select>
 
             {/* Time Gap Simulation */}
@@ -146,6 +147,34 @@ export default function DevRelationshipTools({
                 className="px-2 py-1 bg-orange-500/20 text-orange-400 rounded hover:bg-orange-500/30"
             >
                 🔄 Reset Rel
+            </button>
+
+            {/* 📦 Archive to Telegram & Clean DB */}
+            <button
+                onClick={async () => {
+                    if (!confirm('⚠️ CẢNH BÁO: Hành động này sẽ chuyển tin nhắn đã xóa (Soft Deleted) sang Telegram và XÓA VĨNH VIỄN khỏi Database để giải phóng bộ nhớ. Tiếp tục?')) return
+
+                    setIsArchiving(true)
+                    try {
+                        const res = await fetch('/api/system/archive-to-telegram', { method: 'POST' })
+                        const data = await res.json()
+
+                        if (data.success) {
+                            alert(`✅ THÀNH CÔNG!\n${data.message}\n${data.telegramFileId ? `File ID: ${data.telegramFileId}` : ''}`)
+                        } else {
+                            alert(`❌: ${data.message || data.error}`)
+                        }
+                    } catch (e) {
+                        alert('Lỗi: ' + e)
+                    } finally {
+                        setIsArchiving(false)
+                    }
+                }}
+                disabled={isArchiving}
+                className="px-2 py-1 bg-indigo-500/20 text-indigo-400 rounded hover:bg-indigo-500/30 disabled:opacity-50"
+                title="Archive soft-deleted messages to Telegram"
+            >
+                {isArchiving ? '⏳...' : '📦 Archive'}
             </button>
 
             {/* Collapse */}

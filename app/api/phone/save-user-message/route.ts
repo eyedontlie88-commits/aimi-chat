@@ -2,162 +2,150 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 /**
- * API Route: Save User's Reply Message to Database
+ * API Route: Save User's Reply Message (ROBUST VERSION)
  * POST /api/phone/save-user-message
  * 
- * This ensures user's messages persist across page reloads
- * and are visible to AI when regenerating conversations.
- * 
- * Body: { conversationId, characterId, senderName, content }
- * Returns: { success, message: { id, content, is_from_character, created_at } }
+ * Accepts is_from_character from frontend to support both:
+ * - User messages (is_from_character: true) - RIGHT side
+ * - AI messages (is_from_character: false) - LEFT side
  */
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
-        const { conversationId, characterId, senderName, content } = body
+        console.log('[API SaveMsg] 📥 Received Body:', JSON.stringify(body, null, 2))
 
-        console.log('[SaveUserMessage] Request:', { conversationId, characterId, senderName, contentLength: content?.length })
+        const { conversationId, content, characterId, senderName, is_from_character } = body
 
-        // Validation
+        // 1. Validation
         if (!content?.trim()) {
-            return NextResponse.json(
-                { error: 'Message content is required' },
-                { status: 400 }
-            )
+            console.error('[API SaveMsg] ❌ Missing content')
+            return NextResponse.json({ error: 'Message content is required' }, { status: 400 })
         }
 
         if (!characterId) {
-            return NextResponse.json(
-                { error: 'characterId is required' },
-                { status: 400 }
-            )
+            console.error('[API SaveMsg] ❌ Missing characterId')
+            return NextResponse.json({ error: 'characterId is required' }, { status: 400 })
         }
 
-        // Helper function to return temp message (graceful degradation)
-        const returnTempMessage = (reason: string) => {
-            console.warn(`[SaveUserMessage] ⚠️ Fallback to temp: ${reason}`)
-            return NextResponse.json({
-                success: true,
-                message: {
-                    id: `temp-${Date.now()}`,
-                    content: content.trim(),
-                    is_from_character: true,
-                    created_at: new Date().toISOString()
-                },
-                source: 'temp',
-                warning: reason
-            })
+        if (!senderName) {
+            console.error('[API SaveMsg] ❌ Missing senderName')
+            return NextResponse.json({ error: 'senderName is required' }, { status: 400 })
         }
 
-        // Check Supabase configuration
         if (!isSupabaseConfigured() || !supabase) {
-            return returnTempMessage('Supabase not configured')
+            console.error('[API SaveMsg] ❌ Supabase not configured')
+            return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
         }
 
-        let convId = conversationId
+        console.log(`[API SaveMsg] 🔍 Looking for conversation: "${senderName}" + Character ${characterId}`)
 
-        // If no conversationId, find or create one
-        if (!convId && senderName) {
-            try {
-                const { data: existingConv, error: findError } = await supabase
-                    .from('phone_conversations')
-                    .select('id')
-                    .eq('character_id', characterId)
-                    .eq('sender_name', senderName)
-                    .single()
+        // 2. ALWAYS find or create conversation by name (ignore provided ID)
+        let finalConvId = null
 
-                if (findError && findError.code !== 'PGRST116') {
-                    // PGRST116 = no rows returned (expected when doesn't exist)
-                    console.error('[SaveUserMessage] Error finding conversation:', findError)
-                }
+        // 🔥 Use limit(1) to handle duplicates - just take first match
+        const { data: existingConvs, error: findError } = await supabase
+            .from('phone_conversations')
+            .select('id')
+            .eq('character_id', characterId)
+            .eq('contact_name', senderName)
+            .limit(1)  // Only get 1 result, even if duplicates exist
 
-                if (existingConv) {
-                    convId = existingConv.id
-                    console.log(`[SaveUserMessage] Found existing conversation: ${convId}`)
-                } else {
-                    // Create new conversation
-                    const { data: newConv, error: createError } = await supabase
-                        .from('phone_conversations')
-                        .insert({
-                            character_id: characterId,
-                            sender_name: senderName,
-                            avatar: '👤',
-                        })
-                        .select('id')
-                        .single()
-
-                    if (createError) {
-                        console.error('[SaveUserMessage] Failed to create conversation:', createError)
-                        return returnTempMessage(`Create conv failed: ${createError.message}`)
-                    }
-
-                    if (!newConv) {
-                        return returnTempMessage('No conversation returned after insert')
-                    }
-
-                    convId = newConv.id
-                    console.log(`[SaveUserMessage] Created new conversation: ${convId}`)
-                }
-            } catch (dbError) {
-                console.error('[SaveUserMessage] DB error finding/creating conversation:', dbError)
-                return returnTempMessage('Database error')
-            }
+        if (findError) {
+            console.error('[API SaveMsg] ⚠️ Error searching conversation:', findError)
+            // Don't throw - try to create new instead
         }
 
-        if (!convId) {
-            return returnTempMessage('Could not determine conversation ID')
-        }
-
-        // Insert the user's message
-        // is_from_character: true = message FROM the character (phone owner)
-        try {
-            const { data: savedMessage, error: insertError } = await supabase
-                .from('phone_messages')
+        if (existingConvs && existingConvs.length > 0) {
+            finalConvId = existingConvs[0].id  // Take first match
+            console.log(`[API SaveMsg] ✅ Found existing conversation: ${finalConvId}`)
+        } else {
+            // Create new conversation
+            console.log(`[API SaveMsg] 🆕 Creating new conversation for "${senderName}"`)
+            const { data: newConv, error: createError } = await supabase
+                .from('phone_conversations')
                 .insert({
-                    conversation_id: convId,
-                    content: content.trim(),
-                    is_from_character: true,  // User's reply = character's message
+                    character_id: characterId,
+                    contact_name: senderName,
+                    last_message_preview: content.slice(0, 50)
                 })
-                .select('id, content, is_from_character, created_at')
+                .select('id')
                 .single()
 
-            if (insertError) {
-                console.error('[SaveUserMessage] Insert error:', insertError)
-                return returnTempMessage(`Insert failed: ${insertError.message}`)
+            if (createError) {
+                console.error('[API SaveMsg] ❌ Error creating conversation:', createError)
+                throw new Error(`Create conversation error: ${createError.message}`)
             }
 
-            if (!savedMessage) {
-                return returnTempMessage('No message returned after insert')
+            if (!newConv) {
+                throw new Error('No conversation returned after insert')
             }
 
-            console.log(`[SaveUserMessage] ✅ Saved user message ID: ${savedMessage.id} to conv: ${convId}`)
-
-            return NextResponse.json({
-                success: true,
-                message: savedMessage,
-                conversationId: convId,
-                source: 'database'
-            })
-        } catch (insertCatch) {
-            console.error('[SaveUserMessage] Insert catch:', insertCatch)
-            return returnTempMessage('Insert exception')
+            finalConvId = newConv.id
+            console.log(`[API SaveMsg] ✅ Created conversation: ${finalConvId}`)
         }
 
-    } catch (error) {
-        console.error('[SaveUserMessage] Outer error:', error)
-        // Return temp message even on total failure - graceful degradation
+        // 3. Save message to database
+        // 🔥 Accept is_from_character from frontend (default to true for user messages)
+        const isFromChar = is_from_character ?? true
+        console.log(`[API SaveMsg] 💾 Saving message to conversation ${finalConvId} (is_from_character: ${isFromChar})`)
+
+        const { data: savedMessage, error: saveError } = await supabase
+            .from('phone_messages')
+            .insert({
+                conversation_id: finalConvId,
+                content: content.trim(),
+                is_from_character: isFromChar,
+                created_at: new Date().toISOString()
+            })
+            .select()
+            .single()
+
+        if (saveError) {
+            console.error('[API SaveMsg] ❌ Error saving message:', saveError)
+            console.error('[API SaveMsg] Error details:', JSON.stringify(saveError, null, 2))
+            throw new Error(`Save message error: ${saveError.message}`)
+        }
+
+        if (!savedMessage) {
+            throw new Error('No message returned after insert')
+        }
+
+        console.log(`[API SaveMsg] ✅ Message saved successfully! ID: ${savedMessage.id}`)
+
+        // 4. Update conversation preview
+        console.log(`[API SaveMsg] 📝 Updating conversation preview`)
+        const { error: updateError } = await supabase
+            .from('phone_conversations')
+            .update({
+                last_message_preview: content.slice(0, 50),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', finalConvId)
+
+        if (updateError) {
+            console.warn('[API SaveMsg] ⚠️ Failed to update preview (non-critical):', updateError)
+        }
+
+        console.log(`[API SaveMsg] ✅ SUCCESS! Returning conversation ID: ${finalConvId}`)
+
+        // 🔥 NOTE: Removed AI trigger - AI replies are now handled by:
+        // 1. Frontend calling get-conversation-detail with forceRegenerate: true
+        // 2. Or directly calling /api/phone/generate-ai-reply
+
         return NextResponse.json({
             success: true,
-            message: {
-                id: `temp-error-${Date.now()}`,
-                content: 'Error saving',
-                is_from_character: true,
-                created_at: new Date().toISOString()
-            },
-            source: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error'
+            message: savedMessage,
+            conversationId: finalConvId  // Return real ID to frontend
         })
+
+    } catch (error: any) {
+        console.error('[API SaveMsg] 🔥 CRITICAL ERROR:', error)
+        console.error('[API SaveMsg] Error stack:', error.stack)
+
+        return NextResponse.json({
+            error: error.message || 'Unknown error',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        }, { status: 500 })
     }
 }
-

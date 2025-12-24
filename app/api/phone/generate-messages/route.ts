@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateWithProviders } from '@/lib/llm/router'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 /**
  * API Route: Generate AI-generated phone messages for a character
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
         const {
+            characterId,        // 🔥 Required for DB save
             characterName,
             characterDescription,
             relationshipContext,
@@ -34,7 +36,8 @@ export async function POST(req: NextRequest) {
             isInitial = false,  // Flag for first-time phone open (persona-based generation)
             forceGenerate = false, // DEV bypass - force AI generation without thresholds
             currentMessages = [], // 🧠 RULE #6: Existing phone messages for context
-            userEmail = '' // 🔐 For DEV verification
+            userEmail = '',     // 🔐 For DEV verification
+            contactName = ''    // 🔥 Sender name for DB save
         } = body
 
         if (!characterName) {
@@ -344,11 +347,99 @@ ${isEnglish ? `[
             unread: typeof msg.unread === 'number' ? msg.unread : 0
         }))
 
+        // 💾 SAVE GENERATED MESSAGES TO DATABASE
+        let savedCount = 0
+        let savedConversationIds: string[] = []
+
+        if (characterId && isSupabaseConfigured() && supabase) {
+            console.log('[Phone Messages] 💾 Saving to database...')
+
+            try {
+                for (const msg of messages) {
+                    const senderName = msg.name || contactName || 'Unknown'
+
+                    // Step 1: Get or create conversation for this sender
+                    let conversationId: string | null = null
+
+                    const { data: existingConv } = await supabase
+                        .from('phone_conversations')
+                        .select('id')
+                        .eq('character_id', characterId)
+                        .eq('contact_name', senderName)
+                        .limit(1)
+                        .single()
+
+                    if (existingConv) {
+                        conversationId = existingConv.id
+                        console.log(`[Phone Messages] 📖 Using existing conversation for ${senderName}:`, conversationId)
+                    } else {
+                        const { data: newConv, error: convError } = await supabase
+                            .from('phone_conversations')
+                            .insert({
+                                character_id: characterId,
+                                contact_name: senderName,
+                                last_message_preview: msg.lastMessage.slice(0, 100),
+                                last_message_at: new Date().toISOString()
+                            })
+                            .select('id')
+                            .single()
+
+                        if (convError) {
+                            console.error(`[Phone Messages] ❌ Failed to create conversation for ${senderName}:`, convError)
+                            continue
+                        }
+
+                        conversationId = newConv.id
+                        console.log(`[Phone Messages] 🆕 Created conversation for ${senderName}:`, conversationId)
+                    }
+
+                    if (!conversationId) continue
+                    savedConversationIds.push(conversationId)
+
+                    // Step 2: Save the message
+                    const { error: msgError } = await supabase
+                        .from('phone_messages')
+                        .insert({
+                            conversation_id: conversationId,
+                            content: msg.lastMessage,
+                            is_from_character: false, // Messages FROM contact (LEFT side)
+                            created_at: new Date().toISOString()
+                        })
+
+                    if (msgError) {
+                        console.error(`[Phone Messages] ❌ Failed to save message for ${senderName}:`, msgError)
+                        continue
+                    }
+
+                    // Step 3: Update conversation's last message
+                    await supabase
+                        .from('phone_conversations')
+                        .update({
+                            last_message_preview: msg.lastMessage.slice(0, 100),
+                            last_message_at: new Date().toISOString()
+                        })
+                        .eq('id', conversationId)
+
+                    savedCount++
+                }
+
+                console.log(`[Phone Messages] ✅ Saved ${savedCount}/${messages.length} messages to DB`)
+
+            } catch (dbError) {
+                console.error('[Phone Messages] ❌ Database error:', dbError)
+                // Continue - don't fail the entire request
+            }
+        } else {
+            console.log('[Phone Messages] ⚠️ Skipping DB save:', !characterId ? 'No characterId' : 'Supabase not configured')
+        }
+
         return NextResponse.json({
             skipped: false,
             messages,
             source: 'ai',
-            provider: result.providerUsed
+            provider: result.providerUsed,
+            savedCount,
+            conversationIds: savedConversationIds
         })
 
     } catch (error: any) {

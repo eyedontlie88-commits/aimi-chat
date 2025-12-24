@@ -50,7 +50,9 @@ export default function MessageDetail({
     const [isSending, setIsSending] = useState(false)
     const [refusalToast, setRefusalToast] = useState<string | null>(null)
     const [source, setSource] = useState<'database' | 'ai' | 'fallback'>('database')
+    const [conversationId, setConversationId] = useState<string | null>(initialConvId || null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const hasFetchedRef = useRef<string | null>(null) // 🔥 Track per-conversation to allow switching
 
     // 🧠 SessionStorage cache key for user messages (DB fallback)
     const getLocalCacheKey = () => `phone_user_msgs_${characterId}_${senderName}`
@@ -107,54 +109,223 @@ export default function MessageDetail({
         scrollToBottom()
     }, [messages])
 
-    // Fetch conversation detail on mount
+    // Fetch conversation detail on mount (ONLY ONCE!)
     useEffect(() => {
+        // 🔥 Track per-conversation to allow switching between conversations
+        const conversationKey = `${senderName}-${characterId}`
+        if (hasFetchedRef.current === conversationKey) {
+            console.log('[MessageDetail] ⏭️ Skipping duplicate fetch for:', conversationKey)
+            return
+        }
+        hasFetchedRef.current = conversationKey
+        console.log('[MessageDetail] 🆕 New conversation detected:', conversationKey)
+
         async function fetchMessages() {
             setLoading(true)
             setError(null)
+
             try {
+                const reloadFlagKey = `phone_reload_${conversationKey}`
+                const isReload = sessionStorage.getItem(reloadFlagKey) === 'true'
+                if (isReload) {
+                    sessionStorage.removeItem(reloadFlagKey)
+                    console.log('[MessageDetail] 🔄 Reload detected for:', conversationKey)
+                } else {
+                    console.log('[MessageDetail] 🆕 First open of:', conversationKey)
+                }
+
+                // 🔥 STEP 1: Fetch existing conversation
                 const response = await fetch('/api/phone/get-conversation-detail', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         senderName,
                         characterId,
+                        characterName,
                         characterDescription,
                         conversationId: initialConvId,
                         lastMessagePreview,
                         userLanguage: lang,
+                        forceRegenerate: false,
+                        userEmail
                     })
                 })
-                if (!response.ok) throw new Error('Failed to fetch messages')
+
+                if (!response.ok) {
+                    throw new Error('Failed to load conversation')
+                }
+
                 const data = await response.json()
+                const fetchedMessages = data.messages || []
 
-                // 🧠 MERGE: API messages + local cache (for user messages that may have failed to save)
-                const apiMessages = data.messages || []
-                const localUserMsgs = getLocalCache()
+                console.log(`[MessageDetail] 📖 Loaded ${fetchedMessages.length} messages`)
 
-                // Merge: add local user messages that aren't in API result
-                const merged = [...apiMessages]
-                for (const localMsg of localUserMsgs) {
-                    const exists = merged.some(m => m.content === localMsg.content)
-                    if (!exists) {
-                        merged.push(localMsg)
-                        console.log(`[MessageDetail] 🔄 Merged from local cache: ${localMsg.content.slice(0, 30)}...`)
+                // � Debug checkpoint
+                console.log('[MessageDetail] 🔍 Debug check:', {
+                    messagesLength: fetchedMessages.length,
+                    isReload: isReload,
+                    shouldGenerate: fetchedMessages.length === 0 && !isReload
+                })
+
+                // 🔥 STEP 2: Generate initial messages if conversation is empty
+                if (fetchedMessages.length === 0) { // 🔥 Generate even on reload if empty
+                    console.log('[MessageDetail] 🆕 Empty conversation detected')
+                    console.log('[MessageDetail] 📞 Calling generate-messages API...')
+                    console.log('[MessageDetail] 📦 Payload:', {
+                        characterId,
+                        characterName,
+                        senderName,
+                        language: lang,
+                        isInitial: true
+                    })
+
+                    try {
+                        const genResponse = await fetch('/api/phone/generate-messages', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                characterId,
+                                characterName,
+                                characterDescription,
+                                language: lang,
+                                isInitial: true,
+                                forceGenerate: true,
+                                contactName: senderName,
+                                userEmail
+                            })
+                        })
+
+                        console.log('[MessageDetail] 📡 generate-messages response status:', genResponse.status)
+
+                        if (genResponse.ok) {
+                            const genData = await genResponse.json()
+                            console.log('[MessageDetail] ✅ Initial messages generated:', genData.count || 'unknown count')
+
+                            // Wait a bit for DB to save
+                            await new Promise(resolve => setTimeout(resolve, 500))
+
+                            // Fetch again to get the new messages
+                            console.log('[MessageDetail] 🔄 Refreshing conversation...')
+                            const refreshResponse = await fetch('/api/phone/get-conversation-detail', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    senderName,
+                                    characterId,
+                                    characterName,
+                                    characterDescription,
+                                    conversationId: data.conversationId,
+                                    userLanguage: lang,
+                                    forceRegenerate: false,
+                                    userEmail
+                                })
+                            })
+
+                            if (refreshResponse.ok) {
+                                const refreshData = await refreshResponse.json()
+                                setMessages(refreshData.messages || [])
+                                setConversationId(refreshData.conversationId)
+                                console.log(`[MessageDetail] 📱 Loaded ${refreshData.messages?.length || 0} messages after generation`)
+                            } else {
+                                console.error('[MessageDetail] ❌ Refresh failed:', refreshResponse.status)
+                                setMessages([])
+                            }
+                        } else {
+                            const errorText = await genResponse.text()
+                            console.error('[MessageDetail] ❌ generate-messages failed:', genResponse.status, errorText)
+                            setMessages([])
+                            setConversationId(data.conversationId)
+                        }
+                    } catch (error) {
+                        console.error('[MessageDetail] ❌ Exception during initial message generation:', error)
+                        setMessages([])
+                        setConversationId(data.conversationId)
                     }
                 }
-                // Sort by created_at
-                merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                // 🔥 STEP 3: Smart reload - check if AI should reply
+                else if (isReload && fetchedMessages.length > 0) {
+                    const lastMessage = fetchedMessages[fetchedMessages.length - 1]
+                    // is_from_character: true = user (RIGHT side), false = AI (LEFT side)
+                    const shouldRegenerate = lastMessage.is_from_character === true
 
-                setMessages(merged)
-                setSource(data.source || 'database')
-            } catch (err: unknown) {
-                console.error('[MessageDetail] Fetch error:', err)
-                setError(err instanceof Error ? err.message : 'Unknown error')
+                    if (shouldRegenerate) {
+                        console.log('[MessageDetail] 🤖 Last message from user, triggering AI reply...')
+
+                        const aiResponse = await fetch('/api/phone/generate-ai-reply', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                conversationId: data.conversationId,
+                                characterId,
+                                senderName,
+                                characterName,
+                                characterDescription,
+                                userLanguage: lang,
+                                userEmail
+                            })
+                        })
+
+                        if (aiResponse.ok) {
+                            console.log('[MessageDetail] ✅ AI reply generated on reload')
+
+                            const refreshResponse = await fetch('/api/phone/get-conversation-detail', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    senderName,
+                                    characterId,
+                                    conversationId: data.conversationId,
+                                    forceRegenerate: false,
+                                    userEmail
+                                })
+                            })
+
+                            if (refreshResponse.ok) {
+                                const refreshData = await refreshResponse.json()
+                                setMessages(refreshData.messages || [])
+                                setConversationId(refreshData.conversationId)
+                            }
+                        } else {
+                            const errorData = await aiResponse.json().catch(() => ({}))
+                            console.log('[MessageDetail] ⚠️ AI reply failed/rate-limited:', errorData.message || 'Unknown')
+                            setMessages(fetchedMessages)
+                            setConversationId(data.conversationId)
+                        }
+                    } else {
+                        console.log('[MessageDetail] ℹ️ Last message from AI, no regeneration needed')
+                        setMessages(fetchedMessages)
+                        setConversationId(data.conversationId)
+                    }
+                }
+                // 🔥 Normal case: just show messages
+                else {
+                    setMessages(fetchedMessages)
+                    setConversationId(data.conversationId)
+                }
+
+                setSource('database')
+
+            } catch (err) {
+                console.error('[MessageDetail] ❌ Error loading messages:', err)
+                setError('Failed to load messages')
             } finally {
                 setLoading(false)
             }
         }
+
         fetchMessages()
-    }, [senderName, characterId, characterDescription, initialConvId, lastMessagePreview, lang])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []) // 🔥 EMPTY DEPS = Only run ONCE on mount
+
+    // 🔥 Set reload flag when component unmounts (for next mount to detect reload)
+    useEffect(() => {
+        const conversationKey = `${senderName}-${characterId}`
+        return () => {
+            const reloadFlagKey = `phone_reload_${conversationKey}`
+            sessionStorage.setItem(reloadFlagKey, 'true')
+            console.log('[MessageDetail] 🚭 Unmounting, set reload flag for:', conversationKey)
+        }
+    }, [senderName, characterId])
 
     // 🎭 EMOTIONAL GATEKEEPER with DEV OVERRIDE (Director Console)
     const handleSendReply = async () => {
@@ -211,7 +382,8 @@ export default function MessageDetail({
                         body: JSON.stringify({
                             characterId,
                             senderName,
-                            content: replyText.trim()
+                            content: replyText.trim(),
+                            is_from_character: true // 🔥 User replying AS character = RIGHT side
                         })
                     })
 
@@ -221,69 +393,66 @@ export default function MessageDetail({
                             savedMessageId = saveData.message.id
                             console.log(`[MessageDetail] 💾 Saved to DB with ID: ${savedMessageId}`)
                         }
+
+                        // 🔥 TRIGGER AI REPLY via get-conversation-detail with forceRegenerate
+                        const realConvId = saveData.conversationId
+                        console.log(`[MessageDetail] 🤖 Triggering AI reply for: ${realConvId}`)
+
+                        // Add user message to UI immediately (before AI responds)
+                        const userMessage: MessageBubble = {
+                            id: savedMessageId,
+                            content: replyText.trim(),
+                            is_from_character: true, // 🔥 User = RIGHT side
+                            created_at: new Date().toISOString()
+                        }
+                        saveToLocalCache(userMessage)
+                        setMessages(prev => [...prev, userMessage])
+                        setReplyText('')
+
+                        // 🔥 Call API to generate AI reply (async, will update UI after)
+                        setTimeout(async () => {
+                            try {
+                                const aiRes = await fetch('/api/phone/get-conversation-detail', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        senderName,
+                                        characterId,
+                                        characterName,
+                                        characterDescription,
+                                        conversationId: realConvId,
+                                        userLanguage: lang,
+                                        forceRegenerate: true, // 🔥 Trigger AI reply
+                                        userEmail
+                                    })
+                                })
+
+                                if (aiRes.ok) {
+                                    const aiData = await aiRes.json()
+                                    if (aiData.messages && aiData.messages.length > 0) {
+                                        setMessages(aiData.messages)
+                                        console.log(`[MessageDetail] ✅ Refreshed with ${aiData.messages.length} messages`)
+                                    }
+                                }
+                            } catch (aiErr) {
+                                console.error('[MessageDetail] AI trigger error:', aiErr)
+                            }
+                        }, 500) // Small delay to let backend save complete
                     }
                 } catch (saveErr) {
                     console.error('[MessageDetail] Failed to save to DB:', saveErr)
                     // Continue anyway with temp ID - graceful degradation
-                }
 
-                // Add to UI with real or temp ID
-                const newMessage: MessageBubble = {
-                    id: savedMessageId,
-                    content: replyText.trim(),
-                    is_from_character: true,
-                    created_at: new Date().toISOString()
-                }
-
-                // 🧠 HACK: Always save to local cache as backup
-                saveToLocalCache(newMessage)
-
-                // 🔥 FIX: Append new message immediately to state
-                const updatedMessages = [...messages, newMessage]
-                setMessages(updatedMessages)
-                setReplyText('')
-
-                // 🎯 CRITICAL FIX: Generate AI response with new message MANUALLY in context
-                // Don't wait for React state - pass the message directly!
-                console.log(`[MessageDetail] 🤖 Triggering AI response with ${updatedMessages.length} messages in context`)
-
-                try {
-                    const aiResponse = await fetch('/api/phone/get-conversation-detail', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            senderName,
-                            characterId,
-                            characterDescription,
-                            conversationId: initialConvId,
-                            lastMessagePreview,
-                            userLanguage: lang,
-                            currentMessages: updatedMessages.map(m => ({
-                                content: m.content,
-                                is_from_character: m.is_from_character,
-                                created_at: m.created_at
-                            })),
-                            forceRegenerate: true  // Trigger new AI message
-                        })
-                    })
-
-                    if (aiResponse.ok) {
-                        const aiData = await aiResponse.json()
-                        if (aiData.messages && aiData.messages.length > 0) {
-                            // 🧠 Smart merge: Keep existing + add only NEW messages from AI
-                            setMessages(prev => {
-                                const existingIds = new Set(prev.map(m => m.id))
-                                const newFromAI = aiData.messages.filter((m: MessageBubble) => !existingIds.has(m.id))
-                                if (newFromAI.length > 0) {
-                                    console.log(`[MessageDetail] 🤖 AI responded with ${newFromAI.length} new messages`)
-                                    return [...prev, ...newFromAI]
-                                }
-                                return prev
-                            })
-                        }
+                    // Add to UI with temp ID
+                    const newMessage: MessageBubble = {
+                        id: savedMessageId,
+                        content: replyText.trim(),
+                        is_from_character: true, // 🔥 User = RIGHT side
+                        created_at: new Date().toISOString()
                     }
-                } catch (aiErr) {
-                    console.error('[MessageDetail] AI generation error (non-blocking):', aiErr)
+                    saveToLocalCache(newMessage)
+                    setMessages(prev => [...prev, newMessage])
+                    setReplyText('')
                 }
 
                 if (onUserReply) onUserReply(senderName, replyText.trim())

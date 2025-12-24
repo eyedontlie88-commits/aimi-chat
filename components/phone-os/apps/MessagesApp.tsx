@@ -194,6 +194,7 @@ export default function MessagesApp({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    characterId, // 🔥 Required for DB save
                     characterName: characterName || 'Character',
                     characterDescription: characterDescription || '',
                     userLanguage: lang, // 'en' or 'vi'
@@ -441,6 +442,7 @@ export default function MessagesApp({
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({
+                                                characterId, // 🔥 Required for DB save
                                                 characterName: characterName || 'Character',
                                                 characterDescription: characterDescription || '',
                                                 userLanguage: lang,

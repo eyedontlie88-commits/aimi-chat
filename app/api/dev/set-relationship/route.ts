@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// DEV emails whitelist
+// DEV emails whitelist (sync with ADMIN_EMAILS in ChatPage)
 const DEV_EMAILS = ['eyedontlie88@gmail.com', 'giangcm987@gmail.com']
 
 export async function POST(req: NextRequest) {
@@ -27,10 +27,10 @@ export async function POST(req: NextRequest) {
 
         console.log(`🛠️ [DEV TOOL] Setting Relationship: ${stage} (${points}pts) for ${characterId}`)
 
-        // 1. Check if record exists
+        // 1. Check if record exists and get current affectionPoints
         const { data: existing } = await supabaseAdmin
             .from('RelationshipConfig')
-            .select('id')
+            .select('id, affectionPoints')
             .eq('characterId', characterId)
             .single()
 
@@ -38,15 +38,38 @@ export async function POST(req: NextRequest) {
         let error
 
         if (existing) {
-            // ✅ UPDATE (Record exists)
-            console.log(`[DEV TOOL] Updating existing record: ${existing.id}`)
+            // \ud83d\udee0\ufe0f FIX: ACCUMULATE points instead of SET
+            let newPoints = (existing.affectionPoints || 0) + points
+
+            // Special case: Toxic (-5000 or less) = instant reset to negative
+            if (points <= -1000) {
+                newPoints = points
+            }
+
+            // Clamp to 5000-point scale
+            newPoints = Math.min(5000, Math.max(-100, newPoints))
+
+            // Calculate stage based on new points (5000-point scale)
+            let newStage = 'STRANGER'
+            if (newPoints <= -10) newStage = 'BROKEN'
+            else if (newPoints <= 10) newStage = 'STRANGER'
+            else if (newPoints <= 100) newStage = 'ACQUAINTANCE'
+            else if (newPoints <= 1000) newStage = 'CRUSH'
+            else if (newPoints <= 3000) newStage = 'DATING'
+            else newStage = 'COMMITTED'
+
+            // Calculate intimacy level (5000-point scale)
+            const newIntimacy = newPoints >= 3001 ? 4 : (newPoints >= 1001 ? 3 : (newPoints >= 101 ? 2 : (newPoints >= 11 ? 1 : 0)))
+
+            console.log(`[DEV TOOL] Accumulating: ${existing.affectionPoints} + ${points} = ${newPoints} (Stage: ${newStage})`)
+
+            // \u2705 UPDATE (Record exists)
             const res = await supabaseAdmin
                 .from('RelationshipConfig')
                 .update({
-                    stage,
-                    status,
-                    affectionPoints: points,
-                    intimacyLevel: points > 40 ? 3 : (points > 20 ? 2 : 1),
+                    stage: newStage,
+                    affectionPoints: newPoints,
+                    intimacyLevel: newIntimacy,
                     updatedAt: now,
                     lastActiveAt: now,
                 })

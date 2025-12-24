@@ -7,6 +7,25 @@ import type { SceneState, LLMProviderId } from '@/lib/llm/types'
 
 export const dynamic = 'force-dynamic'
 
+// 💣 NUCLEAR OPTION V2: Force AI to score by injecting into user message
+// Qwen/Silicon models ignore system prompt, so we inject here
+const SCORING_INSTRUCTION = `
+[SYSTEM REQUIREMENT]
+You MUST analyze the user's message above and append this JSON at the end:
+\`\`\`json
+{
+  "impact": <integer -20 to +20>,
+  "reaction": "NONE|LIKE|HEARTBEAT",
+  "reason": "short reason"
+}
+\`\`\`
+Rules:
+- Positive (+5 to +20): Compliments, flirting, caring, romantic.
+- Negative (-5 to -20): Rude, toxic, insults, breakup.
+- 0: Neutral conversation.
+DO NOT FORGET THIS JSON.
+`
+
 export async function POST(request: NextRequest) {
     try {
         const authContext = await getAuthContext(request)
@@ -146,6 +165,12 @@ ${message}`
             }
         }
 
+        // 💣 NUCLEAR INJECTION: Force AI to score by appending instruction to user message
+        // This ensures AI sees it right before responding, can't ignore it
+        userContent = `${userContent}
+
+${SCORING_INSTRUCTION}`
+
         // ============================================
         // 🎬 SCENE DIRECTOR - NARRATIVE CONTROL
         // Inject user-provided scene context and directions
@@ -216,53 +241,55 @@ ${nextDirection.trim()}`
             return clean.trim()
         }
 
-        // P0.1: Default impact = 0 (safe on parse fail)
+        // --- DEEP SEARCH PARSER: Find JSON anywhere in response ---
         let impactScore = 0
         let reactionType = 'NONE'
         let reactionReason = ''
         let text = aiResponse || ''
 
+        // 👁️ DEBUG: Show first 100 chars of raw AI response
+        console.log('🤖 RAW AI REPLY:', text.substring(0, 100) + '...')
+
+        try {
+            // 🔥 ULTRA-AGGRESSIVE: Find ANY JSON block containing "impact"
+            const deepMatch = text.match(/(\{[\s\S]*"impact"[\s\S]*\})/i)
+
+            if (deepMatch) {
+                // Fix common JSON errors (trailing commas, missing brackets)
+                const fixedJson = deepMatch[1].replace(/,\s*}/g, '}')
+
+                try {
+                    // Attempt to parse found JSON
+                    const metadata = JSON.parse(fixedJson)
+
+                    // Validate and extract data
+                    if (typeof metadata.impact === 'number') {
+                        impactScore = Math.max(-20, Math.min(20, metadata.impact))
+                    }
+                    if (metadata.reaction) reactionType = metadata.reaction.toUpperCase()
+                    if (metadata.reason) reactionReason = metadata.reason
+
+                    console.log(`✅ [SCORING SUCCESS] Impact: ${impactScore}, Reaction: ${reactionType}`)
+
+                    // Clean up: Remove JSON from display text
+                    text = text.replace(deepMatch[0], '').trim()
+                    // Remove leftover markdown blocks
+                    text = text.replace(/```json/gi, '').replace(/```/gi, '').trim()
+
+                } catch (parseErr) {
+                    console.warn('⚠️ [SCORING ERROR] Parse failed:', parseErr)
+                }
+            } else {
+                console.log('❌ [SCORING FAILED] No JSON found in response.')
+            }
+        } catch (e) {
+            console.error('⚠️ [SCORING ERROR] Critical parser error:', e)
+        }
+        // --- END DEEP SEARCH PARSER ---
+
         // Check for dev force reaction (non-production only)
         const devForceReaction = body.devForceReaction
         const isDev = process.env.NODE_ENV !== 'production'
-
-        try {
-            // Look for [METADATA]{...} format
-            const metadataMatch = text.match(/\[METADATA\]\s*(\{[\s\S]*?\})/i)
-
-            // Fallback to ```json block
-            const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/)
-
-            // Fallback to trailing JSON with "impact" key
-            const trailingJsonMatch = text.match(/\n\s*(\{[^{}]*"impact"[^{}]*\})\s*$/)
-
-            const jsonMatch = metadataMatch || jsonBlockMatch || trailingJsonMatch
-
-            if (jsonMatch) {
-                const jsonStr = jsonMatch[1]
-                const metadata = JSON.parse(jsonStr)
-
-                // Parse impact - 💔 AI BREAKUP: Extended range from ±2 to ±5
-                if (typeof metadata.impact === 'number') {
-                    impactScore = Math.max(-5, Math.min(5, metadata.impact))
-                }
-
-                // Parse reaction
-                if (metadata.reaction && ['NONE', 'LIKE', 'HEARTBEAT'].includes(metadata.reaction.toUpperCase())) {
-                    reactionType = metadata.reaction.toUpperCase()
-                }
-
-                if (metadata.reason) {
-                    reactionReason = metadata.reason
-                }
-            }
-        } catch (e) {
-            console.error('[Chat API] Failed to parse metadata JSON:', e)
-            // impactScore stays 0, reactionType stays NONE
-        }
-
-        // CRITICAL: Always strip metadata from text (even on parse fail)
-        text = stripMetadata(text)
 
         // Dev force reaction override (non-production only)
         if (isDev && devForceReaction && ['NONE', 'LIKE', 'HEARTBEAT'].includes(devForceReaction.toUpperCase())) {
