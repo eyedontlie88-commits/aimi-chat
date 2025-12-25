@@ -1,4 +1,4 @@
-export type LLMProviderId = 'silicon' | 'gemini' | 'zhipu' | 'default'
+export type LLMProviderId = 'silicon' | 'gemini' | 'zhipu' | 'moonshot' | 'default'
 
 export interface LLMMessage {
     role: 'system' | 'user' | 'assistant'

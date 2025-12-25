@@ -32,14 +32,14 @@ const DEBT_ACCRUAL_RATE = 1.5      // Debt grows 1.5× faster than affection dro
 const DEBT_REPAY_RATE = 0.6        // Repaying debt is slow (60% of positive impact)
 const PROMOTION_DEBT_THRESHOLD = 5.0  // Max debt allowed for promotion
 
-// Stage-dependent recovery multipliers (slower recovery at early stages)
+// Stage-dependent recovery multipliers (balanced for micro-progression)
 const STAGE_RECOVERY_MULTIPLIERS: Record<string, number> = {
-    STRANGER: 0.4,
-    ACQUAINTANCE: 0.5,
-    CRUSH: 0.7,
-    DATING: 0.8,
-    COMMITTED: 0.9,
-    UNDEFINED: 0.5,
+    STRANGER: 0.6,      // Slower at early stages
+    ACQUAINTANCE: 0.8,
+    CRUSH: 1.0,         // Normal speed
+    DATING: 1.2,
+    COMMITTED: 1.5,     // Faster at committed stage
+    UNDEFINED: 0.8,
 }
 
 // Emotional Inertia
@@ -240,11 +240,11 @@ export async function updateRelationshipStats(
     let scaledImpact: number
 
     if (effectiveImpact > 0) {
-        // Positive impact: apply stage-dependent recovery (slower at early stages)
-        scaledImpact = effectiveImpact * 3 * stageMultiplier
+        // Positive impact: apply stage-dependent recovery (NO base multiplier for micro-progression)
+        scaledImpact = effectiveImpact * stageMultiplier
     } else {
-        // Negative impact: full speed decay
-        scaledImpact = effectiveImpact * 3
+        // Negative impact: full speed decay (NO base multiplier)
+        scaledImpact = effectiveImpact * 1.0
     }
 
     // ============================================

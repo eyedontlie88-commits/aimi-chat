@@ -24,8 +24,8 @@ export interface FallbackModel {
  * Rule: Each subsequent model should be lighter/faster
  * 
  * IMPORTANT: Use STABLE model aliases only!
- * - gemini-2.5-flash (NOT gemini-2.5-flash-preview-XX-XX)
- * - gemini-1.5-flash (fallback)
+ * - gemini-2.5-flash (stable, recommended)
+ * - gemini-3-flash-preview (latest)
  */
 
 // Get stable Gemini model from env or use safe default
@@ -35,28 +35,32 @@ const getGeminiFlashModel = (): string => {
 }
 
 // Check which providers have valid API keys
-const hasGeminiKey = (): boolean => !!process.env.GEMINI_API_KEY
+const hasGeminiKey = (): boolean => !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY)
 const hasSiliconKey = (): boolean => !!process.env.SILICON_API_KEY
+const hasMoonshotKey = (): boolean => !!process.env.MOONSHOT_API_KEY
 
 // Build fallback chains dynamically, EXCLUDING providers without keys
 export const getFallbackChains = (): Record<string, FallbackModel[]> => {
     const geminiFlash = getGeminiFlashModel()
     const geminiAvailable = hasGeminiKey()
     const siliconAvailable = hasSiliconKey()
+    const moonshotAvailable = hasMoonshotKey()
 
     // Log available providers for debugging
-    console.log(`[Fallback] Provider availability: Gemini=${geminiAvailable}, Silicon=${siliconAvailable}`)
+    console.log(`[Fallback] Provider availability: Gemini=${geminiAvailable}, Silicon=${siliconAvailable}, Moonshot=${moonshotAvailable}`)
 
     // Define all possible models
     const geminiModel: FallbackModel = { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' }
     const qwenModel: FallbackModel = { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' }
     const deepseekModel: FallbackModel = { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' }
+    const moonshotModel: FallbackModel = { provider: 'moonshot', model: 'moonshot-v1-32k', name: 'Moonshot V1 32K' }
 
     // Filter function to only include models with valid keys
     const filterByAvailableKeys = (models: FallbackModel[]): FallbackModel[] => {
         return models.filter(model => {
             if (model.provider === 'gemini') return geminiAvailable
             if (model.provider === 'silicon') return siliconAvailable
+            if (model.provider === 'moonshot') return moonshotAvailable
             return true // Unknown providers pass through
         })
     }
@@ -64,18 +68,21 @@ export const getFallbackChains = (): Record<string, FallbackModel[]> => {
     // Build chains with filtering
     const rawChains = {
         // Google Gemini chain
-        gemini: [geminiModel, qwenModel, deepseekModel],
-        google: [geminiModel, qwenModel, deepseekModel],
+        gemini: [geminiModel, qwenModel, deepseekModel, moonshotModel],
+        google: [geminiModel, qwenModel, deepseekModel, moonshotModel],
 
         // SiliconFlow chain
-        silicon: [deepseekModel, qwenModel, geminiModel],
-        siliconflow: [deepseekModel, qwenModel, geminiModel],
+        silicon: [deepseekModel, qwenModel, geminiModel, moonshotModel],
+        siliconflow: [deepseekModel, qwenModel, geminiModel, moonshotModel],
 
         // DeepSeek chain (hosted on SiliconFlow)
-        deepseek: [deepseekModel, qwenModel, geminiModel],
+        deepseek: [deepseekModel, qwenModel, geminiModel, moonshotModel],
 
-        // Default: Silicon first (most reliable), then Gemini, then more Silicon
-        default: [qwenModel, deepseekModel, geminiModel],
+        // Moonshot chain
+        moonshot: [moonshotModel, geminiModel, qwenModel, deepseekModel],
+
+        // Default: Silicon first (most reliable), then Gemini, then Moonshot
+        default: [qwenModel, deepseekModel, geminiModel, moonshotModel],
     }
 
     // Apply filtering to all chains

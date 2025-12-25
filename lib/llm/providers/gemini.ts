@@ -7,7 +7,7 @@ export async function callGemini(
     model?: string
 ): Promise<string> {
     const apiKey = process.env.GEMINI_API_KEY
-    const modelId = model || process.env.GEMINI_DEFAULT_MODEL || 'gemini-1.5-flash'
+    const modelId = model || process.env.GEMINI_DEFAULT_MODEL || 'gemini-2.5-flash'
 
     if (!apiKey) {
         throw new Error('Missing GEMINI_API_KEY')

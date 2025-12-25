@@ -2,9 +2,10 @@ import { LLMMessage, LLMProviderId, GenerateOptions } from './types'
 import { siliconProvider } from './providers/silicon'
 import { geminiProvider } from './providers/gemini-provider'
 import { zhipuProvider } from './providers/zhipu'
+import { moonshotProvider } from './providers/moonshot'
 
 // Valid provider IDs
-const VALID_PROVIDERS: LLMProviderId[] = ['silicon', 'gemini', 'zhipu']
+const VALID_PROVIDERS: LLMProviderId[] = ['silicon', 'gemini', 'zhipu', 'moonshot']
 
 /**
  * Check if error is retriable (quota/rate limit/overloaded)
@@ -37,13 +38,17 @@ function filterValidProviders(providers: string[]): LLMProviderId[] {
  */
 function hasProviderKey(provider: string): boolean {
     if (provider === 'gemini' || provider === 'google') {
-        return !!process.env.GEMINI_API_KEY
+        // Support both GEMINI_API_KEY and GOOGLE_GENERATIVE_AI_API_KEY
+        return !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY)
     }
     if (provider === 'silicon' || provider === 'siliconflow') {
         return !!process.env.SILICON_API_KEY
     }
     if (provider === 'zhipu' || provider === 'bigmodel') {
         return !!process.env.ZHIPU_API_KEY
+    }
+    if (provider === 'moonshot') {
+        return !!process.env.MOONSHOT_API_KEY
     }
     // Unknown providers - assume they have keys (might fail later with clear error)
     return true
@@ -182,6 +187,8 @@ async function callProvider(
             return geminiProvider.generateResponse(messages, { model })
         case 'zhipu':
             return zhipuProvider.generateResponse(messages, { model })
+        case 'moonshot':
+            return moonshotProvider.generateResponse(messages, { model })
         default:
             throw new Error(`Unknown provider: ${id}`)
     }

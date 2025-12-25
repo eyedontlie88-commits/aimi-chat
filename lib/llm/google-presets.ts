@@ -8,9 +8,9 @@ export interface GooglePresetModel {
 
 // Recommended Google model IDs for starring
 const RECOMMENDED_MODELS = [
-    'gemini-2.5-pro',
-    'gemini-2.5-flash',
     'gemini-3-flash-preview',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
 ]
 
 /**
@@ -46,9 +46,15 @@ export function getGooglePresets(): GooglePresetModel[] {
         return envModels
     }
 
-    // Fallback to hardcoded defaults
-    console.log('[GooglePresets] Using hardcoded defaults')
+    // Fallback to hardcoded defaults - User's actual Google AI Studio models
+    console.log('[GooglePresets] Using hardcoded defaults (4 verified models)')
     return [
+        {
+            key: 'gemini-3-flash-preview',
+            id: 'gemini-3-flash-preview',
+            label: '⭐ Gemini 3 Flash Preview',
+            recommended: true,
+        },
         {
             key: 'gemini-2.5-flash',
             id: 'gemini-2.5-flash',
@@ -56,15 +62,15 @@ export function getGooglePresets(): GooglePresetModel[] {
             recommended: true,
         },
         {
-            key: 'gemini-2.5-pro',
-            id: 'gemini-2.5-pro',
-            label: '⭐ Gemini 2.5 Pro',
+            key: 'gemini-2.5-flash-lite',
+            id: 'gemini-2.5-flash-lite',
+            label: '⭐ Gemini 2.5 Flash Lite',
             recommended: true,
         },
         {
-            key: 'gemini-2.0-flash',
-            id: 'gemini-2.0-flash',
-            label: 'Gemini 2.0 Flash',
+            key: 'gemini-2.5-flash-preview-0925',
+            id: 'gemini-2.5-flash-preview-0925',
+            label: 'Gemini 2.5 Flash Preview 09 2025',
             recommended: false,
         },
     ]

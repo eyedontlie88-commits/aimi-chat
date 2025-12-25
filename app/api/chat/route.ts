@@ -7,23 +7,44 @@ import type { SceneState, LLMProviderId } from '@/lib/llm/types'
 
 export const dynamic = 'force-dynamic'
 
-// 💣 NUCLEAR OPTION V2: Force AI to score by injecting into user message
-// Qwen/Silicon models ignore system prompt, so we inject here
+// 💣 REBALANCED: Conservative scoring for micro-progression (+1 to +5 per message)
 const SCORING_INSTRUCTION = `
-[SYSTEM REQUIREMENT]
-You MUST analyze the user's message above and append this JSON at the end:
+[CRITICAL SYSTEM REQUIREMENT]
+You MUST evaluate user's message impact on a CONSERVATIVE scale.
+
+Impact Range: -5 to +5 (STRICT - do NOT exceed)
+
+Scoring Guidelines:
++5: Life-changing romantic confession, marriage proposal, deep vulnerability
++4: Strong sincere compliment, caring gesture, emotional support
++3: Genuine sweet message, flirting, showing interest
++2: Normal positive interaction, friendly conversation
++1: Polite response, neutral-positive acknowledgment
+0: Completely neutral, irrelevant, or unclear intent
+-1: Slightly dismissive, cold, brief
+-2: Rude tone, ignoring, showing disinterest
+-3: Hurtful comment, insult, criticism
+-4: Major fight, accusation, toxic behavior
+-5: Breakup threat, betrayal, unforgivable words
+
+CONTEXT AWARENESS (ANTI-SPAM):
+- Repeated compliments within 5 messages: Reduce score to +1 or +2
+- Repeated apologies within 3 messages: Reduce score to +0 or +1
+- Sarcasm detected: Make negative even if words seem positive
+- User asking for forgiveness after hurtful words: Give +2 to +3 (not +5)
+
+Response Format:
+Always end your reply with this JSON block:
 \`\`\`json
-{
-  "impact": <integer -20 to +20>,
-  "reaction": "NONE|LIKE|HEARTBEAT",
-  "reason": "short reason"
-}
+{"impact": <-5 to +5 INTEGER>, "reaction": "NONE|LIKE|HEARTBEAT", "reason": "<brief explanation>"}
 \`\`\`
-Rules:
-- Positive (+5 to +20): Compliments, flirting, caring, romantic.
-- Negative (-5 to -20): Rude, toxic, insults, breakup.
-- 0: Neutral conversation.
-DO NOT FORGET THIS JSON.
+
+Examples:
+User: "You're so beautiful" → impact: +3, reason: "Genuine compliment"
+User: "sorry sorry sorry" (3rd time) → impact: +1, reason: "Apology spam detected"
+User: "whatever" → impact: -2, reason: "Dismissive tone"
+
+DO NOT include any text after the JSON block.
 `
 
 export async function POST(request: NextRequest) {
@@ -264,7 +285,7 @@ ${nextDirection.trim()}`
 
                     // Validate and extract data
                     if (typeof metadata.impact === 'number') {
-                        impactScore = Math.max(-20, Math.min(20, metadata.impact))
+                        impactScore = Math.max(-5, Math.min(5, metadata.impact))
                     }
                     if (metadata.reaction) reactionType = metadata.reaction.toUpperCase()
                     if (metadata.reason) reactionReason = metadata.reason
@@ -305,17 +326,20 @@ ${nextDirection.trim()}`
             reactionType = 'LIKE'
         }
 
-        const cleanedReply = text
+        let cleanedReply = text
 
-        if (!cleanedReply) {
-            console.error('[Chat API] Empty AI response')
-            return NextResponse.json(
-                {
-                    error: 'LLM_EMPTY_REPLY',
-                    detail: 'AI trả về câu trả lời rỗng, vui lòng nhắn lại.',
-                },
-                { status: 500 }
-            )
+        // 🛡️ FALLBACK: If AI returned only JSON without text, generate contextual fallback
+        if (!cleanedReply || cleanedReply.trim().length === 0) {
+            console.warn('[Chat API] ⚠️ AI returned only metadata, using fallback reply')
+
+            // Generate contextual fallback based on impact score
+            if (impactScore > 0) {
+                cleanedReply = '❤️'
+            } else if (impactScore < 0) {
+                cleanedReply = '...'
+            } else {
+                cleanedReply = 'Ừm...'
+            }
         }
 
         // Log for debugging
