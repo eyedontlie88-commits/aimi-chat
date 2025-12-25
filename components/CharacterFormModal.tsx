@@ -7,6 +7,7 @@ import { uploadAvatar } from '@/lib/supabase/storage'
 import { useLanguage } from '@/lib/i18n'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { GooglePresetModel } from '@/lib/llm/google-presets'
+import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
 
 interface CharacterFormData {
     name: string
@@ -30,6 +31,7 @@ interface CharacterFormModalProps {
     mode: 'create' | 'edit' | 'duplicate'
     siliconPresets?: SiliconPresetModel[]
     googlePresets?: GooglePresetModel[]
+    moonshotPresets?: MoonshotPresetModel[]
 }
 
 const DEFAULT_AVATARS = [
@@ -48,6 +50,7 @@ export default function CharacterFormModal({
     mode,
     siliconPresets = [],
     googlePresets = [],
+    moonshotPresets = [],
 }: CharacterFormModalProps) {
     const router = useRouter()
     const { t } = useLanguage()  // i18n hook - ready for use in Step 2
@@ -123,6 +126,10 @@ export default function CharacterFormModal({
             if (!currentModel || currentModel === 'default') return true
             return googlePresets.some(p => p.id === currentModel)
         }
+        if (currentProvider === 'moonshot') {
+            if (!currentModel || currentModel === 'default') return true
+            return moonshotPresets.some(p => p.id === currentModel)
+        }
         return true // Default view state
     }
 
@@ -134,6 +141,11 @@ export default function CharacterFormModal({
     )
     const [selectedGooglePresetId, setSelectedGooglePresetId] = useState<string>(
         (initialData?.provider === 'gemini' && initialData?.modelName && googlePresets.some(p => p.id === initialData.modelName))
+            ? initialData.modelName
+            : ''
+    )
+    const [selectedMoonshotPresetId, setSelectedMoonshotPresetId] = useState<string>(
+        (initialData?.provider === 'moonshot' && initialData?.modelName && moonshotPresets.some(p => p.id === initialData.modelName))
             ? initialData.modelName
             : ''
     )
@@ -197,6 +209,17 @@ export default function CharacterFormModal({
                 if (isPreset) {
                     setSelectedPresetId(
                         siliconPresets.some(p => p.id === newFormData.modelName)
+                            ? newFormData.modelName || ''
+                            : ''
+                    )
+                }
+            }
+            if (value === 'moonshot') {
+                const isPreset = !newFormData.modelName || newFormData.modelName === 'default' || moonshotPresets.some(p => p.id === newFormData.modelName)
+                setUsePresetModel(isPreset)
+                if (isPreset) {
+                    setSelectedMoonshotPresetId(
+                        moonshotPresets.some(p => p.id === newFormData.modelName)
                             ? newFormData.modelName || ''
                             : ''
                     )
@@ -420,6 +443,7 @@ export default function CharacterFormModal({
                                 <option value="silicon">SiliconFlow</option>
                                 <option value="gemini">Gemini (Google AI)</option>
                                 <option value="zhipu">Zhipu AI (GLM-4 Flash)</option>
+                                <option value="moonshot">Moonshot (Kimi)</option>
                             </select>
                         </div>
 
@@ -574,6 +598,68 @@ export default function CharacterFormModal({
                                         ✅ Best free model from Zhipu AI
                                     </p>
                                 </div>
+                            ) : formData.provider === 'moonshot' ? (
+                                /* ========== MOONSHOT (KIMI) DROPDOWN ========== */
+                                <div className="space-y-3">
+                                    <div className="flex gap-4 text-sm">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                checked={usePresetModel}
+                                                onChange={() => setUsePresetModel(true)}
+                                                className="radio-input"
+                                            />
+                                            <span>{t.characterForm.presetModel}</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                checked={!usePresetModel}
+                                                onChange={() => setUsePresetModel(false)}
+                                                className="radio-input"
+                                            />
+                                            <span>{t.characterForm.customModelId}</span>
+                                        </label>
+                                    </div>
+
+                                    {usePresetModel ? (
+                                        <select
+                                            value={selectedMoonshotPresetId}
+                                            onChange={(e) => {
+                                                const newId = e.target.value
+                                                setSelectedMoonshotPresetId(newId)
+                                                updateField('modelName', newId)
+                                            }}
+                                            className="input-field mb-1"
+                                        >
+                                            <option value="">-- Select Moonshot model --</option>
+
+                                            {moonshotPresets.filter(p => p.recommended).map(preset => (
+                                                <option key={preset.key} value={preset.id}>
+                                                    {preset.label}
+                                                </option>
+                                            ))}
+
+                                            {moonshotPresets.some(p => !p.recommended) && (
+                                                <optgroup label={t.characterForm.otherModels}>
+                                                    {moonshotPresets.filter(p => !p.recommended).map(preset => (
+                                                        <option key={preset.key} value={preset.id}>
+                                                            {preset.label}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value={formData.modelName || ''}
+                                            onChange={(e) => updateField('modelName', e.target.value)}
+                                            className="input-field mb-1"
+                                            placeholder="e.g. moonshot-v1-128k"
+                                        />
+                                    )}
+                                </div>
                             ) : (
                                 <input
                                     type="text"
@@ -585,8 +671,8 @@ export default function CharacterFormModal({
                             )}
 
                             <p className="text-xs text-gray-400 mt-2">
-                                {(formData.provider === 'silicon' || formData.provider === 'gemini') && usePresetModel
-                                    ? `Select from configured ${formData.provider === 'silicon' ? 'SiliconFlow' : 'Gemini'} models.`
+                                {(formData.provider === 'silicon' || formData.provider === 'gemini' || formData.provider === 'moonshot') && usePresetModel
+                                    ? `Select from configured ${formData.provider === 'silicon' ? 'SiliconFlow' : formData.provider === 'gemini' ? 'Gemini' : 'Moonshot'} models.`
                                     : "Enter specific model ID or leave empty for default."}
                                 <br />
                                 <span className="text-primary">

@@ -3,6 +3,7 @@ import { siliconProvider } from './providers/silicon'
 import { geminiProvider } from './providers/gemini-provider'
 import { zhipuProvider } from './providers/zhipu'
 import { moonshotProvider } from './providers/moonshot'
+import { deepseekProvider } from './providers/deepseek'
 
 // Valid provider IDs
 const VALID_PROVIDERS: LLMProviderId[] = ['silicon', 'gemini', 'zhipu', 'moonshot']
@@ -67,7 +68,7 @@ export async function generateWithProviders(
     }
 
     // 2. Track all tried providers for error reporting
-    const tried: { provider: LLMProviderId; error: any }[] = []
+    const tried: { provider: LLMProviderId; model: string; error: any }[] = []
 
     // 3. Try each candidate
     for (const candidateId of candidates) {
@@ -83,12 +84,39 @@ export async function generateWithProviders(
                 modelUsed: model || 'default-for-provider',
             }
         } catch (error: any) {
-            console.error(`[LLM Router] Provider ${candidateId} failed:`, error?.response?.data || error?.message || error)
-            tried.push({ provider: candidateId, error })
+            const isDev = process.env.NODE_ENV === 'development'
+
+            // Log detailed error for dev
+            if (isDev) {
+                console.error(
+                    `[LLM Router] Provider ${candidateId} failed with model ${model || 'default'}:`,
+                    {
+                        model: model,
+                        provider: candidateId,
+                        error: error?.response?.data || error?.message || error,
+                        status: error?.response?.status || error?.status
+                    }
+                )
+            } else {
+                // Production: simple log
+                console.error(`[LLM Router] Provider ${candidateId} failed`)
+            }
+
+            tried.push({ provider: candidateId, model: model || 'default', error })
 
             // Check if fallback is enabled
             if (process.env.LLM_ENABLE_FALLBACK !== 'true') {
-                console.log(`[LLM Router] Fallback disabled, throwing error`)
+                // In dev mode, throw detailed error
+                if (isDev) {
+                    const detailError = new Error(
+                        `Provider ${candidateId} failed with model "${model || 'default'}": ${error?.message || 'Unknown error'}`
+                    ) as any
+                    detailError.provider = candidateId
+                    detailError.model = model
+                    detailError.originalError = error
+                    throw detailError
+                }
+                // In production, throw simple error
                 throw error
             }
 
@@ -105,19 +133,32 @@ export async function generateWithProviders(
     }
 
     // 4. All providers failed - throw detailed error
-    console.error('[LLM Router] All providers failed')
+    const isDev = process.env.NODE_ENV === 'development'
     const lastError = tried[tried.length - 1]?.error
-    const detail = lastError?.response?.data || lastError?.message ||
-        'Tất cả nhà cung cấp LLM đều gặp lỗi (quota hoặc server).'
 
-    const aggregatedError = new Error(
-        typeof detail === 'string' ? detail : 'LLM providers unavailable or quota exceeded.'
-    ) as any
-    aggregatedError.code = 'LLM_ALL_PROVIDERS_FAILED'
-    aggregatedError.providersTried = tried.map(t => t.provider)
-    aggregatedError.lastError = lastError
+    if (isDev) {
+        // Dev mode: show all attempted providers + models
+        console.error('[LLM Router] All providers failed:', tried.map(t => ({
+            provider: t.provider,
+            model: t.model,
+            error: t.error?.message
+        })))
 
-    throw aggregatedError
+        const detailError = new Error(
+            `All LLM providers failed. Tried: ${tried.map(t => `${t.provider}/${t.model}`).join(', ')}`
+        ) as any
+        detailError.code = 'LLM_ALL_PROVIDERS_FAILED'
+        detailError.providersTried = tried
+        throw detailError
+    } else {
+        // Production mode: simple user-friendly error
+        console.error('[LLM Router] All providers failed')
+        const simpleError = new Error(
+            'AI service temporarily unavailable. Please try again.'
+        ) as any
+        simpleError.code = 'LLM_ALL_PROVIDERS_FAILED'
+        throw simpleError
+    }
 }
 
 function getCandidateProviders(preferred: LLMProviderId | 'default'): LLMProviderId[] {
@@ -180,6 +221,7 @@ async function callProvider(
     messages: LLMMessage[],
     model?: string
 ): Promise<string> {
+    // Direct provider routing
     switch (id) {
         case 'silicon':
             return siliconProvider.generateResponse(messages, { model })

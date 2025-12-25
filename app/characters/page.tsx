@@ -8,6 +8,7 @@ import { useModal } from '@/contexts/ModalContext'
 import { useLanguage } from '@/lib/i18n'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { GooglePresetModel } from '@/lib/llm/google-presets'
+import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
 
 const MAX_CHARACTERS = 10
 
@@ -28,6 +29,7 @@ export default function CharactersPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [siliconPresets, setSiliconPresets] = useState<SiliconPresetModel[]>([])
     const [googlePresets, setGooglePresets] = useState<GooglePresetModel[]>([])
+    const [moonshotPresets, setMoonshotPresets] = useState<MoonshotPresetModel[]>([])
 
     // Get user from ModalContext - data depends on this!
     const { user, loading: authLoading } = useModal()
@@ -50,6 +52,7 @@ export default function CharactersPage() {
         loadCharacters()
         loadSiliconPresets()
         loadGooglePresets()
+        loadMoonshotPresets()
     }, [user]) // Dependency on user ensures reload on account change
 
     const loadCharacters = async () => {
@@ -82,6 +85,16 @@ export default function CharactersPage() {
             setGooglePresets(data.presets || [])
         } catch (error) {
             console.error('Error loading google presets:', error)
+        }
+    }
+
+    const loadMoonshotPresets = async () => {
+        try {
+            const res = await authFetch('/api/moonshot-presets')
+            const data = await res.json()
+            setMoonshotPresets(data.presets || [])
+        } catch (error) {
+            console.error('Error loading moonshot presets:', error)
         }
     }
 
@@ -199,6 +212,7 @@ export default function CharactersPage() {
                 mode="create"
                 siliconPresets={siliconPresets}
                 googlePresets={googlePresets}
+                moonshotPresets={moonshotPresets}
             />
         </>
     )

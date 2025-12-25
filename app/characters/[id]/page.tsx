@@ -44,6 +44,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const [isDeleting, setIsDeleting] = useState(false)
     const [siliconPresets, setSiliconPresets] = useState<any[]>([])
     const [googlePresets, setGooglePresets] = useState<any[]>([])
+    const [moonshotPresets, setMoonshotPresets] = useState<any[]>([])
 
     useEffect(() => {
         loadCharacter()
@@ -55,10 +56,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setFetchError(null)
 
         try {
-            const [charRes, presetsRes, googlePresetsRes] = await Promise.all([
+            const [charRes, presetsRes, googlePresetsRes, moonshotPresetsRes] = await Promise.all([
                 authFetch(`/api/characters/${id}`),
                 authFetch('/api/config/presets'),
-                authFetch('/api/google-presets')
+                authFetch('/api/google-presets'),
+                authFetch('/api/moonshot-presets')
             ])
 
             // 2. CHECK HTTP ERRORS IMMEDIATELY
@@ -79,6 +81,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const charData = await charRes.json()
             const presetsData = await presetsRes.json()
             const googlePresetsData = await googlePresetsRes.json()
+            const moonshotPresetsData = await moonshotPresetsRes.json()
 
             // 4. CHECK FOR EMPTY DATA
             if (!charData.character) {
@@ -98,6 +101,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             }
             if (googlePresetsData.presets) {
                 setGooglePresets(googlePresetsData.presets)
+            }
+            if (moonshotPresetsData.presets) {
+                setMoonshotPresets(moonshotPresetsData.presets)
             }
         } catch (error) {
             // 6. CATCH NETWORK ERRORS
@@ -305,6 +311,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 }}
                 siliconPresets={siliconPresets}
                 googlePresets={googlePresets}
+                moonshotPresets={moonshotPresets}
             />
 
             {/* Duplicate Modal */}
@@ -329,6 +336,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 }}
                 siliconPresets={siliconPresets}
                 googlePresets={googlePresets}
+                moonshotPresets={moonshotPresets}
             />
         </>
     )

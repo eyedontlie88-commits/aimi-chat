@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
+import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
 import { useLanguage } from '@/lib/i18n'
 
 interface CharacterData {
@@ -36,6 +37,7 @@ interface CharacterSettingsModalProps {
     onClose: () => void
     character: CharacterData
     siliconPresets?: SiliconPresetModel[]
+    moonshotPresets?: MoonshotPresetModel[]
     onUpdated: () => void
     theme?: {
         bubbles: ThemeBubbles
@@ -47,6 +49,7 @@ export default function CharacterSettingsModal({
     onClose,
     character,
     siliconPresets = [],
+    moonshotPresets = [],
     onUpdated,
     theme,
 }: CharacterSettingsModalProps) {
@@ -128,6 +131,11 @@ export default function CharacterSettingsModal({
     const [usePresetModel, setUsePresetModel] = useState<boolean>(initialIsPreset())
     const [selectedPresetId, setSelectedPresetId] = useState<string>(
         formData.provider === 'silicon' && siliconPresets.some(p => p.id === formData.modelName)
+            ? formData.modelName
+            : ''
+    )
+    const [selectedMoonshotPresetId, setSelectedMoonshotPresetId] = useState<string>(
+        formData.provider === 'moonshot' && moonshotPresets.some(p => p.id === formData.modelName)
             ? formData.modelName
             : ''
     )
@@ -338,6 +346,8 @@ export default function CharacterSettingsModal({
                             <option value="default">Mặc định (theo hệ thống)</option>
                             <option value="silicon">SiliconFlow</option>
                             <option value="gemini">Gemini (Google AI)</option>
+                            <option value="zhipu">Zhipu AI (GLM-4 Flash)</option>
+                            <option value="moonshot">Moonshot (Kimi)</option>
                         </select>
                     </div>
 
@@ -409,6 +419,34 @@ export default function CharacterSettingsModal({
                                         placeholder="Ví dụ: deepseek-ai/DeepSeek-V3"
                                     />
                                 )}
+                            </div>
+                        ) : formData.provider === 'moonshot' ? (
+                            <div className="space-y-3">
+                                <select
+                                    value={selectedMoonshotPresetId}
+                                    onChange={(e) => {
+                                        const newId = e.target.value
+                                        setSelectedMoonshotPresetId(newId)
+                                        updateField('modelName', newId)
+                                    }}
+                                    className="input-field"
+                                >
+                                    <option value="">-- Chọn model Moonshot --</option>
+                                    {moonshotPresets.filter(p => p.recommended).map(preset => (
+                                        <option key={preset.key} value={preset.id}>
+                                            {preset.label}
+                                        </option>
+                                    ))}
+                                    {moonshotPresets.some(p => !p.recommended) && (
+                                        <optgroup label="── Các model khác ──">
+                                            {moonshotPresets.filter(p => !p.recommended).map(preset => (
+                                                <option key={preset.key} value={preset.id}>
+                                                    {preset.label}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+                                </select>
                             </div>
                         ) : (
                             <input

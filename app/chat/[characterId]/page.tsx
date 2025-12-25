@@ -19,6 +19,7 @@ import { useColors } from '@/lib/ColorContext'
 import { useLanguage } from '@/lib/i18n'
 import { useModal } from '@/contexts/ModalContext'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
+import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
 
 // Intimacy level emojis (labels come from t.chat.intimacyLevels)
@@ -103,6 +104,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [isResetting, setIsResetting] = useState(false)
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
     const [siliconPresets, setSiliconPresets] = useState<SiliconPresetModel[]>([])
+    const [moonshotPresets, setMoonshotPresets] = useState<MoonshotPresetModel[]>([])
     const [themeId, setThemeId] = useState<ChatThemeId>('midnight')
     const [textMode, setTextMode] = useState<ChatTextMode>('auto')
 
@@ -241,6 +243,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             loadMessages()
             loadMemories()
             loadSiliconPresets()
+            loadMoonshotPresets()
             loadTheme()
 
             // Load saved scene goal from localStorage
@@ -398,6 +401,16 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             setSiliconPresets(data.presets || [])
         } catch (error) {
             console.error('Error loading silicon presets:', error)
+        }
+    }
+
+    const loadMoonshotPresets = async () => {
+        try {
+            const res = await authFetch('/api/moonshot-presets')
+            const data = await res.json()
+            setMoonshotPresets(data.presets || [])
+        } catch (error) {
+            console.error('Error loading moonshot presets:', error)
         }
     }
 
@@ -1359,6 +1372,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 onClose={() => setIsSettingsOpen(false)}
                 character={character as any}
                 siliconPresets={siliconPresets}
+                moonshotPresets={moonshotPresets}
                 onUpdated={loadCharacter}
                 theme={{ bubbles: theme.bubbles }}
             />
