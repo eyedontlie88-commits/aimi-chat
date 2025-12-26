@@ -45,6 +45,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const [siliconPresets, setSiliconPresets] = useState<any[]>([])
     const [googlePresets, setGooglePresets] = useState<any[]>([])
     const [moonshotPresets, setMoonshotPresets] = useState<any[]>([])
+    const [openrouterPresets, setOpenrouterPresets] = useState<any[]>([])
 
     useEffect(() => {
         loadCharacter()
@@ -56,11 +57,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setFetchError(null)
 
         try {
-            const [charRes, presetsRes, googlePresetsRes, moonshotPresetsRes] = await Promise.all([
+            const [charRes, presetsRes, googlePresetsRes, moonshotPresetsRes, openrouterPresetsRes] = await Promise.all([
                 authFetch(`/api/characters/${id}`),
                 authFetch('/api/config/presets'),
                 authFetch('/api/google-presets'),
-                authFetch('/api/moonshot-presets')
+                authFetch('/api/moonshot-presets'),
+                authFetch('/api/openrouter-presets')
             ])
 
             // 2. CHECK HTTP ERRORS IMMEDIATELY
@@ -104,6 +106,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             }
             if (moonshotPresetsData.presets) {
                 setMoonshotPresets(moonshotPresetsData.presets)
+            }
+            const openrouterPresetsData = await openrouterPresetsRes.json()
+            if (openrouterPresetsData.presets) {
+                setOpenrouterPresets(openrouterPresetsData.presets)
             }
         } catch (error) {
             // 6. CATCH NETWORK ERRORS
@@ -312,6 +318,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 siliconPresets={siliconPresets}
                 googlePresets={googlePresets}
                 moonshotPresets={moonshotPresets}
+                openrouterPresets={openrouterPresets}
             />
 
             {/* Duplicate Modal */}
@@ -337,6 +344,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 siliconPresets={siliconPresets}
                 googlePresets={googlePresets}
                 moonshotPresets={moonshotPresets}
+                openrouterPresets={openrouterPresets}
             />
         </>
     )

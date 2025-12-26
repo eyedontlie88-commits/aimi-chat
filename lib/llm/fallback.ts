@@ -38,6 +38,7 @@ const getGeminiFlashModel = (): string => {
 const hasGeminiKey = (): boolean => !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY)
 const hasSiliconKey = (): boolean => !!process.env.SILICON_API_KEY
 const hasMoonshotKey = (): boolean => !!process.env.MOONSHOT_API_KEY
+const hasOpenRouterKey = (): boolean => !!process.env.OPENROUTER_API_KEY
 
 // Build fallback chains dynamically, EXCLUDING providers without keys
 export const getFallbackChains = (): Record<string, FallbackModel[]> => {
@@ -45,15 +46,17 @@ export const getFallbackChains = (): Record<string, FallbackModel[]> => {
     const geminiAvailable = hasGeminiKey()
     const siliconAvailable = hasSiliconKey()
     const moonshotAvailable = hasMoonshotKey()
+    const openrouterAvailable = hasOpenRouterKey()
 
     // Log available providers for debugging
-    console.log(`[Fallback] Provider availability: Gemini=${geminiAvailable}, Silicon=${siliconAvailable}, Moonshot=${moonshotAvailable}`)
+    console.log(`[Fallback] Provider availability: Gemini=${geminiAvailable}, Silicon=${siliconAvailable}, Moonshot=${moonshotAvailable}, OpenRouter=${openrouterAvailable}`)
 
     // Define all possible models
     const geminiModel: FallbackModel = { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' }
     const qwenModel: FallbackModel = { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' }
     const deepseekModel: FallbackModel = { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' }
     const moonshotModel: FallbackModel = { provider: 'moonshot', model: 'moonshot-v1-32k', name: 'Moonshot V1 32K' }
+    const openrouterModel: FallbackModel = { provider: 'openrouter', model: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (OpenRouter)' }
 
     // Filter function to only include models with valid keys
     const filterByAvailableKeys = (models: FallbackModel[]): FallbackModel[] => {
@@ -61,6 +64,7 @@ export const getFallbackChains = (): Record<string, FallbackModel[]> => {
             if (model.provider === 'gemini') return geminiAvailable
             if (model.provider === 'silicon') return siliconAvailable
             if (model.provider === 'moonshot') return moonshotAvailable
+            if (model.provider === 'openrouter') return openrouterAvailable
             return true // Unknown providers pass through
         })
     }
@@ -68,21 +72,24 @@ export const getFallbackChains = (): Record<string, FallbackModel[]> => {
     // Build chains with filtering
     const rawChains = {
         // Google Gemini chain
-        gemini: [geminiModel, qwenModel, deepseekModel, moonshotModel],
-        google: [geminiModel, qwenModel, deepseekModel, moonshotModel],
+        gemini: [geminiModel, qwenModel, deepseekModel, moonshotModel, openrouterModel],
+        google: [geminiModel, qwenModel, deepseekModel, moonshotModel, openrouterModel],
 
         // SiliconFlow chain
-        silicon: [deepseekModel, qwenModel, geminiModel, moonshotModel],
-        siliconflow: [deepseekModel, qwenModel, geminiModel, moonshotModel],
+        silicon: [deepseekModel, qwenModel, geminiModel, moonshotModel, openrouterModel],
+        siliconflow: [deepseekModel, qwenModel, geminiModel, moonshotModel, openrouterModel],
 
         // DeepSeek chain (hosted on SiliconFlow)
-        deepseek: [deepseekModel, qwenModel, geminiModel, moonshotModel],
+        deepseek: [deepseekModel, qwenModel, geminiModel, moonshotModel, openrouterModel],
 
         // Moonshot chain
-        moonshot: [moonshotModel, geminiModel, qwenModel, deepseekModel],
+        moonshot: [moonshotModel, geminiModel, qwenModel, deepseekModel, openrouterModel],
 
-        // Default: Silicon first (most reliable), then Gemini, then Moonshot
-        default: [qwenModel, deepseekModel, geminiModel, moonshotModel],
+        // OpenRouter chain
+        openrouter: [openrouterModel, geminiModel, qwenModel, deepseekModel, moonshotModel],
+
+        // Default: Silicon first (most reliable), then Gemini, then Moonshot, then OpenRouter
+        default: [qwenModel, deepseekModel, geminiModel, moonshotModel, openrouterModel],
     }
 
     // Apply filtering to all chains

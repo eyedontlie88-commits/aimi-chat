@@ -4,9 +4,10 @@ import { geminiProvider } from './providers/gemini-provider'
 import { zhipuProvider } from './providers/zhipu'
 import { moonshotProvider } from './providers/moonshot'
 import { deepseekProvider } from './providers/deepseek'
+import { openrouterProvider } from './providers/openrouter'
 
 // Valid provider IDs
-const VALID_PROVIDERS: LLMProviderId[] = ['silicon', 'gemini', 'zhipu', 'moonshot']
+const VALID_PROVIDERS: LLMProviderId[] = ['silicon', 'gemini', 'zhipu', 'moonshot', 'openrouter']
 
 /**
  * Check if error is retriable (quota/rate limit/overloaded)
@@ -50,6 +51,9 @@ function hasProviderKey(provider: string): boolean {
     }
     if (provider === 'moonshot') {
         return !!process.env.MOONSHOT_API_KEY
+    }
+    if (provider === 'openrouter') {
+        return !!process.env.OPENROUTER_API_KEY
     }
     // Unknown providers - assume they have keys (might fail later with clear error)
     return true
@@ -231,6 +235,8 @@ async function callProvider(
             return zhipuProvider.generateResponse(messages, { model })
         case 'moonshot':
             return moonshotProvider.generateResponse(messages, { model })
+        case 'openrouter':
+            return openrouterProvider.generateResponse(messages, { model })
         default:
             throw new Error(`Unknown provider: ${id}`)
     }

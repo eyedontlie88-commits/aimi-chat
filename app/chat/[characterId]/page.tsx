@@ -20,6 +20,7 @@ import { useLanguage } from '@/lib/i18n'
 import { useModal } from '@/contexts/ModalContext'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
+import type { OpenRouterPresetModel } from '@/lib/llm/openrouter-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
 
 // Intimacy level emojis (labels come from t.chat.intimacyLevels)
@@ -105,6 +106,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
     const [siliconPresets, setSiliconPresets] = useState<SiliconPresetModel[]>([])
     const [moonshotPresets, setMoonshotPresets] = useState<MoonshotPresetModel[]>([])
+    const [openrouterPresets, setOpenrouterPresets] = useState<OpenRouterPresetModel[]>([])
     const [themeId, setThemeId] = useState<ChatThemeId>('midnight')
     const [textMode, setTextMode] = useState<ChatTextMode>('auto')
 
@@ -244,6 +246,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             loadMemories()
             loadSiliconPresets()
             loadMoonshotPresets()
+            loadOpenRouterPresets()
             loadTheme()
 
             // Load saved scene goal from localStorage
@@ -411,6 +414,16 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             setMoonshotPresets(data.presets || [])
         } catch (error) {
             console.error('Error loading moonshot presets:', error)
+        }
+    }
+
+    const loadOpenRouterPresets = async () => {
+        try {
+            const res = await authFetch('/api/openrouter-presets')
+            const data = await res.json()
+            setOpenrouterPresets(data.presets || [])
+        } catch (error) {
+            console.error('Error loading openrouter presets:', error)
         }
     }
 
@@ -1373,6 +1386,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 character={character as any}
                 siliconPresets={siliconPresets}
                 moonshotPresets={moonshotPresets}
+                openrouterPresets={openrouterPresets}
                 onUpdated={loadCharacter}
                 theme={{ bubbles: theme.bubbles }}
             />

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
+import type { OpenRouterPresetModel } from '@/lib/llm/openrouter-presets'
 import { useLanguage } from '@/lib/i18n'
 
 interface CharacterData {
@@ -38,6 +39,7 @@ interface CharacterSettingsModalProps {
     character: CharacterData
     siliconPresets?: SiliconPresetModel[]
     moonshotPresets?: MoonshotPresetModel[]
+    openrouterPresets?: OpenRouterPresetModel[]
     onUpdated: () => void
     theme?: {
         bubbles: ThemeBubbles
@@ -50,6 +52,7 @@ export default function CharacterSettingsModal({
     character,
     siliconPresets = [],
     moonshotPresets = [],
+    openrouterPresets = [],
     onUpdated,
     theme,
 }: CharacterSettingsModalProps) {
@@ -136,6 +139,11 @@ export default function CharacterSettingsModal({
     )
     const [selectedMoonshotPresetId, setSelectedMoonshotPresetId] = useState<string>(
         formData.provider === 'moonshot' && moonshotPresets.some(p => p.id === formData.modelName)
+            ? formData.modelName
+            : ''
+    )
+    const [selectedOpenRouterPresetId, setSelectedOpenRouterPresetId] = useState<string>(
+        formData.provider === 'openrouter' && openrouterPresets.some(p => p.id === formData.modelName)
             ? formData.modelName
             : ''
     )
@@ -348,6 +356,7 @@ export default function CharacterSettingsModal({
                             <option value="gemini">Gemini (Google AI)</option>
                             <option value="zhipu">Zhipu AI (GLM-4 Flash)</option>
                             <option value="moonshot">Moonshot (Kimi)</option>
+                            <option value="openrouter">🌐 OpenRouter (35+ FREE models)</option>
                         </select>
                     </div>
 
@@ -447,6 +456,37 @@ export default function CharacterSettingsModal({
                                         </optgroup>
                                     )}
                                 </select>
+                            </div>
+                        ) : formData.provider === 'openrouter' ? (
+                            <div className="space-y-3">
+                                <select
+                                    value={selectedOpenRouterPresetId}
+                                    onChange={(e) => {
+                                        const newId = e.target.value
+                                        setSelectedOpenRouterPresetId(newId)
+                                        updateField('modelName', newId)
+                                    }}
+                                    className="input-field"
+                                >
+                                    <option value="">-- Chọn model OpenRouter --</option>
+                                    {openrouterPresets.filter(p => p.recommended).map(preset => (
+                                        <option key={preset.key} value={preset.id}>
+                                            {preset.label}
+                                        </option>
+                                    ))}
+                                    {openrouterPresets.some(p => !p.recommended) && (
+                                        <optgroup label="── Các model khác ──">
+                                            {openrouterPresets.filter(p => !p.recommended).map(preset => (
+                                                <option key={preset.key} value={preset.id}>
+                                                    {preset.label}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+                                </select>
+                                <p className="text-xs text-green-400">
+                                    ✨ {openrouterPresets.length} FREE models từ OpenRouter
+                                </p>
                             </div>
                         ) : (
                             <input

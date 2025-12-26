@@ -9,6 +9,7 @@ import { useLanguage } from '@/lib/i18n'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { GooglePresetModel } from '@/lib/llm/google-presets'
 import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
+import type { OpenRouterPresetModel } from '@/lib/llm/openrouter-presets'
 
 const MAX_CHARACTERS = 10
 
@@ -30,6 +31,7 @@ export default function CharactersPage() {
     const [siliconPresets, setSiliconPresets] = useState<SiliconPresetModel[]>([])
     const [googlePresets, setGooglePresets] = useState<GooglePresetModel[]>([])
     const [moonshotPresets, setMoonshotPresets] = useState<MoonshotPresetModel[]>([])
+    const [openrouterPresets, setOpenrouterPresets] = useState<OpenRouterPresetModel[]>([])
 
     // Get user from ModalContext - data depends on this!
     const { user, loading: authLoading } = useModal()
@@ -53,6 +55,7 @@ export default function CharactersPage() {
         loadSiliconPresets()
         loadGooglePresets()
         loadMoonshotPresets()
+        loadOpenRouterPresets()
     }, [user]) // Dependency on user ensures reload on account change
 
     const loadCharacters = async () => {
@@ -95,6 +98,16 @@ export default function CharactersPage() {
             setMoonshotPresets(data.presets || [])
         } catch (error) {
             console.error('Error loading moonshot presets:', error)
+        }
+    }
+
+    const loadOpenRouterPresets = async () => {
+        try {
+            const res = await authFetch('/api/openrouter-presets')
+            const data = await res.json()
+            setOpenrouterPresets(data.presets || [])
+        } catch (error) {
+            console.error('Error loading openrouter presets:', error)
         }
     }
 
@@ -213,6 +226,7 @@ export default function CharactersPage() {
                 siliconPresets={siliconPresets}
                 googlePresets={googlePresets}
                 moonshotPresets={moonshotPresets}
+                openrouterPresets={openrouterPresets}
             />
         </>
     )

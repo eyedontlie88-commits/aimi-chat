@@ -8,6 +8,7 @@ import { useLanguage } from '@/lib/i18n'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { GooglePresetModel } from '@/lib/llm/google-presets'
 import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
+import type { OpenRouterPresetModel } from '@/lib/llm/openrouter-presets'
 
 interface CharacterFormData {
     name: string
@@ -32,6 +33,7 @@ interface CharacterFormModalProps {
     siliconPresets?: SiliconPresetModel[]
     googlePresets?: GooglePresetModel[]
     moonshotPresets?: MoonshotPresetModel[]
+    openrouterPresets?: OpenRouterPresetModel[]
 }
 
 const DEFAULT_AVATARS = [
@@ -51,6 +53,7 @@ export default function CharacterFormModal({
     siliconPresets = [],
     googlePresets = [],
     moonshotPresets = [],
+    openrouterPresets = [],
 }: CharacterFormModalProps) {
     const router = useRouter()
     const { t } = useLanguage()  // i18n hook - ready for use in Step 2
@@ -146,6 +149,11 @@ export default function CharacterFormModal({
     )
     const [selectedMoonshotPresetId, setSelectedMoonshotPresetId] = useState<string>(
         (initialData?.provider === 'moonshot' && initialData?.modelName && moonshotPresets.some(p => p.id === initialData.modelName))
+            ? initialData.modelName
+            : ''
+    )
+    const [selectedOpenRouterPresetId, setSelectedOpenRouterPresetId] = useState<string>(
+        (initialData?.provider === 'openrouter' && initialData?.modelName && openrouterPresets.some(p => p.id === initialData.modelName))
             ? initialData.modelName
             : ''
     )
@@ -444,6 +452,7 @@ export default function CharacterFormModal({
                                 <option value="gemini">Gemini (Google AI)</option>
                                 <option value="zhipu">Zhipu AI (GLM-4 Flash)</option>
                                 <option value="moonshot">Moonshot (Kimi)</option>
+                                <option value="openrouter">🌐 OpenRouter (35+ FREE models)</option>
                             </select>
                         </div>
 
@@ -660,6 +669,40 @@ export default function CharacterFormModal({
                                         />
                                     )}
                                 </div>
+                            ) : formData.provider === 'openrouter' ? (
+                                /* ========== OPENROUTER DROPDOWN ========== */
+                                <div className="space-y-3">
+                                    <select
+                                        value={selectedOpenRouterPresetId}
+                                        onChange={(e) => {
+                                            const newId = e.target.value
+                                            setSelectedOpenRouterPresetId(newId)
+                                            updateField('modelName', newId)
+                                        }}
+                                        className="input-field mb-1"
+                                    >
+                                        <option value="">-- Chọn model OpenRouter --</option>
+
+                                        {openrouterPresets.filter(p => p.recommended).map(preset => (
+                                            <option key={preset.key} value={preset.id}>
+                                                {preset.label}
+                                            </option>
+                                        ))}
+
+                                        {openrouterPresets.some(p => !p.recommended) && (
+                                            <optgroup label={t.characterForm.otherModels}>
+                                                {openrouterPresets.filter(p => !p.recommended).map(preset => (
+                                                    <option key={preset.key} value={preset.id}>
+                                                        {preset.label}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        )}
+                                    </select>
+                                    <p className="text-xs text-green-400">
+                                        ✨ {openrouterPresets.length} FREE models từ OpenRouter
+                                    </p>
+                                </div>
                             ) : (
                                 <input
                                     type="text"
@@ -673,7 +716,9 @@ export default function CharacterFormModal({
                             <p className="text-xs text-gray-400 mt-2">
                                 {(formData.provider === 'silicon' || formData.provider === 'gemini' || formData.provider === 'moonshot') && usePresetModel
                                     ? `Select from configured ${formData.provider === 'silicon' ? 'SiliconFlow' : formData.provider === 'gemini' ? 'Gemini' : 'Moonshot'} models.`
-                                    : "Enter specific model ID or leave empty for default."}
+                                    : formData.provider === 'openrouter'
+                                        ? 'Select from 35+ FREE OpenRouter models.'
+                                        : "Enter specific model ID or leave empty for default."}
                                 <br />
                                 <span className="text-primary">
                                     {t.characterForm.modelNote}
