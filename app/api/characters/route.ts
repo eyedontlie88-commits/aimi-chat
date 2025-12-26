@@ -38,6 +38,7 @@ export const POST = withAuth(async (request: NextRequest, ctx: AuthContext) => {
         name,
         avatarUrl,
         gender,
+        age,  // NEW: age for pronoun logic
         shortDescription,
         persona,
         speakingStyle,
@@ -77,6 +78,7 @@ export const POST = withAuth(async (request: NextRequest, ctx: AuthContext) => {
             name,
             avatarUrl: avatarUrl || '/default-avatar.png',
             gender: gender || 'female',
+            age: age ?? null,  // NEW: save age (nullable)
             shortDescription: shortDescription || '',
             persona: persona || '',
             speakingStyle: speakingStyle || '',

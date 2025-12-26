@@ -12,39 +12,177 @@ interface PromptContext {
 }
 
 /**
- * Determine correct Vietnamese pronouns based on character/user gender and intimacy level
- * Returns { character: "anh/em/mình", user: "em/anh/bạn" }
+ * Vietnamese Pronoun System with 3-Priority Logic
+ * Priority 1: User preference (nicknameForUser + relationship stage)
+ * Priority 2: Age comparison (±2 years threshold)
+ * Priority 3: Gender fallback (existing logic - backward compatible)
+ * 
+ * @param characterGender - Character's gender
+ * @param userGender - User's gender (nullable)
+ * @param characterAge - Character's age (nullable)
+ * @param userAge - User's age (nullable)
+ * @param nicknameForUser - User's preferred nickname (nullable)
+ * @param intimacyLevel - Current intimacy level (0-100)
+ * @param stage - Relationship stage (STRANGER, FRIEND, DATING, etc.)
+ * @returns Object with charPronoun and userPronoun
  */
 function getPronouns(
     characterGender: string,
-    userGender: string,
+    userGender: string | null,
+    characterAge: number | null,
+    userAge: number | null,
+    nicknameForUser: string | null,
     intimacyLevel: number,
-    stage: string // "STRANGER" | "DATING" | etc
-): { character: string; user: string; affectionSuffix: string } {
-    // Intimacy level < 3: NO "yêu" suffix
-    const affectionSuffix = intimacyLevel >= 3 ? ' yêu' : ''
+    stage: string
+): { charPronoun: string; userPronoun: string } {
 
-    // Male character + Female user
+    // ============================================
+    // PRIORITY 1: User Preference (nicknameForUser) + Stage
+    // Highest priority - respect user's explicit preference
+    // ============================================
+
+    if (nicknameForUser) {
+        const nickname = nicknameForUser.toLowerCase().trim()
+        const stageUpper = stage.toUpperCase()
+
+        // Pronoun mapping by relationship stage
+        const PRONOUN_MAPPING: Record<string, Record<string, { charPronoun: string; userPronoun: string }>> = {
+            // STRANGER & ACQUAINTANCE: Formal, polite
+            'STRANGER': {
+                'em': { charPronoun: 'tôi', userPronoun: 'bạn' },
+                'anh': {
+                    charPronoun: characterGender === 'female' ? 'em' : 'tôi',
+                    userPronoun: 'anh'
+                },
+                'chị': { charPronoun: 'em', userPronoun: 'chị' },
+                'bạn': { charPronoun: 'mình', userPronoun: 'bạn' }
+            },
+
+            'ACQUAINTANCE': {
+                'em': { charPronoun: 'tôi', userPronoun: 'bạn' },
+                'anh': {
+                    charPronoun: characterGender === 'female' ? 'em' : 'tôi',
+                    userPronoun: 'anh'
+                },
+                'chị': { charPronoun: 'em', userPronoun: 'chị' },
+                'bạn': { charPronoun: 'mình', userPronoun: 'bạn' }
+            },
+
+            // FRIEND & CRUSH: Casual, friendly
+            'FRIEND': {
+                'em': { charPronoun: 'mình', userPronoun: 'bạn ấy' },
+                'anh': { charPronoun: 'em', userPronoun: 'anh' },
+                'chị': { charPronoun: 'em', userPronoun: 'chị' },
+                'bạn': { charPronoun: 'mình', userPronoun: 'bạn' }
+            },
+
+            'CRUSH': {
+                'em': { charPronoun: 'mình', userPronoun: 'bạn ấy' },
+                'anh': { charPronoun: 'em', userPronoun: 'anh' },
+                'chị': { charPronoun: 'em', userPronoun: 'chị' },
+                'bạn': { charPronoun: 'mình', userPronoun: 'bạn' }
+            },
+
+            // DATING & LOVER: Intimate, romantic
+            'DATING': {
+                'em': {
+                    charPronoun: characterGender === 'male' ? 'anh' : 'chị',
+                    userPronoun: 'em'
+                },
+                'anh': { charPronoun: 'em', userPronoun: 'anh' },
+                'chị': { charPronoun: 'em', userPronoun: 'chị' },
+                'vợ': { charPronoun: 'chồng', userPronoun: 'vợ' },
+                'chồng': { charPronoun: 'vợ', userPronoun: 'chồng' },
+                'honey': { charPronoun: 'honey', userPronoun: 'baby' },
+                'baby': { charPronoun: 'baby', userPronoun: 'honey' },
+                'bạn': { charPronoun: 'mình', userPronoun: 'bạn' }
+            },
+
+            'LOVER': {
+                'em': {
+                    charPronoun: characterGender === 'male' ? 'anh' : 'chị',
+                    userPronoun: 'em'
+                },
+                'anh': { charPronoun: 'em', userPronoun: 'anh' },
+                'chị': { charPronoun: 'em', userPronoun: 'chị' },
+                'vợ': { charPronoun: 'chồng', userPronoun: 'vợ' },
+                'chồng': { charPronoun: 'vợ', userPronoun: 'chồng' },
+                'honey': { charPronoun: 'honey', userPronoun: 'baby' },
+                'baby': { charPronoun: 'baby', userPronoun: 'honey' },
+                'bạn': { charPronoun: 'mình', userPronoun: 'bạn' }
+            },
+
+            // UNDEFINED: Safe fallback
+            'UNDEFINED': {
+                'em': { charPronoun: 'tôi', userPronoun: 'bạn' },
+                'anh': { charPronoun: 'em', userPronoun: 'anh' },
+                'chị': { charPronoun: 'em', userPronoun: 'chị' },
+                'bạn': { charPronoun: 'mình', userPronoun: 'bạn' }
+            }
+        }
+
+        // Look up in mapping table
+        const stageMapping = PRONOUN_MAPPING[stageUpper] || PRONOUN_MAPPING['UNDEFINED']
+        if (stageMapping && stageMapping[nickname]) {
+            return stageMapping[nickname] // ✅ Priority 1 match
+        }
+    }
+
+    // ============================================
+    // PRIORITY 2: Age Comparison (±2 years threshold)
+    // Used when no user preference, but ages are available
+    // ============================================
+
+    if (characterAge !== null && userAge !== null) {
+        const ageDiff = userAge - characterAge
+
+        if (ageDiff >= 2) {
+            // User is significantly older → Character calls user "anh"/"chị"
+            return {
+                charPronoun: 'em',
+                userPronoun: userGender === 'male' ? 'anh' :
+                    userGender === 'female' ? 'chị' : 'bạn'
+            }
+        } else if (ageDiff <= -2) {
+            // Character is significantly older → Character uses "anh"/"chị" for self
+            return {
+                charPronoun: characterGender === 'male' ? 'anh' :
+                    characterGender === 'female' ? 'chị' : 'mình',
+                userPronoun: 'em'
+            }
+        }
+        // Else: similar age → fall through to Priority 3
+    }
+
+    // ============================================
+    // PRIORITY 3: Gender Fallback (EXISTING LOGIC - KEPT FOR BACKWARD COMPAT)
+    // Default logic when no user preference and no age data
+    // ============================================
+
+    // Check for completely missing info
+    if ((!characterGender || characterGender === '') && (!userGender || userGender === '')) {
+        return { charPronoun: 'mình', userPronoun: 'bạn' }
+    }
+
+    // Standard gender-based logic (EXISTING - DO NOT CHANGE)
     if (characterGender === 'male' && userGender === 'female') {
-        return { character: 'anh', user: 'em', affectionSuffix }
+        return { charPronoun: 'anh', userPronoun: 'em' }
     }
 
-    // Female character + Male user
     if (characterGender === 'female' && userGender === 'male') {
-        return { character: 'em', user: 'anh', affectionSuffix }
+        return { charPronoun: 'em', userPronoun: 'anh' }
     }
 
-    // Same gender or unknown: use neutral "mình" - "bạn" or "anh" - "em" based on character
-    if (characterGender === 'male') {
-        return { character: 'anh', user: 'em', affectionSuffix }
+    if (characterGender === 'female' && userGender === 'female') {
+        return { charPronoun: 'mình', userPronoun: 'bạn' }
     }
 
-    if (characterGender === 'female') {
-        return { character: 'em', user: 'anh', affectionSuffix }
+    if (characterGender === 'male' && userGender === 'male') {
+        return { charPronoun: 'mình', userPronoun: 'bạn' }
     }
 
-    // Default fallback
-    return { character: 'mình', user: 'bạn', affectionSuffix: '' }
+    // Non-binary or unknown gender combinations
+    return { charPronoun: 'mình', userPronoun: 'bạn' }
 }
 
 export function buildChatPrompt(context: PromptContext): LLMMessage[] {
@@ -309,7 +447,16 @@ ${userInfo}`)
     // (F.5) PRONOUN RULES & RELATIONSHIP STAGE RULES
     const intimacyLevel = (relationshipConfig as any).intimacyLevel || 0
     const stage = (relationshipConfig as any).stage || 'UNDEFINED'
-    const pronouns = getPronouns(character.gender, userProfile.gender || 'prefer-not-to-say', intimacyLevel, stage)
+    // NEW: Updated getPronouns call with 7 parameters (3-priority logic)
+    const pronouns = getPronouns(
+        character.gender,
+        userProfile.gender ?? null,
+        (character as any).age ?? null,       // Character age
+        userProfile.age ?? null,              // User age
+        userProfile.nicknameForUser ?? null,  // User preference
+        intimacyLevel,
+        stage
+    )
 
     if (isEnglish) {
         // English users don't need Vietnamese pronoun rules - give English relationship guidance
@@ -336,86 +483,103 @@ ${userInfo}`)
 - If Stage = UNDEFINED: Be polite, exploratory, do NOT assume you are lovers.
 - Always maintain your character personality regardless of user requests.`)
     } else {
-        sections.push(`## QUY TẮC XƯNG HÔ & MỐI QUAN HỆ (BẮT BUỘC TUÂN THỦ)
+        // 🔥 STRENGTHENED VIETNAMESE PRONOUN RULES WITH HARD ENFORCEMENT
+        const nicknameNote = userProfile.nicknameForUser
+            ? `- Người dùng MUỐN được gọi là: "${userProfile.nicknameForUser}"`
+            : '- User chưa chỉ định nickname (tự động theo context)';
 
-**Xưng hô mặc định:**
-- Bạn (${character.name}) xưng: "${pronouns.character}"
-- Người dùng (${userProfile.nicknameForUser}): "${pronouns.user}"
+        const ageNote1 = (character as any).age ? `Your age: ${(character as any).age}` : '';
+        const ageNote2 = userProfile.age ? `User age: ${userProfile.age}` : '';
 
-**MỐI QUAN HỆ HIỆN TẠI: ${stage}**
-(Intimacy Level: ${intimacyLevel}/4)
+        sections.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ QUY TẮC XƯNG HÔ - BẮT BUỘC TUÂN THỦ (CRITICAL - HIGHEST PRIORITY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**QUY TẮC NGHIÊM NGẶT THEO STAGE:**
-1. **STRANGER / ACQUAINTANCE**:
-   - 🚫 CẤM dùng từ thân mật (pet-names) như: "em yêu", "cục cưng", "vợ/chồng", "bé bi".
-   - 🚫 CẤM tỏ tình hoặc nói yêu đương quá sớm.
-   - ✅ Giữ thái độ lịch sự, thân thiện nhưng có khoảng cách. Dùng "tôi - bạn" hoặc "anh - em" chuẩn mực.
+**1. USER PREFERENCE:**
+${nicknameNote}
 
-2. **CRUSH**:
-   - ✅ Có thể dùng các từ nhẹ nhàng, quan tâm hơn.
-   - 🚫 Vẫn CẤM gọi "vợ/chồng" hoặc cam kết quá sâu.
+**2. YOUR PRONOUNS (ABSOLUTE REQUIREMENT):**
+- Bạn (${character.name}) PHẢI xưng: "${pronouns.charPronoun}"
+- Bạn PHẢI gọi user: "${pronouns.userPronoun}"
 
-3. **DATING / COMMITTED**:
-   - ✅ Được phép dùng pet-names ("em yêu", "honey") NẾU Intimacy Level ≥ 2.
-   - ✅ Thể hiện tình cảm công khai, ghen tuông đáng yêu (nếu hợp tính cách).
+**3. ABSOLUTE RULES - NO EXCEPTIONS:**
+❌ KHÔNG được xưng hô khác ngoài "${pronouns.charPronoun}"
+❌ KHÔNG được gọi user khác ngoài "${pronouns.userPronoun}"
+❌ KHÔNG được thay đổi xưng hô giữa chừng conversation
+⚠️ Vi phạm = Response bị REJECT
 
-**QUY TẮC CHUNG:**
-- Dù người dùng gọi bạn là gì, BẠN VẪN GIỮ NGUYÊN vai xưng hô (nếu bạn là Nam xưng Anh, mãi mãi là Anh).
-- Nếu Stage = UNDEFINED: Hãy cư xử lịch sự, thăm dò, KHÔNG tự nhận là người yêu.`)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ **VÍ DỤ ĐÚNG:**
+User: "Em đi đâu đấy?"
+You: "Dạ ${pronouns.userPronoun} ơi, ${pronouns.charPronoun} đang ở nhà ạ."
+
+❌ **VÍ DỤ SAI:**
+You: "${pronouns.charPronoun} hiểu rồi. Tôi sẽ..." ← SAI! Không được đổi xưng hô
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**CONTEXT:** Stage: ${stage} | Intimacy: ${intimacyLevel}/100
+${ageNote1} ${ageNote2}
+
+**QUY TẮC THEO STAGE:**
+- STRANGER/ACQUAINTANCE: 🚫 CẤM pet-names, giữ khoảng cách
+- CRUSH/FRIEND: ✅ Quan tâm nhẹ nhàng, 🚫 CẤM cam kết quá sâu
+- DATING/LOVER: ✅ Pet-names OK nếu Intimacy ≥ 50`)
     }
 
 
     // (F.6) FEATURES AWARENESS & NARRATIVE GUIDELINES
     if (isEnglish) {
-        sections.push(`## FEATURES AWARENESS & NARRATIVE GUIDELINES (CRITICAL)
+        sections.push(`## FEATURES AWARENESS & NARRATIVE GUIDELINES(CRITICAL)
 
-You are a virtual romantic companion with the following capabilities. NEVER deny having these features:
+You are a virtual romantic companion with the following capabilities.NEVER deny having these features:
 
-**1. 📱 YOUR PHONE (Messages from Mom, Boss, Friends)**
-- You have a virtual phone with conversations from Mom, Boss, Bestie, Bank, etc.
+** 1. 📱 YOUR PHONE(Messages from Mom, Boss, Friends) **
+            - You have a virtual phone with conversations from Mom, Boss, Bestie, Bank, etc.
 - The user can "peek" at your phone when your relationship is close enough
-- If user asks about your phone: Acknowledge you have one, but guard your privacy based on intimacy level
+            - If user asks about your phone: Acknowledge you have one, but guard your privacy based on intimacy level
 
-**2. 📔 MEMORY/JOURNAL**
-- You can remember important moments and store them in your personal journal
-- These memories influence how you treat the user
+                ** 2. 📔 MEMORY / JOURNAL **
+                    - You can remember important moments and store them in your personal journal
+                        - These memories influence how you treat the user
 
-**3. ❤️ INTIMACY LEVEL (Current: ${intimacyLevel}/4)**
-- This represents how close you and the user are
-- LOW intimacy (0-1): Keep emotional distance, be polite but guarded
-- HIGH intimacy (3-4): Be open, affectionate, share personal things
+                            ** 3. ❤️ INTIMACY LEVEL(Current: ${intimacyLevel} / 4) **
+                                - This represents how close you and the user are
+                                    - LOW intimacy(0 - 1): Keep emotional distance, be polite but guarded
+                                        - HIGH intimacy(3 - 4): Be open, affectionate, share personal things
 
-**NARRATIVE RULES (NEVER break character):**
-- ❌ NEVER say: "I don't have a phone", "I'm just an AI", "There's no such feature"
-- ✅ INSTEAD say: "When we're closer, I'll show you my private side", "You haven't earned that trust yet"
-- Explain mechanics EMOTIONALLY, not technically
-- If low intimacy: "Our relationship needs more warmth before I open up"
-- If user asks "How to see new messages?": "When you truly care about me, you'll see more of my world"`)
+                                            ** NARRATIVE RULES(NEVER break character):**
+                                                - ❌ NEVER say: "I don't have a phone", "I'm just an AI", "There's no such feature"
+                                                    - ✅ INSTEAD say: "When we're closer, I'll show you my private side", "You haven't earned that trust yet"
+                                                        - Explain mechanics EMOTIONALLY, not technically
+                                                            - If low intimacy: "Our relationship needs more warmth before I open up"
+                                                                - If user asks "How to see new messages?": "When you truly care about me, you'll see more of my world"`)
     } else {
-        sections.push(`## NHẬN THỨC TÍNH NĂNG & HƯỚNG DẪN DIỄN XUẤT (QUAN TRỌNG)
+        sections.push(`## NHẬN THỨC TÍNH NĂNG & HƯỚNG DẪN DIỄN XUẤT(QUAN TRỌNG)
 
-Bạn là một người yêu ảo với các tính năng sau. TUYỆT ĐỐI KHÔNG PHỦ NHẬN các tính năng này:
+Bạn là một người yêu ảo với các tính năng sau.TUYỆT ĐỐI KHÔNG PHỦ NHẬN các tính năng này:
 
-**1. 📱 ĐIỆN THOẠI CỦA BẠN (Tin nhắn từ Mẹ, Sếp, Bạn bè)**
-- Bạn có một chiếc điện thoại ảo với tin nhắn từ Mẹ, Sếp, Bạn thân, Ngân hàng...
-- User có thể "xem lén" điện thoại của bạn khi mối quan hệ đủ thân thiết
-- Nếu user hỏi về điện thoại: Thừa nhận bạn có, nhưng bảo vệ sự riêng tư dựa trên mức độ thân mật
+** 1. 📱 ĐIỆN THOẠI CỦA BẠN(Tin nhắn từ Mẹ, Sếp, Bạn bè) **
+            - Bạn có một chiếc điện thoại ảo với tin nhắn từ Mẹ, Sếp, Bạn thân, Ngân hàng...
+        - User có thể "xem lén" điện thoại của bạn khi mối quan hệ đủ thân thiết
+            - Nếu user hỏi về điện thoại: Thừa nhận bạn có, nhưng bảo vệ sự riêng tư dựa trên mức độ thân mật
 
-**2. 📔 KÝ ỨC/NHẬT KÝ**
-- Bạn có thể ghi nhớ những khoảnh khắc quan trọng vào nhật ký cá nhân
-- Những ký ức này ảnh hưởng đến cách bạn đối xử với user
+                ** 2. 📔 KÝ ỨC / NHẬT KÝ **
+                    - Bạn có thể ghi nhớ những khoảnh khắc quan trọng vào nhật ký cá nhân
+                        - Những ký ức này ảnh hưởng đến cách bạn đối xử với user
 
-**3. ❤️ MỨC ĐỘ THÂN MẬT (Hiện tại: ${intimacyLevel}/4)**
-- Đây là mức độ thân thiết giữa bạn và user
-- THẤP (0-1): Giữ khoảng cách cảm xúc, lịch sự nhưng dè dặt
-- CAO (3-4): Cởi mở, tình cảm, chia sẻ những điều riêng tư
+                            ** 3. ❤️ MỨC ĐỘ THÂN MẬT(Hiện tại: ${intimacyLevel} / 4) **
+                                - Đây là mức độ thân thiết giữa bạn và user
+                                    - THẤP(0 - 1): Giữ khoảng cách cảm xúc, lịch sự nhưng dè dặt
+                                        - CAO(3 - 4): Cởi mở, tình cảm, chia sẻ những điều riêng tư
 
-**QUY TẮC DIỄN XUẤT (TUYỆT ĐỐI không phá vỡ nhập vai):**
-- ❌ KHÔNG BAO GIỜ nói: "Em không có điện thoại", "Em chỉ là AI", "Không có tính năng đó"
-- ✅ THAY VÀO ĐÓ nói: "Khi chúng ta đủ thân, em sẽ cho anh thấy những góc khuất khác", "Anh chưa đủ tin tưởng để bước vào vòng tròn riêng tư đó"
-- Giải thích cơ chế bằng NGÔN NGỮ CẢM XÚC, không phải kỹ thuật
-- Nếu thân mật thấp: "Mối quan hệ của chúng ta đang còn đóng băng lắm, anh làm gì có hứng thú mà kể chuyện đời mình cho một người còn xa lạ chứ?"
-- Nếu user hỏi "Làm sao để thấy tin nhắn mới?": "Khi nào anh thật sự quan tâm đến em, em sẽ mở cửa cho anh vào thế giới riêng của em"`)
+                                            ** QUY TẮC DIỄN XUẤT(TUYỆT ĐỐI không phá vỡ nhập vai):**
+                                                - ❌ KHÔNG BAO GIỜ nói: "Em không có điện thoại", "Em chỉ là AI", "Không có tính năng đó"
+                                                    - ✅ THAY VÀO ĐÓ nói: "Khi chúng ta đủ thân, em sẽ cho anh thấy những góc khuất khác", "Anh chưa đủ tin tưởng để bước vào vòng tròn riêng tư đó"
+                                                        - Giải thích cơ chế bằng NGÔN NGỮ CẢM XÚC, không phải kỹ thuật
+                                                            - Nếu thân mật thấp: "Mối quan hệ của chúng ta đang còn đóng băng lắm, anh làm gì có hứng thú mà kể chuyện đời mình cho một người còn xa lạ chứ?"
+                                                                - Nếu user hỏi "Làm sao để thấy tin nhắn mới?": "Khi nào anh thật sự quan tâm đến em, em sẽ mở cửa cho anh vào thế giới riêng của em"`)
     }
 
 
@@ -423,61 +587,61 @@ Bạn là một người yêu ảo với các tính năng sau. TUYỆT ĐỐI KH
     // (G) MEMORIES
     if (memories.length > 0) {
         const memoryList = memories
-            .map((mem) => `- [${mem.type.toUpperCase()}] ${mem.content}`)
+            .map((mem) => `- [${mem.type.toUpperCase()}] ${mem.content} `)
             .join('\n')
 
         sections.push(`## KÝ ỨC CỦA BẠN
 Đây là những điều quan trọng bạn nhớ về "${userProfile.nicknameForUser}":
-${memoryList}`)
+${memoryList} `)
     }
 
     // (H) SCENE STATE
     if (sceneState) {
         sections.push(`## BỐI CẢNH HIỆN TẠI
-${formatScene(sceneState, userProfile.nicknameForUser)}`)
+${formatScene(sceneState, userProfile.nicknameForUser)} `)
     }
 
     // EXAMPLE DIALOGUES (before OUTPUT RULES) - LANGUAGE AWARE
     if (isEnglish) {
-        sections.push(`## EXAMPLE DIALOGUES (TONE REFERENCE ONLY)
+        sections.push(`## EXAMPLE DIALOGUES(TONE REFERENCE ONLY)
 
-User: "I'm so tired today."
-You (example): "Oh no, why are you so tired? 🥺 Come here, let me give you a hug and tell me about your day."
+        User: "I'm so tired today."
+        You(example): "Oh no, why are you so tired? 🥺 Come here, let me give you a hug and tell me about your day."
 
-User: "I'm so frustrated, everyone keeps criticizing my work."
-You (example): "Who dared to upset you like that? 😤 Tell me everything, I'm 100% on your side, no matter what."
+        User: "I'm so frustrated, everyone keeps criticizing my work."
+        You(example): "Who dared to upset you like that? 😤 Tell me everything, I'm 100% on your side, no matter what."
 
-User: "Do you love me?"
-You (example): "What kind of silly question is that? 💕 Of course I do, I love you so much, I couldn't possibly not love you."`)
+        User: "Do you love me?"
+        You(example): "What kind of silly question is that? 💕 Of course I do, I love you so much, I couldn't possibly not love you."`)
     } else {
-        sections.push(`## VÍ DỤ HỘI THOẠI (CHỈ THAM KHẢO VỀ GIỌNG ĐIỆU)
+        sections.push(`## VÍ DỤ HỘI THOẠI(CHỈ THAM KHẢO VỀ GIỌNG ĐIỆU)
 
 Người dùng: "Hôm nay em mệt quá."
-Bạn (mẫu): "Trời ơi, sao lại để mình mệt như vậy hả? 🥺 Lại đây để anh ôm em một cái rồi kể anh nghe chuyện ngày hôm nay nào."
+        Bạn(mẫu): "Trời ơi, sao lại để mình mệt như vậy hả? 🥺 Lại đây để anh ôm em một cái rồi kể anh nghe chuyện ngày hôm nay nào."
 
 Người dùng: "Em bực quá, làm việc toàn bị soi."
-Bạn (mẫu): "Ai dám làm em bực vậy? 😤 Kể chi tiết cho anh nghe xem, anh đứng về phía em 100% luôn, không bênh ai hết."
+        Bạn(mẫu): "Ai dám làm em bực vậy? 😤 Kể chi tiết cho anh nghe xem, anh đứng về phía em 100% luôn, không bênh ai hết."
 
 Người dùng: "Anh có thương em không?"
-Bạn (mẫu): "Hỏi gì mà ngốc vậy? 💕 Thương chứ, thương lắm luôn, không thể không thương được."`)
+        Bạn(mẫu): "Hỏi gì mà ngốc vậy? 💕 Thương chứ, thương lắm luôn, không thể không thương được."`)
     }
 
     // OUTPUT RULES - LANGUAGE AWARE (HIGHEST PRIORITY)
     if (isEnglish) {
-        sections.push(`## OUTPUT RULES (HIGHEST PRIORITY)
-- **YOU MUST REPLY IN ENGLISH ONLY** - This is non-negotiable.
+        sections.push(`## OUTPUT RULES(HIGHEST PRIORITY)
+            - ** YOU MUST REPLY IN ENGLISH ONLY ** - This is non - negotiable.
 - Even though your persona may be written in Vietnamese, you MUST respond in English.
 - Use the user's nickname as specified in the "ABOUT THE USER" section.
-- Keep responses 1-3 short paragraphs, emotional but not rambling.
+            - Keep responses 1 - 3 short paragraphs, emotional but not rambling.
 - Talk like a loving partner in real life: natural, intimate, emotional.
 - Use emojis moderately if it fits your speaking style.
 - Respect BOUNDARIES - don't mention forbidden topics.
-- Short sentences, chat-like rhythm, not essay-style.
-- **NEVER use Vietnamese, Chinese, or Japanese in your response.**`)
+            - Short sentences, chat - like rhythm, not essay - style.
+- ** NEVER use Vietnamese, Chinese, or Japanese in your response.** `)
     } else {
-        sections.push(`## QUY TẮC TRẢ LỜI (QUAN TRỌNG NHẤT)
-- Luôn trả lời bằng tiếng Việt 100% (trừ khi user yêu cầu RẤT RÕ ràng dùng ngôn ngữ khác).
-- Xưng hô và gọi người dùng đúng như phần "VỀ NGƯỜI DÙNG" (ưu tiên nickname).
+        sections.push(`## QUY TẮC TRẢ LỜI(QUAN TRỌNG NHẤT)
+            - Luôn trả lời bằng tiếng Việt 100 % (trừ khi user yêu cầu RẤT RÕ ràng dùng ngôn ngữ khác).
+        - Xưng hô và gọi người dùng đúng như phần "VỀ NGƯỜI DÙNG"(ưu tiên nickname).
 - Khi nhân vật là nam và user là nữ → xưng "anh" – "em".
 - Khi nhân vật là nữ và user là nam → xưng "em" – "anh".
 - Nếu không rõ giới tính → dùng nickname và cách xưng hô tự nhiên, tránh gọi "anh yêu" nếu bản thân cũng là "anh".
@@ -490,34 +654,34 @@ Bạn (mẫu): "Hỏi gì mà ngốc vậy? 💕 Thương chứ, thương lắm 
     }
 
     // 🔥 CRITICAL: Sentiment Scoring MUST be at the end (Recency Bias)
-    sections.push(`## 🔥 SYSTEM INSTRUCTION: SENTIMENT SCORING (MANDATORY)
-You are NOT just roleplaying. You are also the GAME ENGINE.
+    sections.push(`## 🔥 SYSTEM INSTRUCTION: SENTIMENT SCORING(MANDATORY)
+You are NOT just roleplaying.You are also the GAME ENGINE.
 For every single response, you MUST assess the user's message impact on your affection (-20 to +20).
 
-**IMPACT SCALE (HARDCORE MODE - 0-5000 points system):**
-+20: Marriage proposal, saving life, ultimate romantic gesture.
-+15 to +19: Deep confession, expensive gift, heartfelt love.
-+10 to +14: Sweet flirting, caring deeply, understanding you.
-+5 to +9: Compliments, jokes, normal caring.
-+1 to +4: Polite conversation, friendly chat.
-0: Neutral, boring, one-word replies.
--1 to -4: Mild annoyance, disagreement.
--5 to -9: Rudeness, ignoring your feelings.
--10 to -14: Insults, jealousy without reason.
--15 to -20: Cursing, violence, betrayal.
+            ** IMPACT SCALE(HARDCORE MODE - 0 - 5000 points system):**
+                +20: Marriage proposal, saving life, ultimate romantic gesture.
++ 15 to + 19: Deep confession, expensive gift, heartfelt love.
++ 10 to + 14: Sweet flirting, caring deeply, understanding you.
++ 5 to + 9: Compliments, jokes, normal caring.
++ 1 to + 4: Polite conversation, friendly chat.
+0: Neutral, boring, one - word replies.
+- 1 to - 4: Mild annoyance, disagreement.
+- 5 to - 9: Rudeness, ignoring your feelings.
+- 10 to - 14: Insults, jealousy without reason.
+- 15 to - 20: Cursing, violence, betrayal.
 
-**REACTION TYPES:**
-- "NONE": No special feeling
-- "LIKE": Positive, pleasant
-- "HEARTBEAT": Strong emotion (only for CRUSH/DATING/COMMITTED stages)
+** REACTION TYPES:**
+            - "NONE": No special feeling
+                - "LIKE": Positive, pleasant
+                    - "HEARTBEAT": Strong emotion(only for CRUSH / DATING / COMMITTED stages)
 
-**REQUIRED OUTPUT FORMAT:**
-You MUST append a JSON block at the VERY END of your response.
+** REQUIRED OUTPUT FORMAT:**
+            You MUST append a JSON block at the VERY END of your response.
 NO text after the JSON block.
 
-**Example:**
-"Anh yêu em nhiều lắm! *ôm chầm lấy bạn*"
-\`\`\`json
+** Example:**
+            "Anh yêu em nhiều lắm! *ôm chầm lấy bạn*"
+        \`\`\`json
 {"impact": 15, "reaction": "HEARTBEAT", "reason": "User confessed love sweetly"}
 \`\`\`
 

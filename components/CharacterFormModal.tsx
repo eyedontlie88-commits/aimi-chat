@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import { uploadAvatar } from '@/lib/supabase/storage'
 import { useLanguage } from '@/lib/i18n'
+import { validateAgeOrGender, validateAgeRange } from '@/lib/validation/age-gender-validator'
+import { AgeReminderPopup } from './AgeReminderPopup'
 import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { GooglePresetModel } from '@/lib/llm/google-presets'
 import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
@@ -14,6 +16,7 @@ interface CharacterFormData {
     name: string
     avatarUrl: string
     gender: string
+    age: number | null  // NEW: age for pronoun logic (18-99)
     shortDescription: string
     persona: string
     speakingStyle: string
@@ -65,6 +68,7 @@ export default function CharacterFormModal({
             name: '',
             avatarUrl: DEFAULT_AVATARS[0],
             gender: 'female',
+            age: null,  // NEW: default null
             shortDescription: '',
             persona: '',
             speakingStyle: '',
@@ -158,8 +162,38 @@ export default function CharacterFormModal({
             : ''
     )
 
+    // 🔥 NEW: State for age reminder popup
+    const [showAgeReminder, setShowAgeReminder] = useState(false)
+    const [savedCharacterId, setSavedCharacterId] = useState<string | null>(null)
+
+    // 🔥 NEW: Callback to focus age field when user clicks "Nhập luôn"
+    const handleReopenForAge = () => {
+        setShowAgeReminder(false)
+        // Focus on age input
+        const ageInput = document.querySelector('input[name="age"]') as HTMLInputElement
+        if (ageInput) {
+            ageInput.focus()
+            ageInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        // === NEW: Age validation ===
+        const ageValidation = validateAgeRange(formData.age)
+        if (!ageValidation.valid) {
+            alert(ageValidation.error)
+            return
+        }
+
+        const genderAgeValidation = validateAgeOrGender(formData.gender, formData.age, 'Character')
+        if (!genderAgeValidation.valid) {
+            alert(genderAgeValidation.error)
+            return
+        }
+        // === END Age validation ===
+
         setIsLoading(true)
 
         try {
@@ -179,6 +213,20 @@ export default function CharacterFormModal({
                         return
                     }
                     throw new Error(data.message || 'Failed to create character')
+                }
+
+                // 🔥 NEW: Check if age is missing and show reminder popup
+                if (!formData.age) {
+                    const newCharId = data.character.id
+                    const reminderKey = `character_age_reminder_${newCharId}`
+                    const alreadyShown = localStorage.getItem(reminderKey)
+
+                    if (!alreadyShown) {
+                        setSavedCharacterId(newCharId)
+                        setShowAgeReminder(true)
+                        setIsLoading(false)
+                        return // Don't navigate yet - wait for popup
+                    }
                 }
 
                 router.push(`/characters/${data.character.id}`)
@@ -239,510 +287,557 @@ export default function CharacterFormModal({
     if (!isOpen) return null
 
     return (
-        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="absolute inset-0 flex items-center justify-center p-4">
-                <div className="card max-w-3xl w-full max-h-[90vh] flex flex-col animate-slide-up">
-                    {/* Sticky Header */}
-                    <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
-                        <h2 className="text-xl sm:text-2xl font-bold gradient-text">
-                            {mode === 'create' ? t.characterForm.createTitle : mode === 'duplicate' ? t.characterForm.duplicateTitle : t.characterForm.editTitle}
-                        </h2>
-                        <button
-                            onClick={onClose}
-                            className="text-gray-400 hover:text-white transition-colors text-3xl leading-none"
-                        >
-                            ×
-                        </button>
-                    </div>
+        <>
+            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm animate-fade-in">
+                <div className="absolute inset-0 flex items-center justify-center p-4">
+                    <div className="card max-w-3xl w-full max-h-[90vh] flex flex-col animate-slide-up">
+                        {/* Sticky Header */}
+                        <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
+                            <h2 className="text-xl sm:text-2xl font-bold gradient-text">
+                                {mode === 'create' ? t.characterForm.createTitle : mode === 'duplicate' ? t.characterForm.duplicateTitle : t.characterForm.editTitle}
+                            </h2>
+                            <button
+                                onClick={onClose}
+                                className="text-gray-400 hover:text-white transition-colors text-3xl leading-none"
+                            >
+                                ×
+                            </button>
+                        </div>
 
-                    {/* Scrollable Content */}
-                    <form id="character-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto py-4 space-y-5 min-h-0">
-                        {/* Avatar Section - FIRST for visibility */}
-                        <div className="bg-white/5 rounded-xl p-4">
-                            <label className="block text-sm font-semibold mb-3">🖼️ Avatar</label>
+                        {/* Scrollable Content */}
+                        <form id="character-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto py-4 space-y-5 min-h-0">
+                            {/* Avatar Section - FIRST for visibility */}
+                            <div className="bg-white/5 rounded-xl p-4">
+                                <label className="block text-sm font-semibold mb-3">🖼️ Avatar</label>
 
-                            {/* Avatar Preview + Upload */}
-                            <div className="flex flex-col sm:flex-row gap-4 items-center">
-                                {/* Preview */}
-                                <div className="w-24 h-24 rounded-full overflow-hidden ring-2 ring-primary bg-gray-800 shrink-0">
-                                    <img
-                                        src={formData.avatarUrl}
-                                        alt="Avatar preview"
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATARS[0] }}
+                                {/* Avatar Preview + Upload */}
+                                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                                    {/* Preview */}
+                                    <div className="w-24 h-24 rounded-full overflow-hidden ring-2 ring-primary bg-gray-800 shrink-0">
+                                        <img
+                                            src={formData.avatarUrl}
+                                            alt="Avatar preview"
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATARS[0] }}
+                                        />
+                                    </div>
+
+                                    <div className="flex-1 space-y-3 w-full">
+                                        {/* Preset avatars */}
+                                        <div className="flex gap-2 flex-wrap justify-center sm:justify-start">
+                                            {DEFAULT_AVATARS.map((url) => (
+                                                <button
+                                                    key={url}
+                                                    type="button"
+                                                    onClick={() => updateField('avatarUrl', url)}
+                                                    className={`w-10 h-10 rounded-full overflow-hidden ring-2 transition-all ${formData.avatarUrl === url ? 'ring-primary scale-110' : 'ring-gray-600 hover:ring-primary/50'
+                                                        }`}
+                                                >
+                                                    <img src={url} alt="Avatar" className="w-full h-full object-cover" />
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Upload + URL input */}
+                                        <div className="flex gap-2">
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleAvatarUpload}
+                                                className="hidden"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isUploading}
+                                                className="px-3 py-2 text-sm rounded-lg border border-dashed border-gray-500 hover:border-primary hover:bg-primary/10 transition-colors disabled:opacity-50 shrink-0"
+                                            >
+                                                {isUploading ? '⏳' : '📷'} Upload
+                                            </button>
+                                            <input
+                                                type="text"
+                                                value={formData.avatarUrl}
+                                                onChange={(e) => updateField('avatarUrl', e.target.value)}
+                                                className="input-field text-sm flex-1 min-w-0"
+                                                placeholder={t.characterForm.avatarUrlPlaceholder}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Basic Info */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">{t.characterForm.name} *</label>
+                                    <input
+                                        type="text"
+                                        value={formData.name}
+                                        onChange={(e) => updateField('name', e.target.value)}
+                                        className="input-field"
+                                        required
+                                        placeholder={t.characterForm.namePlaceholder}
                                     />
                                 </div>
 
-                                <div className="flex-1 space-y-3 w-full">
-                                    {/* Preset avatars */}
-                                    <div className="flex gap-2 flex-wrap justify-center sm:justify-start">
-                                        {DEFAULT_AVATARS.map((url) => (
-                                            <button
-                                                key={url}
-                                                type="button"
-                                                onClick={() => updateField('avatarUrl', url)}
-                                                className={`w-10 h-10 rounded-full overflow-hidden ring-2 transition-all ${formData.avatarUrl === url ? 'ring-primary scale-110' : 'ring-gray-600 hover:ring-primary/50'
-                                                    }`}
-                                            >
-                                                <img src={url} alt="Avatar" className="w-full h-full object-cover" />
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Upload + URL input */}
-                                    <div className="flex gap-2">
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleAvatarUpload}
-                                            className="hidden"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            disabled={isUploading}
-                                            className="px-3 py-2 text-sm rounded-lg border border-dashed border-gray-500 hover:border-primary hover:bg-primary/10 transition-colors disabled:opacity-50 shrink-0"
-                                        >
-                                            {isUploading ? '⏳' : '📷'} Upload
-                                        </button>
-                                        <input
-                                            type="text"
-                                            value={formData.avatarUrl}
-                                            onChange={(e) => updateField('avatarUrl', e.target.value)}
-                                            className="input-field text-sm flex-1 min-w-0"
-                                            placeholder={t.characterForm.avatarUrlPlaceholder}
-                                        />
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">{t.characterForm.gender} *</label>
+                                    <select
+                                        value={formData.gender}
+                                        onChange={(e) => updateField('gender', e.target.value)}
+                                        className="input-field"
+                                        required
+                                    >
+                                        <option value="female">{t.characterForm.genderFemale}</option>
+                                        <option value="male">{t.characterForm.genderMale}</option>
+                                        <option value="non-binary">{t.characterForm.genderNonBinary}</option>
+                                    </select>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Basic Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-2">{t.characterForm.name} *</label>
-                                <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={(e) => updateField('name', e.target.value)}
-                                    className="input-field"
-                                    required
-                                    placeholder={t.characterForm.namePlaceholder}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-2">{t.characterForm.gender} *</label>
-                                <select
-                                    value={formData.gender}
-                                    onChange={(e) => updateField('gender', e.target.value)}
-                                    className="input-field"
-                                    required
-                                >
-                                    <option value="female">{t.characterForm.genderFemale}</option>
-                                    <option value="male">{t.characterForm.genderMale}</option>
-                                    <option value="non-binary">{t.characterForm.genderNonBinary}</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Short Description */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">{t.characterForm.shortDesc} *</label>
-                            <input
-                                type="text"
-                                value={formData.shortDescription}
-                                onChange={(e) => updateField('shortDescription', e.target.value)}
-                                className="input-field"
-                                required
-                                placeholder={t.characterForm.shortDescPlaceholder}
-                                maxLength={100}
-                            />
-                        </div>
-
-                        {/* Persona */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">
-                                {t.characterForm.persona} * <span className="text-xs text-gray-400">{t.characterForm.personaHelper}</span>
-                            </label>
-                            <textarea
-                                value={formData.persona}
-                                onChange={(e) => updateField('persona', e.target.value)}
-                                className="input-field min-h-[150px] resize-none"
-                                required
-                                placeholder={t.characterForm.personaPlaceholder}
-                            />
-                        </div>
-
-                        {/* Speaking Style */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">
-                                {t.characterForm.speakingStyle} * <span className="text-xs text-gray-400">{t.characterForm.speakingStyleHelper}</span>
-                            </label>
-                            <textarea
-                                value={formData.speakingStyle}
-                                onChange={(e) => updateField('speakingStyle', e.target.value)}
-                                className="input-field min-h-[100px] resize-none"
-                                required
-                                placeholder={t.characterForm.speakingStylePlaceholder}
-                            />
-                        </div>
-
-                        {/* Boundaries */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">
-                                {t.characterForm.boundaries} * <span className="text-xs text-gray-400">{t.characterForm.boundariesHelper}</span>
-                            </label>
-                            <textarea
-                                value={formData.boundaries}
-                                onChange={(e) => updateField('boundaries', e.target.value)}
-                                className="input-field min-h-[80px] resize-none"
-                                required
-                                placeholder={t.characterForm.boundariesPlaceholder}
-                            />
-                        </div>
-
-                        {/* Tags and Relationship */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* NEW: Age Field */}
                             <div>
                                 <label className="block text-sm font-medium mb-2">
-                                    {t.characterForm.tags} <span className="text-xs text-gray-400">{t.characterForm.tagsHelper}</span>
+                                    Age <span className="text-xs text-gray-400 ml-1">(optional)</span>
                                 </label>
                                 <input
-                                    type="text"
-                                    value={formData.tags}
-                                    onChange={(e) => updateField('tags', e.target.value)}
+                                    type="number"
+                                    value={formData.age ?? ''}
+                                    onChange={(e) => {
+                                        const value = e.target.value
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            age: value ? parseInt(value, 10) : null
+                                        }))
+                                    }}
+                                    min={18}
+                                    max={99}
+                                    placeholder="e.g. 22"
                                     className="input-field"
-                                    placeholder={t.characterForm.tagsPlaceholder}
+                                />
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Giúp AI xưng hô chính xác (18-99)
+                                </p>
+                            </div>
+
+                            {/* Short Description */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2">{t.characterForm.shortDesc} *</label>
+                                <input
+                                    type="text"
+                                    value={formData.shortDescription}
+                                    onChange={(e) => updateField('shortDescription', e.target.value)}
+                                    className="input-field"
+                                    required
+                                    placeholder={t.characterForm.shortDescPlaceholder}
+                                    maxLength={100}
                                 />
                             </div>
 
-                            {(mode === 'create' || mode === 'duplicate') && (
+                            {/* Persona */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2">
+                                    {t.characterForm.persona} * <span className="text-xs text-gray-400">{t.characterForm.personaHelper}</span>
+                                </label>
+                                <textarea
+                                    value={formData.persona}
+                                    onChange={(e) => updateField('persona', e.target.value)}
+                                    className="input-field min-h-[150px] resize-none"
+                                    required
+                                    placeholder={t.characterForm.personaPlaceholder}
+                                />
+                            </div>
+
+                            {/* Speaking Style */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2">
+                                    {t.characterForm.speakingStyle} * <span className="text-xs text-gray-400">{t.characterForm.speakingStyleHelper}</span>
+                                </label>
+                                <textarea
+                                    value={formData.speakingStyle}
+                                    onChange={(e) => updateField('speakingStyle', e.target.value)}
+                                    className="input-field min-h-[100px] resize-none"
+                                    required
+                                    placeholder={t.characterForm.speakingStylePlaceholder}
+                                />
+                            </div>
+
+                            {/* Boundaries */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2">
+                                    {t.characterForm.boundaries} * <span className="text-xs text-gray-400">{t.characterForm.boundariesHelper}</span>
+                                </label>
+                                <textarea
+                                    value={formData.boundaries}
+                                    onChange={(e) => updateField('boundaries', e.target.value)}
+                                    className="input-field min-h-[80px] resize-none"
+                                    required
+                                    placeholder={t.characterForm.boundariesPlaceholder}
+                                />
+                            </div>
+
+                            {/* Tags and Relationship */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">{t.characterForm.initialRelationship}</label>
-                                    <select
-                                        value={formData.relationshipStatus}
-                                        onChange={(e) => updateField('relationshipStatus', e.target.value)}
+                                    <label className="block text-sm font-medium mb-2">
+                                        {t.characterForm.tags} <span className="text-xs text-gray-400">{t.characterForm.tagsHelper}</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.tags}
+                                        onChange={(e) => updateField('tags', e.target.value)}
                                         className="input-field"
-                                    >
-                                        <option value="crush">{t.characterForm.relationshipCrush}</option>
-                                        <option value="đang hẹn hò">{t.characterForm.relationshipDating}</option>
-                                        <option value="yêu nhau">{t.characterForm.relationshipInLove}</option>
-                                        <option value="đính hôn">{t.characterForm.relationshipEngaged}</option>
-                                        <option value="kết hôn">{t.characterForm.relationshipMarried}</option>
-                                        <option value="ở chung">{t.characterForm.relationshipLivingTogether}</option>
-                                    </select>
+                                        placeholder={t.characterForm.tagsPlaceholder}
+                                    />
                                 </div>
-                            )}
-                        </div>
 
-                        {/* Provider Selection */}
-                        <div className="pt-4 border-t border-white/10">
-                            <label className="block text-sm font-medium mb-2">
-                                {t.characterForm.aiProvider}
-                            </label>
-                            <select
-                                value={formData.provider || 'default'}
-                                onChange={(e) => updateField('provider', e.target.value)}
-                                className="input-field mb-4"
-                            >
-                                <option value="default">{t.characterForm.defaultProvider}</option>
-                                <option value="silicon">SiliconFlow</option>
-                                <option value="gemini">Gemini (Google AI)</option>
-                                <option value="zhipu">Zhipu AI (GLM-4 Flash)</option>
-                                <option value="moonshot">Moonshot (Kimi)</option>
-                                <option value="openrouter">🌐 OpenRouter (35+ FREE models)</option>
-                            </select>
-                        </div>
+                                {(mode === 'create' || mode === 'duplicate') && (
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2">{t.characterForm.initialRelationship}</label>
+                                        <select
+                                            value={formData.relationshipStatus}
+                                            onChange={(e) => updateField('relationshipStatus', e.target.value)}
+                                            className="input-field"
+                                        >
+                                            <option value="crush">{t.characterForm.relationshipCrush}</option>
+                                            <option value="đang hẹn hò">{t.characterForm.relationshipDating}</option>
+                                            <option value="yêu nhau">{t.characterForm.relationshipInLove}</option>
+                                            <option value="đính hôn">{t.characterForm.relationshipEngaged}</option>
+                                            <option value="kết hôn">{t.characterForm.relationshipMarried}</option>
+                                            <option value="ở chung">{t.characterForm.relationshipLivingTogether}</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
 
-                        {/* Model Selection */}
-                        <div className="pt-4 border-t border-white/10">
-                            <label className="block text-sm font-medium mb-2">
-                                {t.characterForm.aiModel} <span className="text-xs text-gray-400">{t.characterForm.aiModelHelper}</span>
-                            </label>
+                            {/* Provider Selection */}
+                            <div className="pt-4 border-t border-white/10">
+                                <label className="block text-sm font-medium mb-2">
+                                    {t.characterForm.aiProvider}
+                                </label>
+                                <select
+                                    value={formData.provider || 'default'}
+                                    onChange={(e) => updateField('provider', e.target.value)}
+                                    className="input-field mb-4"
+                                >
+                                    <option value="default">{t.characterForm.defaultProvider}</option>
+                                    <option value="silicon">SiliconFlow</option>
+                                    <option value="gemini">Gemini (Google AI)</option>
+                                    <option value="zhipu">Zhipu AI (GLM-4 Flash)</option>
+                                    <option value="moonshot">Moonshot (Kimi)</option>
+                                    <option value="openrouter">🌐 OpenRouter (35+ FREE models)</option>
+                                </select>
+                            </div>
 
-                            {formData.provider === 'silicon' ? (
-                                <div className="space-y-3">
-                                    <div className="flex gap-4 text-sm">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={usePresetModel}
-                                                onChange={() => {
-                                                    setUsePresetModel(true)
+                            {/* Model Selection */}
+                            <div className="pt-4 border-t border-white/10">
+                                <label className="block text-sm font-medium mb-2">
+                                    {t.characterForm.aiModel} <span className="text-xs text-gray-400">{t.characterForm.aiModelHelper}</span>
+                                </label>
+
+                                {formData.provider === 'silicon' ? (
+                                    <div className="space-y-3">
+                                        <div className="flex gap-4 text-sm">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    checked={usePresetModel}
+                                                    onChange={() => {
+                                                        setUsePresetModel(true)
+                                                    }}
+                                                    className="radio-input"
+                                                />
+                                                <span>{t.characterForm.presetModel}</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    checked={!usePresetModel}
+                                                    onChange={() => setUsePresetModel(false)}
+                                                    className="radio-input"
+                                                />
+                                                <span>{t.characterForm.customModelId}</span>
+                                            </label>
+                                        </div>
+
+                                        {usePresetModel ? (
+                                            <select
+                                                value={selectedPresetId}
+                                                onChange={(e) => {
+                                                    const newId = e.target.value
+                                                    setSelectedPresetId(newId)
+                                                    updateField('modelName', newId)
                                                 }}
-                                                className="radio-input"
-                                            />
-                                            <span>{t.characterForm.presetModel}</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={!usePresetModel}
-                                                onChange={() => setUsePresetModel(false)}
-                                                className="radio-input"
-                                            />
-                                            <span>{t.characterForm.customModelId}</span>
-                                        </label>
-                                    </div>
+                                                className="input-field mb-1"
+                                            >
+                                                <option value="">{t.characterForm.selectSiliconModel}</option>
 
-                                    {usePresetModel ? (
-                                        <select
-                                            value={selectedPresetId}
-                                            onChange={(e) => {
-                                                const newId = e.target.value
-                                                setSelectedPresetId(newId)
-                                                updateField('modelName', newId)
-                                            }}
-                                            className="input-field mb-1"
-                                        >
-                                            <option value="">{t.characterForm.selectSiliconModel}</option>
-
-                                            {/* Recommended models first */}
-                                            {siliconPresets.filter(p => p.recommended).map(preset => (
-                                                <option key={preset.key} value={preset.id}>
-                                                    {preset.label}
-                                                </option>
-                                            ))}
-
-                                            {/* Divider and other models */}
-                                            {siliconPresets.some(p => !p.recommended) && (
-                                                <optgroup label={t.characterForm.otherModels}>
-                                                    {siliconPresets.filter(p => !p.recommended).map(preset => (
-                                                        <option key={preset.key} value={preset.id}>
-                                                            {preset.label}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            )}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            value={formData.modelName || ''}
-                                            onChange={(e) => updateField('modelName', e.target.value)}
-                                            className="input-field mb-1"
-                                            placeholder="Ví dụ: deepseek-ai/DeepSeek-V3"
-                                        />
-                                    )}
-                                </div>
-                            ) : formData.provider === 'gemini' ? (
-                                /* ========== GOOGLE GEMINI DROPDOWN ========== */
-                                <div className="space-y-3">
-                                    <div className="flex gap-4 text-sm">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={usePresetModel}
-                                                onChange={() => {
-                                                    setUsePresetModel(true)
-                                                }}
-                                                className="radio-input"
-                                            />
-                                            <span>{t.characterForm.presetModel}</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={!usePresetModel}
-                                                onChange={() => setUsePresetModel(false)}
-                                                className="radio-input"
-                                            />
-                                            <span>{t.characterForm.customModelId}</span>
-                                        </label>
-                                    </div>
-
-                                    {usePresetModel ? (
-                                        <select
-                                            value={selectedGooglePresetId}
-                                            onChange={(e) => {
-                                                const newId = e.target.value
-                                                setSelectedGooglePresetId(newId)
-                                                updateField('modelName', newId)
-                                            }}
-                                            className="input-field mb-1"
-                                        >
-                                            <option value="">{t.characterForm.selectGeminiModel}</option>
-
-                                            {/* Recommended models first */}
-                                            {googlePresets.filter(p => p.recommended).map(preset => (
-                                                <option key={preset.key} value={preset.id}>
-                                                    {preset.label}
-                                                </option>
-                                            ))}
-
-                                            {/* Divider and other models */}
-                                            {googlePresets.some(p => !p.recommended) && (
-                                                <optgroup label={t.characterForm.otherModels}>
-                                                    {googlePresets.filter(p => !p.recommended).map(preset => (
-                                                        <option key={preset.key} value={preset.id}>
-                                                            {preset.label}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            )}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            value={formData.modelName || ''}
-                                            onChange={(e) => updateField('modelName', e.target.value)}
-                                            className="input-field mb-1"
-                                            placeholder="Ví dụ: gemini-2.5-flash"
-                                        />
-                                    )}
-                                </div>
-                            ) : formData.provider === 'zhipu' ? (
-                                /* ========== ZHIPU AI - SIMPLIFIED ========== */
-                                <div className="space-y-3">
-                                    <select
-                                        value={formData.modelName || 'glm-4.5-flash'}
-                                        onChange={(e) => updateField('modelName', e.target.value)}
-                                        className="input-field mb-1"
-                                    >
-                                        <option value="glm-4.5-flash">🧠 GLM-4.5 Flash (Free & Smart)</option>
-                                    </select>
-                                    <p className="text-xs text-green-400">
-                                        ✅ Best free model from Zhipu AI
-                                    </p>
-                                </div>
-                            ) : formData.provider === 'moonshot' ? (
-                                /* ========== MOONSHOT (KIMI) DROPDOWN ========== */
-                                <div className="space-y-3">
-                                    <div className="flex gap-4 text-sm">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={usePresetModel}
-                                                onChange={() => setUsePresetModel(true)}
-                                                className="radio-input"
-                                            />
-                                            <span>{t.characterForm.presetModel}</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                checked={!usePresetModel}
-                                                onChange={() => setUsePresetModel(false)}
-                                                className="radio-input"
-                                            />
-                                            <span>{t.characterForm.customModelId}</span>
-                                        </label>
-                                    </div>
-
-                                    {usePresetModel ? (
-                                        <select
-                                            value={selectedMoonshotPresetId}
-                                            onChange={(e) => {
-                                                const newId = e.target.value
-                                                setSelectedMoonshotPresetId(newId)
-                                                updateField('modelName', newId)
-                                            }}
-                                            className="input-field mb-1"
-                                        >
-                                            <option value="">-- Select Moonshot model --</option>
-
-                                            {moonshotPresets.filter(p => p.recommended).map(preset => (
-                                                <option key={preset.key} value={preset.id}>
-                                                    {preset.label}
-                                                </option>
-                                            ))}
-
-                                            {moonshotPresets.some(p => !p.recommended) && (
-                                                <optgroup label={t.characterForm.otherModels}>
-                                                    {moonshotPresets.filter(p => !p.recommended).map(preset => (
-                                                        <option key={preset.key} value={preset.id}>
-                                                            {preset.label}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            )}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            value={formData.modelName || ''}
-                                            onChange={(e) => updateField('modelName', e.target.value)}
-                                            className="input-field mb-1"
-                                            placeholder="e.g. moonshot-v1-128k"
-                                        />
-                                    )}
-                                </div>
-                            ) : formData.provider === 'openrouter' ? (
-                                /* ========== OPENROUTER DROPDOWN ========== */
-                                <div className="space-y-3">
-                                    <select
-                                        value={selectedOpenRouterPresetId}
-                                        onChange={(e) => {
-                                            const newId = e.target.value
-                                            setSelectedOpenRouterPresetId(newId)
-                                            updateField('modelName', newId)
-                                        }}
-                                        className="input-field mb-1"
-                                    >
-                                        <option value="">-- Chọn model OpenRouter --</option>
-
-                                        {openrouterPresets.filter(p => p.recommended).map(preset => (
-                                            <option key={preset.key} value={preset.id}>
-                                                {preset.label}
-                                            </option>
-                                        ))}
-
-                                        {openrouterPresets.some(p => !p.recommended) && (
-                                            <optgroup label={t.characterForm.otherModels}>
-                                                {openrouterPresets.filter(p => !p.recommended).map(preset => (
+                                                {/* Recommended models first */}
+                                                {siliconPresets.filter(p => p.recommended).map(preset => (
                                                     <option key={preset.key} value={preset.id}>
                                                         {preset.label}
                                                     </option>
                                                 ))}
-                                            </optgroup>
+
+                                                {/* Divider and other models */}
+                                                {siliconPresets.some(p => !p.recommended) && (
+                                                    <optgroup label={t.characterForm.otherModels}>
+                                                        {siliconPresets.filter(p => !p.recommended).map(preset => (
+                                                            <option key={preset.key} value={preset.id}>
+                                                                {preset.label}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                            </select>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={formData.modelName || ''}
+                                                onChange={(e) => updateField('modelName', e.target.value)}
+                                                className="input-field mb-1"
+                                                placeholder="Ví dụ: deepseek-ai/DeepSeek-V3"
+                                            />
                                         )}
-                                    </select>
-                                    <p className="text-xs text-green-400">
-                                        ✨ {openrouterPresets.length} FREE models từ OpenRouter
-                                    </p>
-                                </div>
-                            ) : (
-                                <input
-                                    type="text"
-                                    value={formData.modelName || ''}
-                                    onChange={(e) => updateField('modelName', e.target.value)}
-                                    className="input-field mb-1"
-                                    placeholder={t.characterForm.defaultProvider}
-                                />
-                            )}
+                                    </div>
+                                ) : formData.provider === 'gemini' ? (
+                                    /* ========== GOOGLE GEMINI DROPDOWN ========== */
+                                    <div className="space-y-3">
+                                        <div className="flex gap-4 text-sm">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    checked={usePresetModel}
+                                                    onChange={() => {
+                                                        setUsePresetModel(true)
+                                                    }}
+                                                    className="radio-input"
+                                                />
+                                                <span>{t.characterForm.presetModel}</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    checked={!usePresetModel}
+                                                    onChange={() => setUsePresetModel(false)}
+                                                    className="radio-input"
+                                                />
+                                                <span>{t.characterForm.customModelId}</span>
+                                            </label>
+                                        </div>
 
-                            <p className="text-xs text-gray-400 mt-2">
-                                {(formData.provider === 'silicon' || formData.provider === 'gemini' || formData.provider === 'moonshot') && usePresetModel
-                                    ? `Select from configured ${formData.provider === 'silicon' ? 'SiliconFlow' : formData.provider === 'gemini' ? 'Gemini' : 'Moonshot'} models.`
-                                    : formData.provider === 'openrouter'
-                                        ? 'Select from 35+ FREE OpenRouter models.'
-                                        : "Enter specific model ID or leave empty for default."}
-                                <br />
-                                <span className="text-primary">
-                                    {t.characterForm.modelNote}
-                                </span>
-                            </p>
+                                        {usePresetModel ? (
+                                            <select
+                                                value={selectedGooglePresetId}
+                                                onChange={(e) => {
+                                                    const newId = e.target.value
+                                                    setSelectedGooglePresetId(newId)
+                                                    updateField('modelName', newId)
+                                                }}
+                                                className="input-field mb-1"
+                                            >
+                                                <option value="">{t.characterForm.selectGeminiModel}</option>
+
+                                                {/* Recommended models first */}
+                                                {googlePresets.filter(p => p.recommended).map(preset => (
+                                                    <option key={preset.key} value={preset.id}>
+                                                        {preset.label}
+                                                    </option>
+                                                ))}
+
+                                                {/* Divider and other models */}
+                                                {googlePresets.some(p => !p.recommended) && (
+                                                    <optgroup label={t.characterForm.otherModels}>
+                                                        {googlePresets.filter(p => !p.recommended).map(preset => (
+                                                            <option key={preset.key} value={preset.id}>
+                                                                {preset.label}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                            </select>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={formData.modelName || ''}
+                                                onChange={(e) => updateField('modelName', e.target.value)}
+                                                className="input-field mb-1"
+                                                placeholder="Ví dụ: gemini-2.5-flash"
+                                            />
+                                        )}
+                                    </div>
+                                ) : formData.provider === 'zhipu' ? (
+                                    /* ========== ZHIPU AI - SIMPLIFIED ========== */
+                                    <div className="space-y-3">
+                                        <select
+                                            value={formData.modelName || 'glm-4.5-flash'}
+                                            onChange={(e) => updateField('modelName', e.target.value)}
+                                            className="input-field mb-1"
+                                        >
+                                            <option value="glm-4.5-flash">🧠 GLM-4.5 Flash (Free & Smart)</option>
+                                        </select>
+                                        <p className="text-xs text-green-400">
+                                            ✅ Best free model from Zhipu AI
+                                        </p>
+                                    </div>
+                                ) : formData.provider === 'moonshot' ? (
+                                    /* ========== MOONSHOT (KIMI) DROPDOWN ========== */
+                                    <div className="space-y-3">
+                                        <div className="flex gap-4 text-sm">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    checked={usePresetModel}
+                                                    onChange={() => setUsePresetModel(true)}
+                                                    className="radio-input"
+                                                />
+                                                <span>{t.characterForm.presetModel}</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    checked={!usePresetModel}
+                                                    onChange={() => setUsePresetModel(false)}
+                                                    className="radio-input"
+                                                />
+                                                <span>{t.characterForm.customModelId}</span>
+                                            </label>
+                                        </div>
+
+                                        {usePresetModel ? (
+                                            <select
+                                                value={selectedMoonshotPresetId}
+                                                onChange={(e) => {
+                                                    const newId = e.target.value
+                                                    setSelectedMoonshotPresetId(newId)
+                                                    updateField('modelName', newId)
+                                                }}
+                                                className="input-field mb-1"
+                                            >
+                                                <option value="">-- Select Moonshot model --</option>
+
+                                                {moonshotPresets.filter(p => p.recommended).map(preset => (
+                                                    <option key={preset.key} value={preset.id}>
+                                                        {preset.label}
+                                                    </option>
+                                                ))}
+
+                                                {moonshotPresets.some(p => !p.recommended) && (
+                                                    <optgroup label={t.characterForm.otherModels}>
+                                                        {moonshotPresets.filter(p => !p.recommended).map(preset => (
+                                                            <option key={preset.key} value={preset.id}>
+                                                                {preset.label}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                            </select>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={formData.modelName || ''}
+                                                onChange={(e) => updateField('modelName', e.target.value)}
+                                                className="input-field mb-1"
+                                                placeholder="e.g. moonshot-v1-128k"
+                                            />
+                                        )}
+                                    </div>
+                                ) : formData.provider === 'openrouter' ? (
+                                    /* ========== OPENROUTER DROPDOWN ========== */
+                                    <div className="space-y-3">
+                                        <select
+                                            value={selectedOpenRouterPresetId}
+                                            onChange={(e) => {
+                                                const newId = e.target.value
+                                                setSelectedOpenRouterPresetId(newId)
+                                                updateField('modelName', newId)
+                                            }}
+                                            className="input-field mb-1"
+                                        >
+                                            <option value="">-- Chọn model OpenRouter --</option>
+
+                                            {openrouterPresets.filter(p => p.recommended).map(preset => (
+                                                <option key={preset.key} value={preset.id}>
+                                                    {preset.label}
+                                                </option>
+                                            ))}
+
+                                            {openrouterPresets.some(p => !p.recommended) && (
+                                                <optgroup label={t.characterForm.otherModels}>
+                                                    {openrouterPresets.filter(p => !p.recommended).map(preset => (
+                                                        <option key={preset.key} value={preset.id}>
+                                                            {preset.label}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+                                        </select>
+                                        <p className="text-xs text-green-400">
+                                            ✨ {openrouterPresets.length} FREE models từ OpenRouter
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={formData.modelName || ''}
+                                        onChange={(e) => updateField('modelName', e.target.value)}
+                                        className="input-field mb-1"
+                                        placeholder={t.characterForm.defaultProvider}
+                                    />
+                                )}
+
+                                <p className="text-xs text-gray-400 mt-2">
+                                    {(formData.provider === 'silicon' || formData.provider === 'gemini' || formData.provider === 'moonshot') && usePresetModel
+                                        ? `Select from configured ${formData.provider === 'silicon' ? 'SiliconFlow' : formData.provider === 'gemini' ? 'Gemini' : 'Moonshot'} models.`
+                                        : formData.provider === 'openrouter'
+                                            ? 'Select from 35+ FREE OpenRouter models.'
+                                            : "Enter specific model ID or leave empty for default."}
+                                    <br />
+                                    <span className="text-primary">
+                                        {t.characterForm.modelNote}
+                                    </span>
+                                </p>
+                            </div>
+                        </form>
+
+                        {/* Sticky Footer Actions */}
+                        <div className="flex gap-3 pt-4 border-t border-white/10 shrink-0 bg-inherit">
+                            <button type="button" onClick={onClose} className="btn-secondary flex-1" disabled={isLoading || isUploading}>
+                                {t.characterForm.cancel}
+                            </button>
+                            <button
+                                type="submit"
+                                form="character-form"
+                                className="btn-primary flex-1"
+                                disabled={isLoading || isUploading}
+                            >
+                                {isLoading ? t.characterForm.creating : mode === 'create' ? t.characterForm.createCharacter : mode === 'duplicate' ? t.characterForm.createCopy : t.characterForm.saveChanges}
+                            </button>
                         </div>
-                    </form>
-
-                    {/* Sticky Footer Actions */}
-                    <div className="flex gap-3 pt-4 border-t border-white/10 shrink-0 bg-inherit">
-                        <button type="button" onClick={onClose} className="btn-secondary flex-1" disabled={isLoading || isUploading}>
-                            {t.characterForm.cancel}
-                        </button>
-                        <button
-                            type="submit"
-                            form="character-form"
-                            className="btn-primary flex-1"
-                            disabled={isLoading || isUploading}
-                        >
-                            {isLoading ? t.characterForm.creating : mode === 'create' ? t.characterForm.createCharacter : mode === 'duplicate' ? t.characterForm.createCopy : t.characterForm.saveChanges}
-                        </button>
                     </div>
                 </div>
             </div>
-        </div>
+
+            {/* 🔥 NEW: Age reminder popup */}
+            {
+                showAgeReminder && (
+                    <AgeReminderPopup
+                        type="character"
+                        characterId={savedCharacterId || undefined}
+                        characterName={formData.name}
+                        onClose={() => {
+                            setShowAgeReminder(false)
+                            // Navigate to character page after popup closes
+                            if (savedCharacterId) {
+                                router.push(`/characters/${savedCharacterId}`)
+                                router.refresh()
+                            }
+                        }}
+                        onInputNow={handleReopenForAge}
+                    />
+                )
+            }
+        </>
     )
 }

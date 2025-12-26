@@ -65,6 +65,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             name,
             avatarUrl,
             gender,
+            age,  // NEW: age for pronoun logic
             shortDescription,
             persona,
             speakingStyle,
@@ -81,6 +82,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
                 ...(name && { name }),
                 ...(avatarUrl && { avatarUrl }),
                 ...(gender && { gender }),
+                ...(age !== undefined && { age: age ?? null }),  // NEW: update age
                 ...(shortDescription && { shortDescription }),
                 ...(persona && { persona }),
                 ...(speakingStyle && { speakingStyle }),

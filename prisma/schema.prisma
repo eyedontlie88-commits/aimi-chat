@@ -8,36 +8,33 @@ datasource db {
 }
 
 model Character {
-  id               String   @id @default(cuid())
-  name             String
-  avatarUrl        String
-  gender           String
-  shortDescription String
-  persona          String
-  speakingStyle    String
-  boundaries       String
-  tags             String
-  provider         String   @default("default")
-  modelName        String?
-  isDevOnly        Boolean  @default(false)
-  
-  // Phone Content Auto-Update System
-  phoneContentJson    String?  @db.Text // JSON string of generated phone content
-  phoneLastUpdated    DateTime? // Last time phone content was generated
-  phoneMessageCount   Int      @default(0) // Messages since last update
-  phoneAutoUpdate     Boolean  @default(true) // User preference for auto-update
-  phoneUpdateFrequency Int     @default(20) // Messages between updates
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  messages           Message[]
-  memories           Memory[]
-  relationshipConfig RelationshipConfig?
+  id                   String              @id @default(cuid())
+  name                 String
+  avatarUrl            String
+  gender               String
+  shortDescription     String
+  persona              String
+  speakingStyle        String
+  boundaries           String
+  tags                 String
+  provider             String              @default("default")
+  modelName            String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  isDevOnly            Boolean             @default(false)
+  phoneAutoUpdate      Boolean             @default(true)
+  phoneContentJson     String?
+  phoneLastUpdated     DateTime?
+  phoneMessageCount    Int                 @default(0)
+  phoneUpdateFrequency Int                 @default(20)
+  age                  Int?
+  memories             Memory[]
+  messages             Message[]
+  relationshipConfig   RelationshipConfig?
 }
 
 model UserProfile {
-  id                     String   @id @default("me")
+  id                     String               @id @default("me")
   displayName            String
   nicknameForUser        String
   gender                 String?
@@ -46,85 +43,69 @@ model UserProfile {
   personalityDescription String?
   likes                  String?
   dislikes               String?
-  chatTheme              String?  @default("midnight")
-  chatTextTone           String?  @default("auto")
-  chatFont               String?  @default("inter")
-  chatFontSize           Int?     @default(14)
-  textColor              String?  @default("#F9D47E")
-  backgroundColor        String?  @default("#1A1A1A")
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-
-  relationshipConfigs RelationshipConfig[]
+  chatTheme              String?              @default("midnight")
+  chatTextTone           String?              @default("auto")
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  chatFont               String?              @default("inter")
+  chatFontSize           Int?                 @default(14)
+  backgroundColor        String?              @default("#1A1A1A")
+  textColor              String?              @default("#F9D47E")
+  relationshipConfigs    RelationshipConfig[]
 }
 
 model RelationshipConfig {
-  id              String    @id @default(cuid())
-  characterId     String    @unique
-  userId          String
-  status          String
-  startDate       DateTime?
-  specialNotes    String?
-  intimacyLevel   Int       @default(0) // 0: người lạ, 1: đã biết, 2: thân, 3: người yêu, 4: tri kỷ
-  affectionPoints Int       @default(0) // 0..100
-  stage           String    @default("UNDEFINED") // "STRANGER" | "DATING" | ... (using String for easy SQLite compat, ideally Enum)
-  lastActiveAt    DateTime  @default(now())
-  messageCount    Int       @default(0) // total messages from user
-  // P1.5: Stage change cooldown - track message count at last stage change
-  lastStageChangeAt Int     @default(0) // messageCount when stage last changed
-  
-  // Emotional Momentum System
-  trustDebt          Float   @default(0.0)  // Accumulated negative momentum (0 = clean, higher = more debt)
-  emotionalMomentum  Float   @default(0.0)  // Continuous inertia (-1.0 to +1.0)
-  apologyCount       Int     @default(0)    // Consecutive apology-like messages for spam detection
-  lastMessageHash    String? // Hash of last user message (for future similarity detection)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  character   Character   @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  userProfile UserProfile @relation(fields: [userId], references: [id])
+  id                String      @id @default(cuid())
+  characterId       String      @unique
+  userId            String
+  status            String
+  startDate         DateTime?
+  specialNotes      String?
+  intimacyLevel     Int         @default(0)
+  affectionPoints   Int         @default(0)
+  stage             String      @default("UNDEFINED")
+  lastActiveAt      DateTime    @default(now())
+  messageCount      Int         @default(0)
+  lastStageChangeAt Int         @default(0)
+  trustDebt         Float       @default(0.0)
+  emotionalMomentum Float       @default(0.0)
+  apologyCount      Int         @default(0)
+  lastMessageHash   String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  character         Character   @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  userProfile       UserProfile @relation(fields: [userId], references: [id])
 }
 
 model Message {
-  id          String   @id @default(cuid())
-  characterId String
-  role        String
-  content     String
-  sceneState  String?
-  createdAt   DateTime @default(now())
-
-  // Reply/quote feature
+  id               String    @id @default(cuid())
+  characterId      String
+  role             String
+  content          String
+  sceneState       String?
+  createdAt        DateTime  @default(now())
   replyToMessageId String?
-  replyTo          Message?  @relation("MessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  reactionType     String?
+  isDeleted        Boolean   @default(false)
+  memories         Memory[]  @relation("MessageMemories")
+  character        Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  replyTo          Message?  @relation("MessageReplies", fields: [replyToMessageId], references: [id])
   replies          Message[] @relation("MessageReplies")
-
-  // Heart reaction from character (NONE | LIKE | HEARTBEAT)
-  reactionType String?
-
-  // 🔥 SOFT DELETE: Mark as deleted instead of permanent removal
-  isDeleted Boolean @default(false)
-
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  memories  Memory[]  @relation("MessageMemories")
 }
 
 model Memory {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   characterId     String
   type            String
   content         String
-  importanceScore Int      @default(5)
+  importanceScore Int       @default(5)
   sourceMessageId String?
-  category        String   @default("fact")   // "fact" | "event" | "relationship" | "diary"
-  visibility      String   @default("public") // "public" | "private"
-  createdAt       DateTime @default(now())
-
-  // 🔥 SOFT DELETE: Mark as deleted instead of permanent removal
-  isDeleted Boolean @default(false)
-
-  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  sourceMessage Message?  @relation("MessageMemories", fields: [sourceMessageId], references: [id], onDelete: SetNull)
+  category        String    @default("fact")
+  visibility      String    @default("public")
+  createdAt       DateTime  @default(now())
+  isDeleted       Boolean   @default(false)
+  character       Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  sourceMessage   Message?  @relation("MessageMemories", fields: [sourceMessageId], references: [id])
 
   @@index([characterId, importanceScore])
 }

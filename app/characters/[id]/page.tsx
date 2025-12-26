@@ -14,6 +14,7 @@ interface Character {
     name: string
     avatarUrl: string
     gender: string
+    age: number | null  // NEW: age for pronoun logic
     shortDescription: string
     persona: string
     speakingStyle: string
@@ -231,6 +232,13 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                                         {character.relationshipConfig?.status || 'Not set'}
                                     </span>
                                 </div>
+                                {/* NEW: Age display */}
+                                <div>
+                                    <span className="text-secondary">Age:</span>{' '}
+                                    <span className="text-white font-medium">
+                                        {character.age ?? <span className="text-gray-500 italic">Not set</span>}
+                                    </span>
+                                </div>
                                 <div>
                                     <span className="text-secondary">Messages:</span>{' '}
                                     <span className="text-white font-medium">{character._count.messages}</span>
@@ -307,6 +315,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     name: character.name,
                     avatarUrl: character.avatarUrl,
                     gender: character.gender,
+                    age: character.age,  // NEW: pass age to edit modal
                     shortDescription: character.shortDescription,
                     persona: character.persona,
                     speakingStyle: character.speakingStyle,
@@ -332,6 +341,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     name: `${character.name} (Copy)`,
                     avatarUrl: character.avatarUrl,
                     gender: character.gender,
+                    age: character.age,  // NEW: copy age when duplicating
                     shortDescription: character.shortDescription,
                     persona: character.persona,
                     speakingStyle: character.speakingStyle,

@@ -15,6 +15,7 @@ import ParseToolbar from '@/components/ParseToolbar'
 import PlusDropdownModal from '@/components/PlusDropdownModal'
 import SceneDirectorModal from '@/components/SceneDirectorModal'
 import PhoneHomeScreen from '@/components/phone-os/PhoneHomeScreen'
+import { MissingInfoWarningPopup } from '@/components/MissingInfoWarningPopup'
 import { useColors } from '@/lib/ColorContext'
 import { useLanguage } from '@/lib/i18n'
 import { useModal } from '@/contexts/ModalContext'
@@ -52,6 +53,8 @@ interface Character {
     name: string
     avatarUrl: string
     persona?: string       // ADDED: Character persona/description for AI generation
+    gender?: string | null  // ADDED: For missing info check
+    age?: number | null     // ADDED: For missing info check
     provider?: string | null
     modelName?: string | null
     relationshipConfig?: RelationshipConfig
@@ -198,6 +201,9 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [isDevChatGenerating, setIsDevChatGenerating] = useState(false)
     const [isDevChatSaving, setIsDevChatSaving] = useState(false)
     const [devChatPreview, setDevChatPreview] = useState<{ role: string; content: string }[]>([])
+
+    // 🔥 NEW: Missing info warning state
+    const [showMissingInfoWarning, setShowMissingInfoWarning] = useState(false)
 
     const DEV_CHAT_TOPICS = [
         { value: 'flirting', label: '💕 Thả thính' },
@@ -382,6 +388,24 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     console.log('💀 [LOAD] Triggering Hard Lock - UI will be blocked by breakup modal')
                     setIsBrokenUp(true)
                     // Don't return - let background continue loading, but modal covers everything
+                }
+            }
+
+            // 🔥 NEW: Check for missing info (age/gender) and show warning
+            const charInfoMissing = !data.character.age && !data.character.gender
+            if (charInfoMissing) {
+                // Also check user profile
+                try {
+                    const profileRes = await authFetch('/api/user-profile')
+                    if (profileRes.ok) {
+                        const profileData = await profileRes.json()
+                        const userInfoMissing = !profileData.profile?.age && !profileData.profile?.gender
+                        if (userInfoMissing) {
+                            setShowMissingInfoWarning(true)
+                        }
+                    }
+                } catch (err) {
+                    console.error('[ChatPage] Error checking user profile for missing info:', err)
                 }
             }
         } catch (error) {
@@ -1642,6 +1666,13 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* 🔥 NEW: Missing info warning popup */}
+            {showMissingInfoWarning && (
+                <MissingInfoWarningPopup
+                    onClose={() => setShowMissingInfoWarning(false)}
+                />
             )}
         </>
     )

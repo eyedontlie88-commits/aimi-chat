@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { chatThemes, TEXT_MODE_OPTIONS, ChatThemeId, ChatTextMode } from '@/lib/ui/chatThemes'
 import { authFetch } from '@/lib/firebase/auth-fetch'
 import { setGlobalTheme, setGlobalTextMode, THEME_STORAGE_KEY, TEXT_MODE_STORAGE_KEY } from '@/components/ThemeProvider'
 import BackButton from '@/components/BackButton'
 import { useLanguage, Language } from '@/lib/i18n'
 import { useColors } from '@/lib/ColorContext'
+import { validateAgeOrGender, validateAgeRange } from '@/lib/validation/age-gender-validator'
+import { AgeReminderPopup } from '@/components/AgeReminderPopup'
 
 // Language Button Component
 function LanguageButton({ lang, icon, label }: { lang: Language; icon: string; label: string }) {
@@ -101,10 +104,25 @@ export default function SettingsPage() {
         backgroundColor: '#1A1A1A',
     }
 
+    // 🔥 NEW: State and ref for age reminder popup
+    const [showAgeReminder, setShowAgeReminder] = useState(false)
+    const ageInputRef = useRef<HTMLInputElement>(null)
+    const searchParams = useSearchParams()
+
     useEffect(() => {
         loadProfile()
         loadRelationships()
     }, [])
+
+    // 🔥 NEW: Focus age field if redirected from reminder popup
+    useEffect(() => {
+        if (searchParams.get('focus') === 'age') {
+            setTimeout(() => {
+                ageInputRef.current?.focus()
+                ageInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }, 100)
+        }
+    }, [searchParams])
 
     const loadProfile = async () => {
         try {
@@ -153,6 +171,24 @@ export default function SettingsPage() {
         e.preventDefault()
         if (!profile) return
 
+        // 🔥 NEW: Validate age range
+        const ageValidation = validateAgeRange(profile.age)
+        if (!ageValidation.valid) {
+            alert(ageValidation.error)
+            return
+        }
+
+        // 🔥 NEW: Validate at least gender OR age exists
+        const genderAgeValidation = validateAgeOrGender(
+            profile.gender,
+            profile.age,
+            'User'
+        )
+        if (!genderAgeValidation.valid) {
+            alert(genderAgeValidation.error)
+            return
+        }
+
         setIsLoading(true)
         try {
             const res = await authFetch('/api/user-profile', {
@@ -161,6 +197,14 @@ export default function SettingsPage() {
                 body: JSON.stringify(profile),
             })
             if (res.ok) {
+                // 🔥 NEW: Check if age is missing and show reminder popup
+                if (!profile.age) {
+                    const alreadyShown = localStorage.getItem('user_age_reminder')
+                    if (!alreadyShown) {
+                        setShowAgeReminder(true)
+                        return // Don't show success alert yet
+                    }
+                }
                 alert('Profile saved successfully!')
             } else {
                 alert('Failed to save profile')
@@ -276,6 +320,7 @@ export default function SettingsPage() {
                         <div>
                             <label className="block text-sm font-medium mb-2">{t.settings.age}</label>
                             <input
+                                ref={ageInputRef}
                                 type="number"
                                 value={profile.age || ''}
                                 onChange={(e) =>
@@ -619,6 +664,25 @@ export default function SettingsPage() {
                     ))}
                 </div>
             </div >
+
+            {/* 🔥 NEW: Age reminder popup */}
+            {showAgeReminder && (
+                <AgeReminderPopup
+                    type="user"
+                    onClose={() => {
+                        setShowAgeReminder(false)
+                        alert('Profile saved successfully!')
+                    }}
+                    onInputNow={() => {
+                        setShowAgeReminder(false)
+                        // Focus age field
+                        setTimeout(() => {
+                            ageInputRef.current?.focus()
+                            ageInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }, 100)
+                    }}
+                />
+            )}
         </div >
     )
 }
