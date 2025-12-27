@@ -20,6 +20,7 @@ interface MessageDetailProps {
     conversationId?: string
     lastMessagePreview?: string
     onUserReply?: (senderName: string, messageText: string) => void
+    onConversationUpdate?: () => void // ✅ Callback to reload conversation list after AI reply
     userEmail?: string // 👈 Nhận email để check quyền
 }
 
@@ -40,6 +41,7 @@ export default function MessageDetail({
     conversationId: initialConvId,
     lastMessagePreview,
     onUserReply,
+    onConversationUpdate, // ✅ New prop
     userEmail
 }: MessageDetailProps) {
     const { t, lang } = useLanguage()
@@ -465,6 +467,11 @@ export default function MessageDetail({
 
                                                 if (newMessages.length > 0) {
                                                     console.log(`[MessageDetail] 📥 Adding ${newMessages.length} new messages from DB`)
+                                                    // ✅ Notify parent to reload conversation list with updated preview
+                                                    if (onConversationUpdate) {
+                                                        console.log('[MessageDetail] 🔄 Triggering conversation list reload')
+                                                        onConversationUpdate()
+                                                    }
                                                     return [...prevMessages, ...newMessages]
                                                 }
                                                 return prevMessages

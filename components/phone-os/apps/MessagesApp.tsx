@@ -319,6 +319,11 @@ export default function MessagesApp({
                 characterDescription={characterDescription}
                 lastMessagePreview={selectedConversation.lastMessage}
                 onUserReply={handleUserReply}
+                onConversationUpdate={() => {
+                    // ✅ Reload conversation list to show updated preview (AI reply)
+                    console.log('[MessagesApp] 🔄 Reloading conversation list after AI reply...')
+                    fetchMessages(true)
+                }}
                 userEmail={userEmail}
             />
         )
