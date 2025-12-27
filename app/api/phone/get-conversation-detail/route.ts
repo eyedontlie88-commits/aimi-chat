@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import { getAuthContext } from '@/lib/auth/require-auth'
 
 /**
- * API Route: Get Conversation Detail (READ-ONLY with optional AI trigger)
+ * API Route: Get Conversation Detail (PRISMA VERSION)
  * POST /api/phone/get-conversation-detail
  * 
- * 🔥 CRITICAL: This API is primarily READ-ONLY.
- * It can optionally trigger AI reply generation via forceRegenerate parameter.
+ * MIGRATED from Supabase to Prisma to avoid RLS and cache issues.
  * 
  * Body: { senderName, characterId, conversationId?, forceRegenerate?, userEmail?, characterDescription? }
  * Returns: { messages: [], conversationId, source: 'database' }
@@ -17,6 +16,7 @@ const DEV_EMAILS = ['eyedontlie88@gmail.com', 'giangcm987@gmail.com']
 
 export async function POST(req: NextRequest) {
     try {
+        const { uid, prisma } = await getAuthContext(req)
         const body = await req.json()
         const {
             senderName,
@@ -36,55 +36,37 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing senderName or characterId' }, { status: 400 })
         }
 
-        if (!isSupabaseConfigured() || !supabase) {
-            console.error('[Phone Detail] Supabase not configured')
-            return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
-        }
-
-        // 1. Find conversation ID (idempotent lookup by name)
+        // 1. Find or create conversation using Prisma
         let convId = conversationId
+        let conversation
 
         // ALWAYS search by name first (ignore temp/fake IDs from frontend)
         if (!convId || convId.startsWith('temp-')) {
             console.log(`[Phone Detail] 🔍 Searching for conversation: "${senderName}" + Character ${characterId}`)
 
-            const { data: existingConvs, error: findError } = await supabase
-                .from('phone_conversations')
-                .select('id')
-                .eq('character_id', characterId)
-                .eq('contact_name', senderName)
-                .limit(1)
+            conversation = await prisma.phoneConversation.findFirst({
+                where: {
+                    characterId: characterId,
+                    contactName: senderName,
+                    userId: uid
+                }
+            })
 
-            if (findError) {
-                console.error('[Phone Detail] Error searching conversation:', findError)
-            }
-
-            if (existingConvs && existingConvs.length > 0) {
-                convId = existingConvs[0].id
+            if (conversation) {
+                convId = conversation.id
                 console.log(`[Phone Detail] ✅ Found existing conversation: ${convId}`)
             } else {
                 // Create empty conversation placeholder (no messages yet)
                 console.log(`[Phone Detail] 🆕 Creating empty conversation for "${senderName}"`)
-                const { data: newConv, error: createError } = await supabase
-                    .from('phone_conversations')
-                    .insert({
-                        character_id: characterId,
-                        contact_name: senderName,
-                        last_message_preview: '...'
-                    })
-                    .select('id')
-                    .single()
-
-                if (createError || !newConv) {
-                    console.error('[Phone Detail] Failed to create conversation:', createError)
-                    return NextResponse.json({
-                        messages: [],
-                        source: 'error',
-                        error: 'Failed to create conversation'
-                    }, { status: 500 })
-                }
-
-                convId = newConv.id
+                conversation = await prisma.phoneConversation.create({
+                    data: {
+                        characterId: characterId,
+                        userId: uid,
+                        contactName: senderName,
+                        lastMessage: '...'
+                    }
+                })
+                convId = conversation.id
                 console.log(`[Phone Detail] ✅ Created conversation: ${convId}`)
             }
         } else {
@@ -93,7 +75,15 @@ export async function POST(req: NextRequest) {
 
         // 2. If forceRegenerate, trigger AI reply first
         let regenerated = false
-        if (forceRegenerate) {
+
+        // 🏦 BANKING AUTO-BLOCK - Skip AI generation for banking contacts
+        const isBankingContact = senderName.toLowerCase().includes('ngân hàng') ||
+            senderName.toLowerCase().includes('bank')
+
+        if (forceRegenerate && isBankingContact) {
+            console.log('[Phone Detail] 🚫 Skipping AI generation for banking contact (notification-only)')
+            // Do nothing - just return messages without generating AI reply
+        } else if (forceRegenerate) {
             console.log(`[Phone Detail] 🤖 Force regenerate requested, triggering AI reply...`)
 
             try {
@@ -125,23 +115,12 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 3. Read messages from database
+        // 3. Read messages from database using Prisma
         console.log(`[Phone Detail] 📖 Reading messages from conversation: ${convId}`)
-        const { data: messages, error: fetchError } = await supabase
-            .from('phone_messages')
-            .select('*')
-            .eq('conversation_id', convId)
-            .order('created_at', { ascending: true })
-
-        if (fetchError) {
-            console.error('[Phone Detail] Error fetching messages:', fetchError)
-            return NextResponse.json({
-                messages: [],
-                conversationId: convId,
-                source: 'error',
-                error: fetchError.message
-            }, { status: 500 })
-        }
+        const messages = await prisma.phoneMessage.findMany({
+            where: { conversationId: convId },
+            orderBy: { timestamp: 'asc' }
+        })
 
         // 4. Return messages
         const messageCount = messages?.length || 0

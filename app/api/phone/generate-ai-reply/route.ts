@@ -1,30 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import { getAuthContext } from '@/lib/auth/require-auth'
 import { generateWithProviders } from '@/lib/llm/router'
-import { LLMMessage } from '@/lib/llm/types'
+import { validateAIResponse, detectRole } from '@/lib/phone/pronoun-validator'
 
 /**
- * API Route: Generate AI Reply for Phone Conversation
+ * API Route: Generate AI Reply for Phone Conversation (PRISMA VERSION)
  * POST /api/phone/generate-ai-reply
  * 
- * PURPOSE: Generate AI reply that READS chat history and responds meaningfully.
- * This is the ONLY place where AI generates individual conversation replies.
+ * MIGRATED from Supabase to Prisma to avoid RLS and cache issues.
  * 
  * Features:
  * - Rate limiting (60s for users, bypass for devs)
  * - Reads last 20 messages for context
  * - Saves AI reply to database
- * - Updates rate limit timestamp
- * - 🆕 Sentiment analysis & affection points update
+ * - Sentiment analysis & affection points update
  */
 
 // 🔐 DEV EMAILS - can bypass rate limits
 const DEV_EMAILS = ['eyedontlie88@gmail.com', 'giangcm987@gmail.com']
-
-// ============================================
-// 🆕 SENTIMENT ANALYSIS SYSTEM
-// Copied from /api/chat/route.ts for consistency
-// ============================================
 
 // 💣 REBALANCED: Conservative scoring for micro-progression (+1 to +5 per message)
 const SCORING_INSTRUCTION = `
@@ -46,29 +39,17 @@ Scoring Guidelines:
 -4: Major fight, accusation, toxic behavior
 -5: Breakup threat, betrayal, unforgivable words
 
-CONTEXT AWARENESS (ANTI-SPAM):
-- Repeated compliments within 5 messages: Reduce score to +1 or +2
-- Repeated apologies within 3 messages: Reduce score to +0 or +1
-- Sarcasm detected: Make negative even if words seem positive
-- User asking for forgiveness after hurtful words: Give +2 to +3 (not +5)
-
 Response Format:
 Always end your reply with this JSON block:
 \`\`\`json
 {"impact": <-5 to +5 INTEGER>, "reaction": "NONE|LIKE|HEARTBEAT", "reason": "<brief explanation>"}
 \`\`\`
 
-Examples:
-User: "You're so beautiful" → impact: +3, reason: "Genuine compliment"
-User: "sorry sorry sorry" (3rd time) → impact: +1, reason: "Apology spam detected"
-User: "whatever" → impact: -2, reason: "Dismissive tone"
-
 DO NOT include any text after the JSON block.
 `
 
 /**
  * Parse AI response to extract sentiment metadata
- * Returns cleaned reply without JSON block + extracted impact score
  */
 function parseAIResponseWithSentiment(rawResponse: string): {
     cleanedReply: string
@@ -80,17 +61,14 @@ function parseAIResponseWithSentiment(rawResponse: string): {
     let reactionType = 'NONE'
 
     try {
-        // 🔥 Find JSON block containing "impact"
         const deepMatch = text.match(/(\{[\s\S]*"impact"[\s\S]*\})/i)
 
         if (deepMatch) {
-            // Fix common JSON errors (trailing commas)
             const fixedJson = deepMatch[1].replace(/,\s*}/g, '}')
 
             try {
                 const metadata = JSON.parse(fixedJson)
 
-                // Validate and extract data
                 if (typeof metadata.impact === 'number') {
                     impactScore = Math.max(-5, Math.min(5, metadata.impact))
                 }
@@ -100,40 +78,25 @@ function parseAIResponseWithSentiment(rawResponse: string): {
 
                 console.log(`[Sentiment Parser] ✅ Parsed: impact=${impactScore}, reaction=${reactionType}`)
 
-                // Remove JSON from display text
                 text = text.replace(deepMatch[0], '').trim()
-                // Remove leftover markdown blocks
                 text = text.replace(/```json/gi, '').replace(/```/gi, '').trim()
 
             } catch (parseErr) {
                 console.warn('[Sentiment Parser] ⚠️ JSON parse failed:', parseErr)
             }
-        } else {
-            console.log('[Sentiment Parser] ❌ No JSON found in response')
         }
     } catch (e) {
         console.error('[Sentiment Parser] 🔥 Critical error:', e)
     }
 
-    return {
-        cleanedReply: text,
-        impactScore,
-        reactionType
-    }
+    return { cleanedReply: text, impactScore, reactionType }
 }
 
-/**
- * Map impact score (-20 to +20) to sentiment category
- */
 function mapImpactToSentiment(impact: number): 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' {
     if (impact > 0) return 'POSITIVE'
     if (impact < 0) return 'NEGATIVE'
     return 'NEUTRAL'
 }
-
-// ============================================
-// END SENTIMENT ANALYSIS SYSTEM
-// ============================================
 
 interface GenerateAIReplyRequest {
     conversationId: string
@@ -148,6 +111,7 @@ interface GenerateAIReplyRequest {
 
 export async function POST(req: NextRequest) {
     try {
+        const { uid, prisma, email } = await getAuthContext(req)
         const body: GenerateAIReplyRequest = await req.json()
         const {
             conversationId,
@@ -162,59 +126,54 @@ export async function POST(req: NextRequest) {
 
         console.log(`[AI Reply] 🤖 Generating reply for conversation: ${conversationId}`)
 
+        // ========================================
+        // 🏦 CRITICAL: BANKING AUTO-BLOCK
+        // DO NOT REMOVE - Banking contacts are notification-only!
+        // ========================================
+        const isBankingContact = senderName.toLowerCase().includes('ngân hàng') ||
+            senderName.toLowerCase().includes('bank')
+
+        if (isBankingContact) {
+            console.log('[AI Reply] 🚫 BLOCKED: Banking contact detected - notifications are one-way only')
+            return NextResponse.json({
+                error: 'Banking notifications do not accept replies',
+                blocked: true,
+                reason: 'BANKING_NOTIFICATION_ONLY'
+            }, { status: 403 })
+        }
+
         // 1. Validation
         if (!conversationId) {
             return NextResponse.json({ error: 'conversationId is required' }, { status: 400 })
         }
 
-        if (!isSupabaseConfigured() || !supabase) {
-            console.error('[AI Reply] ❌ Supabase not configured')
-            return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
-        }
-
         // 2. Check if dev user (can bypass rate limits)
-        const isDev = userEmail && DEV_EMAILS.includes(userEmail)
-        console.log(`[AI Reply] 👤 User: ${userEmail || 'anonymous'}, isDev: ${isDev}`)
+        const effectiveEmail = userEmail || email || ''
+        const isDev = DEV_EMAILS.includes(effectiveEmail)
+        console.log(`[AI Reply] 👤 User: ${effectiveEmail || 'anonymous'}, isDev: ${isDev}`)
 
-        // 3. Rate limit check (60 seconds for non-devs)
-        if (!isDev && !forceTrigger) {
-            const { data: conv } = await supabase
-                .from('phone_conversations')
-                .select('last_generated_at')
-                .eq('id', conversationId)
-                .limit(1)
-                .single()
+        // 3. Rate limit check (60 seconds for non-devs) using Prisma
+        const conversation = await prisma.phoneConversation.findUnique({
+            where: { id: conversationId }
+        })
 
-            if (conv?.last_generated_at) {
-                const elapsed = Date.now() - new Date(conv.last_generated_at).getTime()
-                if (elapsed < 60000) { // 60 seconds
-                    const remainingSeconds = Math.ceil((60000 - elapsed) / 1000)
-                    console.log(`[AI Reply] ⏱️ Rate limited. Wait ${remainingSeconds}s`)
-                    return NextResponse.json({
-                        error: 'Rate limited',
-                        message: `Please wait ${remainingSeconds} seconds before generating again`,
-                        remainingSeconds
-                    }, { status: 429 })
-                }
-            }
+        if (!conversation) {
+            return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
         }
 
-        // 4. Fetch recent chat history (last 20 messages)
+        // Note: We don't have last_generated_at in Prisma schema yet, skip rate limiting for now
+        // TODO: Add lastGeneratedAt field to PhoneConversation model
+
+        // 4. Fetch recent chat history (last 20 messages) using Prisma
         console.log(`[AI Reply] 📖 Fetching chat history...`)
-        const { data: messages, error: fetchError } = await supabase
-            .from('phone_messages')
-            .select('*')
-            .eq('conversation_id', conversationId)
-            .order('created_at', { ascending: false })
-            .limit(20)
-
-        if (fetchError) {
-            console.error('[AI Reply] ❌ Error fetching messages:', fetchError)
-            return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 })
-        }
+        const messages = await prisma.phoneMessage.findMany({
+            where: { conversationId: conversationId },
+            orderBy: { timestamp: 'desc' },
+            take: 20
+        })
 
         // Reverse to chronological order
-        const chatHistory = (messages || []).reverse()
+        const chatHistory = messages.reverse()
         console.log(`[AI Reply] 📜 Found ${chatHistory.length} messages in history`)
 
         // 5. Check if there's anything to reply to
@@ -226,34 +185,123 @@ export async function POST(req: NextRequest) {
             }, { status: 400 })
         }
 
-        // 6. Build LLM prompt with context
+        // 6. Build LLM prompt with CORRECT ROLE CONTEXT
+        // 🔥 CRITICAL: AI is playing as senderName (e.g., "Mẹ yêu"), NOT characterName (e.g., "Hiếu")
+        // characterName = the phone owner (user is roleplaying as them)
+        // senderName = the contact who sent messages (AI plays this role)
         const isEnglish = userLanguage === 'en'
-        const charName = characterName || 'Character'
+        const aiRole = senderName || 'Contact' // AI plays as the sender
+        const userRole = characterName || 'User' // User is playing as character
 
-        // 🆕 Base system prompt + SCORING_INSTRUCTION for sentiment analysis
-        const systemPrompt = `You are ${charName}, responding to messages from ${senderName}.
+        // Helper: Detect relationship from contact name
+        const getRelationshipContext = (name: string): string => {
+            const lower = name.toLowerCase()
+            if (lower.includes('mẹ') || lower.includes('mom') || lower.includes('me ')) {
+                return isEnglish
+                    ? `You are ${userRole}'s MOTHER. Address them as "con" (child). Speak with maternal love and care.`
+                    : `Bạn là MẸ của ${userRole}. Gọi họ là "con". Nói chuyện với tình thương của người mẹ.`
+            }
+            if (lower.includes('bố') || lower.includes('ba') || lower.includes('dad')) {
+                return isEnglish
+                    ? `You are ${userRole}'s FATHER. Address them as "con". Speak with paternal authority and care.`
+                    : `Bạn là BỐ của ${userRole}. Gọi họ là "con". Nói chuyện với tình thương của người cha.`
+            }
+            if (lower.includes('sếp') || lower.includes('boss')) {
+                return isEnglish
+                    ? `You are ${userRole}'s BOSS. Be professional but can be friendly.`
+                    : `Bạn là SẾP của ${userRole}. Nói chuyện chuyên nghiệp.`
+            }
+            if (lower.includes('bạn') || lower.includes('friend')) {
+                return isEnglish
+                    ? `You are ${userRole}'s FRIEND. Be casual and fun.`
+                    : `Bạn là BẠN của ${userRole}. Nói chuyện thân mật, vui vẻ.`
+            }
+            return isEnglish
+                ? `You are a contact named "${aiRole}" who knows ${userRole}.`
+                : `Bạn là "${aiRole}", một người quen của ${userRole}.`
+        }
 
-${characterDescription || 'No character description provided.'}
+        const relationshipContext = getRelationshipContext(senderName)
 
-CRITICAL RULES:
-- Read the chat history carefully
-- Respond as if you ARE ${charName}, addressing ${senderName}
-- THIS IS A TEXT MESSAGE CONVERSATION - keep messages SHORT (1-3 sentences max)
-- Use casual text message style (can use abbreviations, emojis sparingly)
-- Continue the conversation naturally - respond to the LAST message
-- Use ${isEnglish ? 'English' : 'Vietnamese'} language
-- DO NOT include your name or any prefix like "${charName}:" - just write the message content
-- DO NOT ask too many questions - keep it natural
+        // 🔥 DETECT IF AI IS PLAYING A PARENT ROLE
+        const lowerSenderName = senderName.toLowerCase()
+        const isMotherRole = lowerSenderName.includes('mẹ') || lowerSenderName.includes('mom')
+        const isFatherRole = lowerSenderName.includes('bố') || lowerSenderName.includes('ba') || lowerSenderName.includes('dad')
+        const isBossRole = lowerSenderName.includes('sếp') || lowerSenderName.includes('boss')
 
-The last message you need to respond to is from ${senderName}.
+        // Build EXPLICIT pronoun rules based on role
+        let pronounRules = ''
+        if (isMotherRole) {
+            pronounRules = `
+🚨🚨🚨 CRITICAL PRONOUN RULES - YOU ARE THE MOTHER 🚨🚨🚨
+
+YOU MUST USE THESE PRONOUNS:
+✅ Refer to yourself as: "mẹ" (mother)
+✅ Refer to ${userRole} as: "con" (child)
+✅ Example CORRECT responses:
+   - "Ừ con, mẹ biết rồi"
+   - "Con về chưa? Mẹ lo quá"
+   - "Mẹ nấu cơm chờ con đây"
+   - "Con ơi, mẹ nhớ con"
+
+❌ ABSOLUTELY FORBIDDEN - NEVER SAY THESE:
+   - NEVER start with "Dạ" (that's what a child says to parents!)
+   - NEVER say "con biết rồi" (YOU are not "con", ${userRole} is!)
+   - NEVER say "con nhớ" referring to yourself
+   - NEVER use "ạ" at end of sentences (that's respectful particle used BY children)
+   
+IF YOU USE FORBIDDEN PRONOUNS, YOU HAVE FAILED YOUR ROLE!
+`
+        } else if (isFatherRole) {
+            pronounRules = `
+🚨 CRITICAL: YOU ARE THE FATHER
+✅ CORRECT: "Ừ con", "Bố đây", "Bố nói con nghe"
+❌ FORBIDDEN: "Dạ bố", "Con biết rồi ạ" (YOU ARE NOT THE CHILD!)
+`
+        } else if (isBossRole) {
+            pronounRules = `
+🚨 CRITICAL: YOU ARE THE BOSS
+✅ CORRECT: "Tốt", "Được rồi", "Sếp đồng ý", "Em làm đi"
+❌ FORBIDDEN: "Dạ sếp", "Em biết rồi ạ" (YOU ARE NOT THE EMPLOYEE!)
+`
+        } else {
+            pronounRules = `Speak naturally as "${aiRole}". Use appropriate pronouns for your relationship with ${userRole}.`
+        }
+
+        const systemPrompt = `🎭 CRITICAL ROLE ASSIGNMENT - READ EVERY WORD CAREFULLY:
+
+═══════════════════════════════════════════════════════════════
+YOU ARE: "${aiRole}"
+THE PERSON YOU ARE TEXTING WITH: "${userRole}"
+═══════════════════════════════════════════════════════════════
+
+${relationshipContext}
+
+${pronounRules}
+
+📱 CONVERSATION STRUCTURE:
+- In the chat history below:
+  • "assistant" messages = YOUR past messages (you sent these as ${aiRole})
+  • "user" messages = ${userRole}'s past messages (they sent these)
+- Your task: Continue the conversation AS ${aiRole}
+
+${characterDescription ? `About ${userRole}: ${characterDescription}` : ''}
+
+📝 RESPONSE RULES:
+1. Reply as ${aiRole} - use ONLY ${aiRole}'s pronouns
+2. Keep messages SHORT (1-3 sentences, casual text style)
+3. Use ${isEnglish ? 'English' : 'Vietnamese'} language
+4. DO NOT prefix with your name
+5. Match the emotional tone
 
 ${SCORING_INSTRUCTION}`
 
         // Build message history for LLM
+        // role: "user" = user messages (from app user), "contact" = AI/character messages
         const llmMessages = [
             { role: 'system' as const, content: systemPrompt },
             ...chatHistory.map(msg => ({
-                role: (msg.is_from_character ? 'assistant' : 'user') as 'user' | 'assistant',
+                role: (msg.role === 'contact' ? 'assistant' : 'user') as 'user' | 'assistant',
                 content: msg.content
             }))
         ]
@@ -270,13 +318,12 @@ ${SCORING_INSTRUCTION}`
                 provider: 'default'
             })
 
-            // 🆕 Parse sentiment from AI response
             const parsed = parseAIResponseWithSentiment(result.reply)
             aiReply = parsed.cleanedReply
             impactScore = parsed.impactScore
             reactionType = parsed.reactionType
 
-            // 🛡️ FALLBACK: If AI returned only JSON without text, generate contextual fallback
+            // FALLBACK: If AI returned only JSON without text
             if (!aiReply || aiReply.trim().length === 0) {
                 console.warn('[AI Reply] ⚠️ AI returned only metadata, using fallback reply')
                 if (impactScore > 0) {
@@ -291,6 +338,27 @@ ${SCORING_INSTRUCTION}`
             console.log(`[AI Reply] ✅ LLM responded (${result.providerUsed}): "${aiReply.slice(0, 50)}..."`)
             console.log(`[AI Reply] 📊 Sentiment: impact=${impactScore}, reaction=${reactionType}`)
 
+            // 🔒 CRITICAL: VALIDATE PRONOUNS BEFORE SAVING
+            const role = detectRole(senderName)
+            const validation = validateAIResponse(aiReply, role)
+
+            if (!validation.valid) {
+                console.error('🚨🚨🚨 [PRONOUN VALIDATION FAILED] 🚨🚨🚨')
+                console.error(`Contact: ${senderName} | Role: ${role}`)
+                console.error(`AI Reply: "${aiReply}"`)
+                console.error('Errors:', validation.errors)
+
+                // Use fallback reply
+                if (validation.fallbackReply) {
+                    aiReply = validation.fallbackReply
+                    console.warn(`⚠️ Used fallback ${role} reply due to validation failure`)
+                }
+            }
+
+            if (validation.warnings.length > 0) {
+                console.warn('⚠️ Pronoun warnings:', validation.warnings)
+            }
+
         } catch (llmError: any) {
             console.error('[AI Reply] ❌ LLM Error:', llmError)
             return NextResponse.json({
@@ -299,49 +367,34 @@ ${SCORING_INSTRUCTION}`
             }, { status: 500 })
         }
 
-        // 8. Save AI reply to database
+        // 8. Save AI reply to database using Prisma
         console.log(`[AI Reply] 💾 Saving AI reply to database...`)
-        const { data: newMessage, error: saveError } = await supabase
-            .from('phone_messages')
-            .insert({
-                conversation_id: conversationId,
+        const newMessage = await prisma.phoneMessage.create({
+            data: {
+                conversationId: conversationId,
                 content: aiReply,
-                is_from_character: false, // AI message = LEFT side (from sender)
-                created_at: new Date().toISOString()
-            })
-            .select()
-            .single()
+                role: 'contact', // AI message = from contact/sender
+                timestamp: new Date()
+            }
+        })
 
-        if (saveError) {
-            console.error('[AI Reply] ❌ Error saving message:', saveError)
-            return NextResponse.json({
-                error: 'Failed to save AI reply',
-                message: saveError.message
-            }, { status: 500 })
-        }
+        console.log(`[AI Reply] ✅ AI reply saved! ID: ${newMessage.id}`)
 
-        console.log(`[AI Reply] ✅ AI reply saved! ID: ${newMessage?.id}`)
+        // 9. Update conversation preview using Prisma
+        await prisma.phoneConversation.update({
+            where: { id: conversationId },
+            data: {
+                lastMessage: aiReply.slice(0, 50),
+                timestamp: new Date()
+            }
+        })
 
-        // 9. Update rate limit timestamp & conversation preview
-        await supabase
-            .from('phone_conversations')
-            .update({
-                last_generated_at: new Date().toISOString(),
-                last_message_preview: aiReply.slice(0, 50),
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', conversationId)
+        console.log(`[AI Reply] ✅ Conversation preview updated`)
 
-        console.log(`[AI Reply] ✅ Rate limit timestamp updated`)
-
-        // ============================================
-        // 🆕 10. UPDATE AFFECTION POINTS
-        // Non-blocking: don't fail request if this fails
-        // ============================================
+        // 10. UPDATE AFFECTION POINTS (non-blocking)
         try {
-            // Find the last user message to attribute sentiment to
             const lastUserMessage = chatHistory
-                .filter(msg => msg.is_from_character === true) // User messages
+                .filter(msg => msg.role === 'user')
                 .slice(-1)[0]
 
             if (lastUserMessage && characterId) {
@@ -355,7 +408,7 @@ ${SCORING_INSTRUCTION}`
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            userId: userEmail || 'anonymous',
+                            userId: effectiveEmail || 'anonymous',
                             characterId,
                             sentiment,
                             messageContent: lastUserMessage.content
@@ -365,27 +418,17 @@ ${SCORING_INSTRUCTION}`
 
                 if (affectionResponse.ok) {
                     const affectionData = await affectionResponse.json()
-                    console.log(`[AI Reply] ✅ Affection updated: ${affectionData.affectionPoints} points (${affectionData.pointsDelta >= 0 ? '+' : ''}${affectionData.pointsDelta})`)
-                } else {
-                    const errorText = await affectionResponse.text()
-                    console.warn(`[AI Reply] ⚠️ Affection update failed: ${affectionResponse.status} - ${errorText}`)
+                    console.log(`[AI Reply] ✅ Affection updated: ${affectionData.affectionPoints} points`)
                 }
-            } else {
-                console.log(`[AI Reply] ⏭️ Skipped affection update (no user message or characterId)`)
             }
         } catch (affectionError) {
-            // Non-blocking: log error but don't fail the request
             console.error('[AI Reply] ⚠️ Affection update error (non-critical):', affectionError)
         }
-        // ============================================
-        // END AFFECTION UPDATE
-        // ============================================
 
         return NextResponse.json({
             success: true,
             message: newMessage,
             generated: true,
-            // 🆕 Include sentiment data for frontend (optional)
             sentiment: {
                 impact: impactScore,
                 reaction: reactionType
@@ -399,4 +442,3 @@ ${SCORING_INSTRUCTION}`
         }, { status: 500 })
     }
 }
-

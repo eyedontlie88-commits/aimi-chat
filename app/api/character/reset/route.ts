@@ -1,175 +1,258 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getAuthContext, isAuthError } from '@/lib/auth/require-auth'
+import { sendBackupToTelegram, type BackupData } from '@/lib/telegram-backup'
 
 /**
  * 🔄 Factory Reset API for Character
  * POST /api/character/reset
  * 
- * "Selective Wipe" - Deletes user's data with a character while keeping the character card intact
+ * NEW FLOW (with Telegram backup):
+ * 1. Fetch all messages, memories, relationship
+ * 2. Send backup to Telegram (@AimiBackupBot)
+ * 3. Wait for Telegram confirmation
+ * 4. HARD DELETE from database (permanent - saves storage)
+ * 5. Reset relationship to STRANGER
  * 
- * Deletes:
- * - Chat History (Message table)
- * - Long-term Memory (Memory table)
- * - Phone Conversations & Messages (phone_conversations, phone_messages)
- * - Resets Relationship to STRANGER status (RelationshipConfig)
- * 
- * Keeps:
- * - Character Card (name, avatar, persona, etc.)
- * - Feature configurations
+ * SAFETY: If Telegram backup fails, data is NOT deleted!
  */
-
-// 🔥 ADMIN CLIENT - bypasses RLS for reset operations
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(req: NextRequest) {
     try {
+        // Auth check - get Prisma client from auth context
+        const authContext = await getAuthContext(req)
+        const { uid, prisma, isAuthed } = authContext
+
+        if (!isAuthed) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            )
+        }
+
+        // Get characterId from request body
         const body = await req.json()
         const { characterId, userEmail } = body
 
         if (!characterId) {
             return NextResponse.json(
-                { error: 'Missing characterId' },
+                { error: 'characterId is required' },
                 { status: 400 }
             )
         }
 
-        console.log(`[RESET] 🔄 Starting factory reset for CharID: ${characterId} by User: ${userEmail || 'unknown'}`)
+        console.log(`[RESET] 🔄 Starting factory reset for CharID: ${characterId} by User: ${userEmail || uid}`)
 
-        // Track errors but continue with other deletions
-        const errors: string[] = []
-        let deletedCounts = {
+        // ============================================
+        // STEP 1: FETCH DATA FOR BACKUP (BEFORE DELETING)
+        // ============================================
+
+        console.log('[RESET] 📦 Step 1: Fetching data for backup...')
+
+        // Get character info for backup metadata
+        const character = await prisma.character.findUnique({
+            where: { id: characterId },
+            select: { name: true }
+        })
+
+        // Fetch messages (non-deleted only)
+        const messagesToBackup = await prisma.message.findMany({
+            where: {
+                characterId: characterId,
+                isDeleted: false
+            },
+            orderBy: { createdAt: 'asc' }
+        })
+
+        // Fetch memories (non-deleted only)
+        const memoriesToBackup = await prisma.memory.findMany({
+            where: {
+                characterId: characterId,
+                isDeleted: false
+            },
+            orderBy: { createdAt: 'asc' }
+        })
+
+        // Fetch relationship
+        const relationshipToBackup = await prisma.relationshipConfig.findFirst({
+            where: {
+                characterId: characterId,
+                userId: uid
+            }
+        })
+
+        console.log(`[RESET] 📊 Data fetched: ${messagesToBackup.length} messages, ${memoriesToBackup.length} memories`)
+
+        // ============================================
+        // STEP 2: BACKUP TO TELEGRAM (BEFORE DELETING!)
+        // ============================================
+
+        let telegramBackupSuccess = false
+        let telegramFileId: string | null = null
+
+        // Only backup if there's data to backup
+        if (messagesToBackup.length > 0 || memoriesToBackup.length > 0) {
+            console.log('[RESET] 📤 Step 2: Sending backup to Telegram...')
+
+            const backupData: BackupData = {
+                characterId,
+                characterName: character?.name || 'Unknown',
+                userId: uid,
+                userEmail: userEmail || uid,
+                timestamp: Date.now(),
+                messages: messagesToBackup,
+                memories: memoriesToBackup,
+                relationship: relationshipToBackup
+            }
+
+            try {
+                // Send to Telegram and WAIT for confirmation
+                const result = await sendBackupToTelegram(backupData)
+                telegramBackupSuccess = true
+                telegramFileId = result.fileId
+                console.log('[RESET] ✅ Backup successfully sent to Telegram!')
+
+            } catch (error: any) {
+                console.error('[RESET] ❌ Telegram backup FAILED:', error.message)
+
+                // CRITICAL: Don't proceed with delete if backup fails!
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Backup to Telegram failed. Data NOT deleted for safety.',
+                        details: error.message,
+                        hint: 'Check TELEGRAM_BOT_TOKEN and TELEGRAM_STORAGE_CHAT_ID in .env'
+                    },
+                    { status: 500 }
+                )
+            }
+        } else {
+            console.log('[RESET] ⏭️ No data to backup, skipping Telegram step')
+            telegramBackupSuccess = true // Consider empty backup as success
+        }
+
+        // ============================================
+        // STEP 3: HARD DELETE (PERMANENT - AFTER BACKUP!)
+        // ============================================
+
+        console.log('[RESET] 🗑️ Step 3: Hard deleting data from database...')
+
+        const deleted = {
             messages: 0,
             memories: 0,
-            phoneConversations: 0,
-            phoneMessages: 0,
             relationshipReset: false
         }
+        const errors: string[] = []
 
-        // 1. SOFT DELETE Chat History (Mark as deleted instead of permanent removal)
+        // 3a. HARD DELETE Messages (permanent - data is backed up to Telegram)
         try {
-            const { data: msgData, error: msgError } = await supabaseAdmin
-                .from('Message')
-                .update({ isDeleted: true })  // 🔥 SOFT DELETE
-                .eq('characterId', characterId)
-                .eq('isDeleted', false)       // Only update non-deleted
-                .select('id')
-
-            if (msgError) {
-                console.error('[RESET] Message soft-delete error:', msgError)
-                errors.push(`Messages: ${msgError.message}`)
-            } else {
-                deletedCounts.messages = msgData?.length || 0
-                console.log(`[RESET] ✅ Soft-deleted ${deletedCounts.messages} messages`)
-            }
-        } catch (e) {
-            console.error('[RESET] Message soft-delete exception:', e)
+            const messagesResult = await prisma.message.deleteMany({
+                where: {
+                    characterId: characterId,
+                    isDeleted: false // Only delete active messages (soft-deleted handled separately)
+                }
+            })
+            deleted.messages = messagesResult.count
+            console.log(`[RESET] ✅ Messages HARD deleted: ${messagesResult.count}`)
+        } catch (error: any) {
+            console.error('[RESET] ❌ Message delete error:', error.message)
+            errors.push(`Messages: ${error.message}`)
         }
 
-        // 2. SOFT DELETE Memories (Mark as deleted instead of permanent removal)
+        // 3b. HARD DELETE Memories (permanent)
         try {
-            const { data: memData, error: memError } = await supabaseAdmin
-                .from('Memory')
-                .update({ isDeleted: true })  // 🔥 SOFT DELETE
-                .eq('characterId', characterId)
-                .eq('isDeleted', false)       // Only update non-deleted
-                .select('id')
-
-            if (memError) {
-                console.error('[RESET] Memory soft-delete error:', memError)
-                errors.push(`Memories: ${memError.message}`)
-            } else {
-                deletedCounts.memories = memData?.length || 0
-                console.log(`[RESET] ✅ Soft-deleted ${deletedCounts.memories} memories`)
-            }
-        } catch (e) {
-            console.error('[RESET] Memory soft-delete exception:', e)
+            const memoriesResult = await prisma.memory.deleteMany({
+                where: {
+                    characterId: characterId,
+                    isDeleted: false
+                }
+            })
+            deleted.memories = memoriesResult.count
+            console.log(`[RESET] ✅ Memories HARD deleted: ${memoriesResult.count}`)
+        } catch (error: any) {
+            console.error('[RESET] ❌ Memory delete error:', error.message)
+            errors.push(`Memories: ${error.message}`)
         }
 
-        // 3. Delete Phone Messages
+        // 3c. Reset Relationship to STRANGER
         try {
-            const { data: phoneData, error: phoneError } = await supabaseAdmin
-                .from('phone_messages')
-                .delete()
-                .eq('character_id', characterId) // snake_case for Supabase tables
-                .select('id')
-
-            if (phoneError) {
-                console.error('[RESET] Phone messages delete error:', phoneError)
-                errors.push(`Phone Messages: ${phoneError.message}`)
-            } else {
-                deletedCounts.phoneMessages = phoneData?.length || 0
-                console.log(`[RESET] ✅ Deleted ${deletedCounts.phoneMessages} phone messages`)
-            }
-        } catch (e) {
-            console.error('[RESET] Phone messages delete exception:', e)
-        }
-
-        // 4. Delete Phone Conversations
-        try {
-            const { data: convData, error: convError } = await supabaseAdmin
-                .from('phone_conversations')
-                .delete()
-                .eq('character_id', characterId) // snake_case for Supabase tables
-                .select('id')
-
-            if (convError) {
-                console.error('[RESET] Phone conversations delete error:', convError)
-                errors.push(`Phone Conversations: ${convError.message}`)
-            } else {
-                deletedCounts.phoneConversations = convData?.length || 0
-                console.log(`[RESET] ✅ Deleted ${deletedCounts.phoneConversations} phone conversations`)
-            }
-        } catch (e) {
-            console.error('[RESET] Phone conversations delete exception:', e)
-        }
-
-        // 5. Reset Relationship to STRANGER status (RelationshipConfig)
-        try {
-            const { error: relError } = await supabaseAdmin
-                .from('RelationshipConfig')
-                .update({
-                    stage: 'STRANGER',               // ✅ Code stage
-                    status: 'Người lạ',              // ✅ Display text (DUAL SYNC)
-                    intimacyLevel: 0,
-                    affectionPoints: 0,
-                    messageCount: 0,
-                    lastStageChangeAt: 0,
-                    trustDebt: 0.0,
-                    emotionalMomentum: 0.0,
-                    apologyCount: 0,
-                    specialNotes: null,
-                    startDate: null,
+            if (relationshipToBackup) {
+                await prisma.relationshipConfig.update({
+                    where: {
+                        id: relationshipToBackup.id
+                    },
+                    data: {
+                        stage: 'STRANGER',               // Code stage
+                        status: 'Người lạ',              // Display text (DUAL SYNC)
+                        intimacyLevel: 0,
+                        affectionPoints: 0,
+                        messageCount: 0,
+                        lastStageChangeAt: 0,
+                        trustDebt: 0.0,
+                        emotionalMomentum: 0.0,
+                        apologyCount: 0,
+                        specialNotes: null,
+                        startDate: null,
+                    }
                 })
-                .eq('characterId', characterId)
-
-            if (relError) {
-                console.error('[RESET] Relationship reset error:', relError)
-                errors.push(`Relationship: ${relError.message}`)
+                deleted.relationshipReset = true
+                console.log(`[RESET] ✅ Relationship reset to STRANGER`)
             } else {
-                deletedCounts.relationshipReset = true
-                console.log(`[RESET] ✅ Reset relationship to STRANGER`)
+                console.log(`[RESET] ⚠️ No relationship found for user ${uid} with character ${characterId}`)
             }
-        } catch (e) {
-            console.error('[RESET] Relationship reset exception:', e)
+        } catch (error: any) {
+            console.error('[RESET] ❌ Relationship reset error:', error.message)
+            errors.push(`Relationship: ${error.message}`)
         }
 
-        // Summary
-        console.log(`[RESET] 🏁 Factory reset completed.`, {
-            deleted: deletedCounts,
+        // 3d. Clear phone content cache on character
+        try {
+            await prisma.character.update({
+                where: { id: characterId },
+                data: {
+                    phoneContentJson: null,
+                    phoneLastUpdated: null,
+                    phoneMessageCount: 0
+                }
+            })
+            console.log(`[RESET] ✅ Phone content cache cleared`)
+        } catch (error: any) {
+            // Non-critical, just log
+            console.log(`[RESET] ⚠️ Phone cache clear skipped: ${error.message}`)
+        }
+
+        // ============================================
+        // STEP 4: SUCCESS
+        // ============================================
+
+        console.log(`[RESET] 🏁 Factory reset completed successfully!`, {
+            deleted,
+            telegramBackupSuccess,
+            telegramFileId,
             errors: errors.length > 0 ? errors : 'none'
         })
 
         return NextResponse.json({
             success: true,
-            deleted: deletedCounts,
+            deleted,
+            backup: {
+                sent: telegramBackupSuccess,
+                messageCount: messagesToBackup.length,
+                memoryCount: memoriesToBackup.length,
+                telegramFileId: telegramFileId
+            },
             errors: errors.length > 0 ? errors : undefined
         })
 
     } catch (error: any) {
-        console.error('[RESET] Server Error:', error)
+        // Handle auth errors
+        if (isAuthError(error)) {
+            return NextResponse.json(
+                { error: error.message },
+                { status: 401 }
+            )
+        }
+
+        console.error('[RESET] 💥 Server Error:', error)
         return NextResponse.json(
             { error: error.message || 'Internal Server Error' },
             { status: 500 }

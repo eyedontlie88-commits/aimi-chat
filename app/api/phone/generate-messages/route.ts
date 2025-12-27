@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateWithProviders } from '@/lib/llm/router'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import { getAuthContext } from '@/lib/auth/require-auth'
 
 /**
  * API Route: Generate AI-generated phone messages for a character
@@ -25,6 +25,7 @@ interface MessageItem {
 
 export async function POST(req: NextRequest) {
     try {
+        const { uid, prisma } = await getAuthContext(req)
         const body = await req.json()
         const {
             characterId,        // 🔥 Required for DB save
@@ -347,78 +348,61 @@ ${isEnglish ? `[
             unread: typeof msg.unread === 'number' ? msg.unread : 0
         }))
 
-        // 💾 SAVE GENERATED MESSAGES TO DATABASE
+        // 💾 SAVE GENERATED MESSAGES TO DATABASE (PRISMA)
         let savedCount = 0
         let savedConversationIds: string[] = []
 
-        if (characterId && isSupabaseConfigured() && supabase) {
-            console.log('[Phone Messages] 💾 Saving to database...')
+        if (characterId) {
+            console.log('[Phone Messages] 💾 Saving to database via Prisma...')
 
             try {
                 for (const msg of messages) {
                     const senderName = msg.name || contactName || 'Unknown'
 
-                    // Step 1: Get or create conversation for this sender
-                    let conversationId: string | null = null
-
-                    const { data: existingConv } = await supabase
-                        .from('phone_conversations')
-                        .select('id')
-                        .eq('character_id', characterId)
-                        .eq('contact_name', senderName)
-                        .limit(1)
-                        .single()
-
-                    if (existingConv) {
-                        conversationId = existingConv.id
-                        console.log(`[Phone Messages] 📖 Using existing conversation for ${senderName}:`, conversationId)
-                    } else {
-                        const { data: newConv, error: convError } = await supabase
-                            .from('phone_conversations')
-                            .insert({
-                                character_id: characterId,
-                                contact_name: senderName,
-                                last_message_preview: msg.lastMessage.slice(0, 100),
-                                last_message_at: new Date().toISOString()
-                            })
-                            .select('id')
-                            .single()
-
-                        if (convError) {
-                            console.error(`[Phone Messages] ❌ Failed to create conversation for ${senderName}:`, convError)
-                            continue
+                    // Step 1: Get or create conversation using Prisma
+                    let conversation = await prisma.phoneConversation.findFirst({
+                        where: {
+                            characterId: characterId,
+                            contactName: senderName,
+                            userId: uid
                         }
+                    })
 
-                        conversationId = newConv.id
-                        console.log(`[Phone Messages] 🆕 Created conversation for ${senderName}:`, conversationId)
-                    }
-
-                    if (!conversationId) continue
-                    savedConversationIds.push(conversationId)
-
-                    // Step 2: Save the message
-                    const { error: msgError } = await supabase
-                        .from('phone_messages')
-                        .insert({
-                            conversation_id: conversationId,
-                            content: msg.lastMessage,
-                            is_from_character: false, // Messages FROM contact (LEFT side)
-                            created_at: new Date().toISOString()
+                    if (conversation) {
+                        console.log(`[Phone Messages] 📖 Using existing conversation for ${senderName}:`, conversation.id)
+                    } else {
+                        conversation = await prisma.phoneConversation.create({
+                            data: {
+                                characterId: characterId,
+                                userId: uid,
+                                contactName: senderName,
+                                lastMessage: msg.lastMessage.slice(0, 100),
+                                timestamp: new Date()
+                            }
                         })
-
-                    if (msgError) {
-                        console.error(`[Phone Messages] ❌ Failed to save message for ${senderName}:`, msgError)
-                        continue
+                        console.log(`[Phone Messages] 🆕 Created conversation for ${senderName}:`, conversation.id)
                     }
+
+                    savedConversationIds.push(conversation.id)
+
+                    // Step 2: Save the message using Prisma
+                    await prisma.phoneMessage.create({
+                        data: {
+                            conversationId: conversation.id,
+                            content: msg.lastMessage,
+                            role: 'contact', // Messages FROM contact
+                            timestamp: new Date()
+                        }
+                    })
 
                     // Step 3: Update conversation's last message
-                    await supabase
-                        .from('phone_conversations')
-                        .update({
-                            last_message_preview: msg.lastMessage.slice(0, 100),
-                            last_message_at: new Date().toISOString()
-                        })
-                        .eq('id', conversationId)
+                    await prisma.phoneConversation.update({
+                        where: { id: conversation.id },
+                        data: {
+                            lastMessage: msg.lastMessage.slice(0, 100),
+                            timestamp: new Date()
+                        }
+                    })
 
                     savedCount++
                 }
@@ -430,7 +414,7 @@ ${isEnglish ? `[
                 // Continue - don't fail the entire request
             }
         } else {
-            console.log('[Phone Messages] ⚠️ Skipping DB save:', !characterId ? 'No characterId' : 'Supabase not configured')
+            console.log('[Phone Messages] ⚠️ Skipping DB save: No characterId')
         }
 
         return NextResponse.json({

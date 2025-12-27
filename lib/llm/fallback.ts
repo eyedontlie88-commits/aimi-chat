@@ -7,10 +7,23 @@
  * - If primary model fails (429/500/network), automatically try alternatives
  * - Each fallback should be "lighter" and "faster" than the previous
  * - Maximum 3 attempts per request
+ * 
+ * NEW: Smart Model Selection
+ * - Pre-selects optimal model based on message length
+ * - Long messages (≥100 words) → Vietnamese-optimized models (Qwen, DeepSeek)
+ * - Short messages (<100 words) → Fast models (DeepSeek, Qwen 7B)
  */
 
 import { LLMMessage, LLMProviderId } from './types'
 import { generateWithProviders } from './router'
+import {
+    selectModelForMessage,
+    getNarrativeInstruction,
+    getRecommendedMaxTokens,
+    getRecommendedTemperature,
+    type MessageCategory,
+    type ModelConfig
+} from './model-selector'
 
 export interface FallbackModel {
     provider: LLMProviderId
@@ -113,6 +126,13 @@ export interface FallbackResult {
     fallbackUsed: boolean
 }
 
+// Extended result with category info
+export interface SmartFallbackResult extends FallbackResult {
+    category: MessageCategory
+    wordCount: number
+    maxTokensUsed: number
+}
+
 /**
  * Generate with smart fallback chain
  * Tries primary model first, then falls back through the chain
@@ -201,3 +221,117 @@ export async function generateWithFallback(
     // Should never reach here, but just in case
     throw new Error('Fallback chain exhausted without result')
 }
+
+/**
+ * 🆕 SMART FALLBACK WITH MESSAGE CATEGORY DETECTION
+ * 
+ * Pre-selects optimal models based on user message length
+ * - Long messages (≥100 words): Vietnamese-optimized models (Qwen 32B, DeepSeek V3)
+ * - Short messages (<100 words): Fast models (DeepSeek V3, Qwen 7B)
+ * 
+ * Falls back WITHIN THE SAME CATEGORY (long→long, short→short)
+ * 
+ * @param messages - Conversation messages (last one is user's current message)
+ * @param userLanguage - User's preferred language ('en' or 'vi')
+ * @returns Generated response with category metadata
+ */
+export async function generateWithSmartFallback(
+    messages: LLMMessage[],
+    userLanguage: string = 'vi'
+): Promise<SmartFallbackResult> {
+    const MAX_ATTEMPTS = 3
+
+    // Extract user's latest message for category detection
+    const userMessages = messages.filter(m => m.role === 'user')
+    const latestUserMessage = userMessages[userMessages.length - 1]?.content || ''
+
+    // Detect category and select optimal models
+    const { category, models, wordCount } = selectModelForMessage(latestUserMessage)
+    const maxTokens = getRecommendedMaxTokens(category)
+    const temperature = getRecommendedTemperature(category)
+
+    console.log(`[Smart Fallback] 📊 Category: ${category.toUpperCase()} | Words: ${wordCount} | MaxTokens: ${maxTokens}`)
+    console.log(`[Smart Fallback] 🎯 Model priority: ${models.map(m => m.displayName).join(' → ')}`)
+
+    // Get narrative instruction to inject
+    const narrativeInstruction = getNarrativeInstruction(category, userLanguage)
+
+    // Inject narrative instruction into system message (first message)
+    const enhancedMessages = [...messages]
+    if (enhancedMessages.length > 0 && enhancedMessages[0].role === 'system') {
+        enhancedMessages[0] = {
+            ...enhancedMessages[0],
+            content: enhancedMessages[0].content + '\n\n' + narrativeInstruction
+        }
+    } else {
+        // Prepend system message if not exists
+        enhancedMessages.unshift({
+            role: 'system',
+            content: narrativeInstruction
+        })
+    }
+
+    // Filter models by available API keys
+    const availableModels = models.filter(m => {
+        if (m.provider === 'silicon') return hasSiliconKey()
+        if (m.provider === 'gemini') return hasGeminiKey()
+        if (m.provider === 'moonshot') return hasMoonshotKey()
+        if (m.provider === 'openrouter') return hasOpenRouterKey()
+        return true
+    })
+
+    if (availableModels.length === 0) {
+        throw new Error('[Smart Fallback] No models available with valid API keys!')
+    }
+
+    // Try each model in priority order (same category)
+    const attempts: { model: string; error: string }[] = []
+
+    for (let i = 0; i < Math.min(availableModels.length, MAX_ATTEMPTS); i++) {
+        const modelConfig = availableModels[i]
+
+        try {
+            console.log(`[Smart Fallback] Attempt ${i + 1}/${MAX_ATTEMPTS}: ${modelConfig.displayName}`)
+
+            const result = await generateWithProviders(enhancedMessages, {
+                provider: modelConfig.provider as LLMProviderId,
+                model: modelConfig.modelName
+            })
+
+            console.log(`[Smart Fallback] ✅ Success with ${modelConfig.displayName} | Response length: ${result.reply.length} chars`)
+
+            return {
+                reply: result.reply,
+                providerUsed: result.providerUsed,
+                modelUsed: result.modelUsed,
+                attemptCount: i + 1,
+                fallbackUsed: i > 0,
+                category,
+                wordCount,
+                maxTokensUsed: maxTokens
+            }
+
+        } catch (error: any) {
+            const errorMsg = error?.message || 'Unknown error'
+            console.warn(`[Smart Fallback] ❌ ${modelConfig.displayName} failed: ${errorMsg}`)
+
+            attempts.push({
+                model: modelConfig.displayName,
+                error: errorMsg
+            })
+
+            // Continue to next model in SAME category
+            console.log(`[Smart Fallback] Trying next model in ${category.toUpperCase()} category...`)
+        }
+    }
+
+    // All category-specific models failed
+    const aggregatedError = new Error(
+        `Tất cả ${attempts.length} model ${category} đều thất bại. Vui lòng thử lại sau.`
+    ) as any
+    aggregatedError.code = 'ALL_CATEGORY_MODELS_FAILED'
+    aggregatedError.category = category
+    aggregatedError.attempts = attempts
+    throw aggregatedError
+}
+

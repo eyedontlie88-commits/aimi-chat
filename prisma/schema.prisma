@@ -31,6 +31,7 @@ model Character {
   memories             Memory[]
   messages             Message[]
   relationshipConfig   RelationshipConfig?
+  phoneConversations   PhoneConversation[]
 }
 
 model UserProfile {
@@ -108,4 +109,38 @@ model Memory {
   sourceMessage   Message?  @relation("MessageMemories", fields: [sourceMessageId], references: [id])
 
   @@index([characterId, importanceScore])
+}
+
+// ============================================
+// PHONE MESSAGE TABLES
+// For in-character phone messaging feature
+// ============================================
+
+model PhoneConversation {
+  id            String         @id @default(cuid())
+  characterId   String
+  userId        String
+  contactName   String
+  contactAvatar String?
+  lastMessage   String?
+  timestamp     DateTime       @default(now())
+  unread        Boolean        @default(false)
+  
+  messages      PhoneMessage[]
+  character     Character      @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  
+  @@unique([characterId, userId, contactName])
+  @@map("phone_conversations")
+}
+
+model PhoneMessage {
+  id              String            @id @default(cuid())
+  conversationId  String
+  role            String            // "user" or "contact"
+  content         String            @db.Text
+  timestamp       DateTime          @default(now())
+  
+  conversation    PhoneConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@map("phone_messages")
 }

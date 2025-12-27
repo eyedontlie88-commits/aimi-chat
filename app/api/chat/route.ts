@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext, isAuthError } from '@/lib/auth/require-auth'
-import { generateWithFallback } from '@/lib/llm/fallback'
+import { generateWithFallback, generateWithSmartFallback, type SmartFallbackResult } from '@/lib/llm/fallback'
 import { buildChatPrompt } from '@/lib/prompt/builder'
 import { updateRelationshipStats } from '@/lib/relationship'
 import type { SceneState, LLMProviderId } from '@/lib/llm/types'
@@ -233,13 +233,56 @@ ${nextDirection.trim()}`
             })
         }
 
-        // Generate AI response with Smart Fallback Chain
-        // "Không bỏ lại User phía sau" - tries multiple models if primary fails
-        const { reply: aiResponse, providerUsed, modelUsed, attemptCount, fallbackUsed } = await generateWithFallback(
-            promptMessages,
-            preferredProvider,
-            preferredModel
-        )
+        // ============================================
+        // 🎯 SMART MODEL SELECTION
+        // Uses message length to select optimal model
+        // Long messages (≥100 words) → Vietnamese-optimized models
+        // Short messages (<100 words) → Fast models
+        // ============================================
+
+        let aiResponse: string
+        let providerUsed: LLMProviderId
+        let modelUsed: string
+        let attemptCount: number
+        let fallbackUsed: boolean
+        let messageCategory: 'short' | 'long' = 'short'
+
+        // Check if character has a custom model configured
+        const hasCustomModel = preferredModel && preferredModel !== 'default'
+
+        if (hasCustomModel) {
+            // Use character's preferred model with classic fallback
+            console.log(`[Chat API] 🎮 Using character's preferred model: ${preferredProvider}/${preferredModel}`)
+
+            const result = await generateWithFallback(
+                promptMessages,
+                preferredProvider,
+                preferredModel
+            )
+
+            aiResponse = result.reply
+            providerUsed = result.providerUsed
+            modelUsed = result.modelUsed
+            attemptCount = result.attemptCount
+            fallbackUsed = result.fallbackUsed
+        } else {
+            // Use SMART model selection based on message length
+            console.log('[Chat API] 🧠 Using SMART model selection based on message length...')
+
+            const result = await generateWithSmartFallback(
+                promptMessages,
+                userLanguage || 'vi'
+            )
+
+            aiResponse = result.reply
+            providerUsed = result.providerUsed
+            modelUsed = result.modelUsed
+            attemptCount = result.attemptCount
+            fallbackUsed = result.fallbackUsed
+            messageCategory = result.category
+
+            console.log(`[Chat API] 📊 Smart Selection: ${messageCategory.toUpperCase()} mode, ${result.wordCount} words, maxTokens=${result.maxTokensUsed}`)
+        }
 
         if (fallbackUsed) {
             console.log(`[Chat API] ⚠️ Fallback used: ${providerUsed}/${modelUsed} (attempt ${attemptCount})`)
@@ -457,6 +500,8 @@ ${nextDirection.trim()}`
             meta: {
                 provider: providerUsed,
                 model: modelUsed,
+                // 🎯 Smart Model Selection: message category (short/long)
+                category: messageCategory,
             },
         })
     } catch (error: any) {

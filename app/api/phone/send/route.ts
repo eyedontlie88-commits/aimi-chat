@@ -50,21 +50,18 @@ RESPONSE JSON:
 {"allowed": boolean, "refusalMessage": "string (optional, ${isEnglish ? 'English' : 'Vietnamese'})"}`
 
         try {
-            // � CHANGE: Revert to 'default' provider to be safe
-            // This uses whatever is set in LLM_DEFAULT_PROVIDER in your .env
-            const result = await generateWithProviders({
-                messages: [
+            // 🔥 FIX: generateWithProviders takes (messages[], options) not (object)
+            const result = await generateWithProviders(
+                [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: "Decide now." }
                 ],
-                temperature: 0.7,
-                maxTokens: 200,
-                provider: 'default' // 👈 Quay về default cho lành
-            })
+                { provider: 'default' }
+            )
 
-            // Parse result
-            if (result.success && result.content) {
-                let jsonString = result.content.trim().replace(/^```json\s?/, '').replace(/```$/, '').trim()
+            // Parse result - generateWithProviders returns { reply, providerUsed, modelUsed }
+            if (result.reply) {
+                let jsonString = result.reply.trim().replace(/^```json\s?/, '').replace(/```$/, '').trim()
                 const decision = JSON.parse(jsonString)
 
                 console.log(`[Phone Send] 🤖 AI Decision: ${decision.allowed}`)

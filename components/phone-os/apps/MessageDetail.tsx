@@ -26,7 +26,7 @@ interface MessageDetailProps {
 interface MessageBubble {
     id: string
     content: string
-    is_from_character: boolean
+    role: 'user' | 'contact' // ✅ FIXED: Use role from DB instead of is_from_character
     created_at: string
 }
 
@@ -104,6 +104,10 @@ export default function MessageDetail({
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
+
+    // 🏦 Detect banking contact (notification-only, no replies allowed)
+    const isBankingContact = senderName.toLowerCase().includes('ngân hàng') ||
+        senderName.toLowerCase().includes('bank')
 
     useEffect(() => {
         scrollToBottom()
@@ -245,8 +249,9 @@ export default function MessageDetail({
                 // 🔥 STEP 3: Smart reload - check if AI should reply
                 else if (isReload && fetchedMessages.length > 0) {
                     const lastMessage = fetchedMessages[fetchedMessages.length - 1]
-                    // is_from_character: true = user (RIGHT side), false = AI (LEFT side)
-                    const shouldRegenerate = lastMessage.is_from_character === true
+                    // ✅ FIXED: Check role instead of is_from_character
+                    // role='user' = last message from user (Hiếu) → AI should reply
+                    const shouldRegenerate = lastMessage.role === 'user'
 
                     if (shouldRegenerate) {
                         console.log('[MessageDetail] 🤖 Last message from user, triggering AI reply...')
@@ -383,7 +388,7 @@ export default function MessageDetail({
                             characterId,
                             senderName,
                             content: replyText.trim(),
-                            is_from_character: true // 🔥 User replying AS character = RIGHT side
+                            is_from_character: false // ✅ FIXED: User replying = NOT from contact (will be saved as role='user')
                         })
                     })
 
@@ -402,7 +407,7 @@ export default function MessageDetail({
                         const userMessage: MessageBubble = {
                             id: savedMessageId,
                             content: replyText.trim(),
-                            is_from_character: true, // 🔥 User = RIGHT side
+                            role: 'user', // ✅ FIXED: User message = RIGHT side
                             created_at: new Date().toISOString()
                         }
                         saveToLocalCache(userMessage)
@@ -430,14 +435,47 @@ export default function MessageDetail({
                                 if (aiRes.ok) {
                                     const aiData = await aiRes.json()
                                     if (aiData.messages && aiData.messages.length > 0) {
-                                        setMessages(aiData.messages)
-                                        console.log(`[MessageDetail] ✅ Refreshed with ${aiData.messages.length} messages`)
+                                        // 🔥 FIX: Merge DB messages with local state to prevent race condition
+                                        // Don't blindly overwrite - check if user message exists in DB response
+                                        setMessages(prevMessages => {
+                                            const dbMessages = aiData.messages as MessageBubble[]
+                                            const userMsgContent = replyText.trim()
+
+                                            // Check if our user message is in DB response
+                                            // 🔥 Added timestamp check to handle duplicate content (e.g., "ok" sent twice)
+                                            const now = Date.now()
+                                            const userMsgInDb = dbMessages.some(m =>
+                                                m.content === userMsgContent &&
+                                                m.role === 'user' && // ✅ FIXED: Use role instead of is_from_character
+                                                Math.abs(new Date(m.created_at).getTime() - now) < 10000 // Within 10s
+                                            )
+
+                                            if (userMsgInDb) {
+                                                // DB has our message, safe to use DB messages
+                                                console.log(`[MessageDetail] ✅ DB has user message, using DB state (${dbMessages.length} messages)`)
+                                                return dbMessages
+                                            } else {
+                                                // Race condition! DB doesn't have our message yet
+                                                // Keep local user message and append any new AI messages
+                                                console.log(`[MessageDetail] ⚠️ Race condition detected! Preserving local user message`)
+
+                                                // Find messages that are new (not in prev)
+                                                const prevIds = new Set(prevMessages.map(m => m.id))
+                                                const newMessages = dbMessages.filter(m => !prevIds.has(m.id))
+
+                                                if (newMessages.length > 0) {
+                                                    console.log(`[MessageDetail] 📥 Adding ${newMessages.length} new messages from DB`)
+                                                    return [...prevMessages, ...newMessages]
+                                                }
+                                                return prevMessages
+                                            }
+                                        })
                                     }
                                 }
                             } catch (aiErr) {
                                 console.error('[MessageDetail] AI trigger error:', aiErr)
                             }
-                        }, 500) // Small delay to let backend save complete
+                        }, 1000) // 🔥 Increased delay to 1s for DB save to complete
                     }
                 } catch (saveErr) {
                     console.error('[MessageDetail] Failed to save to DB:', saveErr)
@@ -447,7 +485,7 @@ export default function MessageDetail({
                     const newMessage: MessageBubble = {
                         id: savedMessageId,
                         content: replyText.trim(),
-                        is_from_character: true, // 🔥 User = RIGHT side
+                        role: 'user', // ✅ FIXED: User message = RIGHT side
                         created_at: new Date().toISOString()
                     }
                     saveToLocalCache(newMessage)
@@ -675,8 +713,8 @@ export default function MessageDetail({
                 ) : (
                     <>
                         {messages.map((msg, index) => (
-                            <div key={msg.id || index} className={`flex ${msg.is_from_character ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[75%] px-3 py-2 rounded-2xl ${msg.is_from_character ? 'bg-blue-500 text-white rounded-br-md' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md'}`}>
+                            <div key={msg.id || index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[75%] px-3 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-blue-500 text-white rounded-br-md' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md'}`}>
                                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                                 </div>
                             </div>
@@ -694,68 +732,80 @@ export default function MessageDetail({
             )}
 
             {/* Reply Input + DEV DIRECTOR CONSOLE */}
-            <div className="px-3 py-2 border-t border-gray-100 bg-white">
+            {isBankingContact ? (
+                /* 🏦 Banking contacts: Show notification-only message */
+                <div className="px-3 py-3 border-t border-gray-100 bg-gray-50">
+                    <p className="text-xs text-gray-400 text-center italic">
+                        📢 {lang === 'vi'
+                            ? 'Tin nhắn thông báo (không thể trả lời)'
+                            : 'Notification only (cannot reply)'}
+                    </p>
+                </div>
+            ) : (
+                /* Normal contacts: Show reply input */
+                <div className="px-3 py-2 border-t border-gray-100 bg-white">
 
-                {/* 🎬 DEV DIRECTOR TOOLBAR (Chỉ hiện cho Dev) */}
-                {isDevUser && (
-                    <div className="flex gap-2 mb-2 justify-center">
+                    {/* 🎬 DEV DIRECTOR TOOLBAR (Chỉ hiện cho Dev) */}
+                    {isDevUser && (
+                        <div className="flex gap-2 mb-2 justify-center">
+                            <button
+                                onClick={() => setDevMode('DRAMA')}
+                                className={`p-1.5 rounded-full transition-all ${devMode === 'DRAMA' ? 'bg-red-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500'}`}
+                                title="🔴 Force DRAMA (Test DENY)"
+                            >
+                                <HeartCrack className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setDevMode('NORMAL')}
+                                className={`p-1.5 rounded-full transition-all ${devMode === 'NORMAL' ? 'bg-blue-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-blue-100 hover:text-blue-500'}`}
+                                title="⚡ Normal Mode"
+                            >
+                                <Zap className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setDevMode('LOVE')}
+                                className={`p-1.5 rounded-full transition-all ${devMode === 'LOVE' ? 'bg-pink-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-pink-100 hover:text-pink-500'}`}
+                                title="🟢 Force LOVE (Test ALLOW)"
+                            >
+                                <Heart className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
+                            placeholder={devMode === 'DRAMA'
+                                ? "🔴 Thử nhắn gì đó xem có bị chặn k..."
+                                : devMode === 'LOVE'
+                                    ? "💕 Nhắn gì cũng được qua hết..."
+                                    : (lang === 'en' ? `Reply as ${characterName}...` : `Trả lời thay ${characterName}...`)}
+                            disabled={isSending}
+                            className={`flex-1 px-4 py-2 rounded-full border text-sm focus:outline-none disabled:bg-gray-50 transition-colors ${devMode === 'DRAMA'
+                                ? 'border-red-300 bg-red-50 focus:border-red-400'
+                                : devMode === 'LOVE'
+                                    ? 'border-pink-300 bg-pink-50 focus:border-pink-400'
+                                    : 'border-gray-200 focus:border-blue-300'
+                                }`}
+                        />
                         <button
-                            onClick={() => setDevMode('DRAMA')}
-                            className={`p-1.5 rounded-full transition-all ${devMode === 'DRAMA' ? 'bg-red-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500'}`}
-                            title="🔴 Force DRAMA (Test DENY)"
+                            onClick={handleSendReply}
+                            disabled={!replyText.trim() || isSending}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isSending
+                                ? 'bg-gray-100 text-gray-400'
+                                : replyText.trim()
+                                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                    : 'bg-gray-100 text-gray-400'
+                                }`}
                         >
-                            <HeartCrack className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => setDevMode('NORMAL')}
-                            className={`p-1.5 rounded-full transition-all ${devMode === 'NORMAL' ? 'bg-blue-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-blue-100 hover:text-blue-500'}`}
-                            title="⚡ Normal Mode"
-                        >
-                            <Zap className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => setDevMode('LOVE')}
-                            className={`p-1.5 rounded-full transition-all ${devMode === 'LOVE' ? 'bg-pink-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-pink-100 hover:text-pink-500'}`}
-                            title="🟢 Force LOVE (Test ALLOW)"
-                        >
-                            <Heart className="w-4 h-4" />
+                            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                         </button>
                     </div>
-                )}
-
-                <div className="flex items-center gap-2">
-                    <input
-                        type="text"
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
-                        placeholder={devMode === 'DRAMA'
-                            ? "🔴 Thử nhắn gì đó xem có bị chặn k..."
-                            : devMode === 'LOVE'
-                                ? "💕 Nhắn gì cũng được qua hết..."
-                                : (lang === 'en' ? `Reply as ${characterName}...` : `Trả lời thay ${characterName}...`)}
-                        disabled={isSending}
-                        className={`flex-1 px-4 py-2 rounded-full border text-sm focus:outline-none disabled:bg-gray-50 transition-colors ${devMode === 'DRAMA'
-                            ? 'border-red-300 bg-red-50 focus:border-red-400'
-                            : devMode === 'LOVE'
-                                ? 'border-pink-300 bg-pink-50 focus:border-pink-400'
-                                : 'border-gray-200 focus:border-blue-300'
-                            }`}
-                    />
-                    <button
-                        onClick={handleSendReply}
-                        disabled={!replyText.trim() || isSending}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isSending
-                            ? 'bg-gray-100 text-gray-400'
-                            : replyText.trim()
-                                ? 'bg-blue-500 text-white hover:bg-blue-600'
-                                : 'bg-gray-100 text-gray-400'
-                            }`}
-                    >
-                        {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                    </button>
                 </div>
-            </div>
+            )}
         </div>
     )
 }
