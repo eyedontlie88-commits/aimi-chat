@@ -732,80 +732,79 @@ export default function MessageDetail({
             )}
 
             {/* Reply Input + DEV DIRECTOR CONSOLE */}
-            {isBankingContact ? (
-                /* 🏦 Banking contacts: Show notification-only message */
-                <div className="px-3 py-3 border-t border-gray-100 bg-gray-50">
-                    <p className="text-xs text-gray-400 text-center italic">
-                        📢 {lang === 'vi'
-                            ? 'Tin nhắn thông báo (không thể trả lời)'
-                            : 'Notification only (cannot reply)'}
-                    </p>
-                </div>
-            ) : (
-                /* Normal contacts: Show reply input */
-                <div className="px-3 py-2 border-t border-gray-100 bg-white">
+            <div className="px-3 py-2 border-t border-gray-100 bg-white">
 
-                    {/* 🎬 DEV DIRECTOR TOOLBAR (Chỉ hiện cho Dev) */}
-                    {isDevUser && (
-                        <div className="flex gap-2 mb-2 justify-center">
-                            <button
-                                onClick={() => setDevMode('DRAMA')}
-                                className={`p-1.5 rounded-full transition-all ${devMode === 'DRAMA' ? 'bg-red-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500'}`}
-                                title="🔴 Force DRAMA (Test DENY)"
-                            >
-                                <HeartCrack className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setDevMode('NORMAL')}
-                                className={`p-1.5 rounded-full transition-all ${devMode === 'NORMAL' ? 'bg-blue-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-blue-100 hover:text-blue-500'}`}
-                                title="⚡ Normal Mode"
-                            >
-                                <Zap className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setDevMode('LOVE')}
-                                className={`p-1.5 rounded-full transition-all ${devMode === 'LOVE' ? 'bg-pink-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-pink-100 hover:text-pink-500'}`}
-                                title="🟢 Force LOVE (Test ALLOW)"
-                            >
-                                <Heart className="w-4 h-4" />
-                            </button>
-                        </div>
-                    )}
+                {/* 🏦 Banking soft notice (friendly UX, not blocking) */}
+                {isBankingContact && (
+                    <div className="mb-2 px-2 py-1.5 bg-blue-50 border border-blue-100 rounded-lg">
+                        <p className="text-[11px] text-blue-600 text-center">
+                            � {lang === 'vi'
+                                ? 'Tin nhắn không tự động phản hồi (Liên hệ Hotline hoặc website để được hỗ trợ)'
+                                : 'Auto-reply disabled (Contact hotline or visit website for support)'}
+                        </p>
+                    </div>
+                )}
 
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="text"
-                            value={replyText}
-                            onChange={(e) => setReplyText(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
-                            placeholder={devMode === 'DRAMA'
-                                ? "🔴 Thử nhắn gì đó xem có bị chặn k..."
-                                : devMode === 'LOVE'
-                                    ? "💕 Nhắn gì cũng được qua hết..."
-                                    : (lang === 'en' ? `Reply as ${characterName}...` : `Trả lời thay ${characterName}...`)}
-                            disabled={isSending}
-                            className={`flex-1 px-4 py-2 rounded-full border text-sm focus:outline-none disabled:bg-gray-50 transition-colors ${devMode === 'DRAMA'
-                                ? 'border-red-300 bg-red-50 focus:border-red-400'
-                                : devMode === 'LOVE'
-                                    ? 'border-pink-300 bg-pink-50 focus:border-pink-400'
-                                    : 'border-gray-200 focus:border-blue-300'
-                                }`}
-                        />
+                {/* 🎬 DEV DIRECTOR TOOLBAR (Chỉ hiện cho Dev) */}
+                {isDevUser && (
+                    <div className="flex gap-2 mb-2 justify-center">
                         <button
-                            onClick={handleSendReply}
-                            disabled={!replyText.trim() || isSending}
-                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isSending
-                                ? 'bg-gray-100 text-gray-400'
-                                : replyText.trim()
-                                    ? 'bg-blue-500 text-white hover:bg-blue-600'
-                                    : 'bg-gray-100 text-gray-400'
-                                }`}
+                            onClick={() => setDevMode('DRAMA')}
+                            className={`p-1.5 rounded-full transition-all ${devMode === 'DRAMA' ? 'bg-red-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500'}`}
+                            title="🔴 Force DRAMA (Test DENY)"
                         >
-                            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                            <HeartCrack className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setDevMode('NORMAL')}
+                            className={`p-1.5 rounded-full transition-all ${devMode === 'NORMAL' ? 'bg-blue-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-blue-100 hover:text-blue-500'}`}
+                            title="⚡ Normal Mode"
+                        >
+                            <Zap className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setDevMode('LOVE')}
+                            className={`p-1.5 rounded-full transition-all ${devMode === 'LOVE' ? 'bg-pink-500 text-white scale-110' : 'bg-gray-100 text-gray-400 hover:bg-pink-100 hover:text-pink-500'}`}
+                            title="🟢 Force LOVE (Test ALLOW)"
+                        >
+                            <Heart className="w-4 h-4" />
                         </button>
                     </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                    <input
+                        type="text"
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
+                        placeholder={devMode === 'DRAMA'
+                            ? "🔴 Thử nhắn gì đó xem có bị chặn k..."
+                            : devMode === 'LOVE'
+                                ? "💕 Nhắn gì cũng được qua hết..."
+                                : (lang === 'en' ? `Reply as ${characterName}...` : `Trả lời thay ${characterName}...`)}
+                        disabled={isSending}
+                        className={`flex-1 px-4 py-2 rounded-full border text-sm focus:outline-none disabled:bg-gray-50 transition-colors ${devMode === 'DRAMA'
+                            ? 'border-red-300 bg-red-50 focus:border-red-400'
+                            : devMode === 'LOVE'
+                                ? 'border-pink-300 bg-pink-50 focus:border-pink-400'
+                                : 'border-gray-200 focus:border-blue-300'
+                            }`}
+                    />
+                    <button
+                        onClick={handleSendReply}
+                        disabled={!replyText.trim() || isSending}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isSending
+                            ? 'bg-gray-100 text-gray-400'
+                            : replyText.trim()
+                                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                : 'bg-gray-100 text-gray-400'
+                            }`}
+                    >
+                        {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                    </button>
                 </div>
-            )}
+            </div>
         </div>
     )
 }

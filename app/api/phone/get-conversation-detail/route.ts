@@ -76,9 +76,14 @@ export async function POST(req: NextRequest) {
         // 2. If forceRegenerate, trigger AI reply first
         let regenerated = false
 
-        // 🏦 BANKING AUTO-BLOCK - Skip AI generation for banking contacts
+        // 🏦 NOTIFICATION CONTACTS - Skip AI generation for banking/ecommerce/delivery
         const isBankingContact = senderName.toLowerCase().includes('ngân hàng') ||
-            senderName.toLowerCase().includes('bank')
+            senderName.toLowerCase().includes('bank') ||
+            senderName.toLowerCase().includes('shopee') ||
+            senderName.toLowerCase().includes('lazada') ||
+            senderName.toLowerCase().includes('grab') ||
+            senderName.toLowerCase().includes('momo') ||
+            senderName.toLowerCase().includes('zalopay')
 
         if (forceRegenerate && isBankingContact) {
             console.log('[Phone Detail] 🚫 Skipping AI generation for banking contact (notification-only)')

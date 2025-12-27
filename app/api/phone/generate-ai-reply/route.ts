@@ -127,19 +127,26 @@ export async function POST(req: NextRequest) {
         console.log(`[AI Reply] 🤖 Generating reply for conversation: ${conversationId}`)
 
         // ========================================
-        // 🏦 CRITICAL: BANKING AUTO-BLOCK
-        // DO NOT REMOVE - Banking contacts are notification-only!
+        // 🏦 BANKING SOFT-BLOCK: User can send, AI won't reply
+        // User messages still saved to DB, but AI generation skipped
         // ========================================
         const isBankingContact = senderName.toLowerCase().includes('ngân hàng') ||
-            senderName.toLowerCase().includes('bank')
+            senderName.toLowerCase().includes('bank') ||
+            senderName.toLowerCase().includes('shopee') ||
+            senderName.toLowerCase().includes('lazada') ||
+            senderName.toLowerCase().includes('grab') ||
+            senderName.toLowerCase().includes('momo') ||
+            senderName.toLowerCase().includes('zalopay')
 
         if (isBankingContact) {
-            console.log('[AI Reply] 🚫 BLOCKED: Banking contact detected - notifications are one-way only')
+            console.log('[AI Reply] 🏦 Banking/Notification contact detected - skipping AI generation (user can still send messages)')
             return NextResponse.json({
-                error: 'Banking notifications do not accept replies',
-                blocked: true,
-                reason: 'BANKING_NOTIFICATION_ONLY'
-            }, { status: 403 })
+                success: true,
+                message: null,
+                generated: false,
+                reason: 'NOTIFICATION_ONLY_CONTACT',
+                info: 'User message saved but AI will not reply'
+            }, { status: 200 }) // Return 200 OK, not 403 Forbidden
         }
 
         // 1. Validation
