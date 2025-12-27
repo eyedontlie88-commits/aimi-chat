@@ -76,19 +76,10 @@ export async function POST(req: NextRequest) {
         // 2. If forceRegenerate, trigger AI reply first
         let regenerated = false
 
-        // 🏦 NOTIFICATION CONTACTS - Skip AI generation for banking/ecommerce/delivery
-        const isBankingContact = senderName.toLowerCase().includes('ngân hàng') ||
-            senderName.toLowerCase().includes('bank') ||
-            senderName.toLowerCase().includes('shopee') ||
-            senderName.toLowerCase().includes('lazada') ||
-            senderName.toLowerCase().includes('grab') ||
-            senderName.toLowerCase().includes('momo') ||
-            senderName.toLowerCase().includes('zalopay')
-
-        if (forceRegenerate && isBankingContact) {
-            console.log('[Phone Detail] 🚫 Skipping AI generation for banking contact (notification-only)')
-            // Do nothing - just return messages without generating AI reply
-        } else if (forceRegenerate) {
+        // ✅ FIXED: Call generate-ai-reply for ALL contacts
+        // Banking/notification contacts will receive auto-reply template INSIDE generate-ai-reply
+        // DO NOT skip here - let the API handle the logic
+        if (forceRegenerate) {
             console.log(`[Phone Detail] 🤖 Force regenerate requested, triggering AI reply...`)
 
             try {
@@ -109,7 +100,12 @@ export async function POST(req: NextRequest) {
                 })
 
                 if (regenRes.ok) {
-                    console.log('[Phone Detail] ✅ AI reply generated')
+                    const regenData = await regenRes.json().catch(() => ({}))
+                    if (regenData.isAutoReply) {
+                        console.log('[Phone Detail] ✅ Auto-reply sent (banking/notification contact)')
+                    } else {
+                        console.log('[Phone Detail] ✅ AI reply generated')
+                    }
                     regenerated = true
                 } else {
                     const errorData = await regenRes.json().catch(() => ({}))
