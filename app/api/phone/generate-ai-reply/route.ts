@@ -127,26 +127,84 @@ export async function POST(req: NextRequest) {
         console.log(`[AI Reply] 🤖 Generating reply for conversation: ${conversationId}`)
 
         // ========================================
-        // 🏦 BANKING SOFT-BLOCK: User can send, AI won't reply
-        // User messages still saved to DB, but AI generation skipped
+        // 🏦 AUTO-REPLY BOT: Realistic simulation of notification services
+        // User messages saved, instant auto-reply generated (no LLM needed)
         // ========================================
-        const isBankingContact = senderName.toLowerCase().includes('ngân hàng') ||
-            senderName.toLowerCase().includes('bank') ||
-            senderName.toLowerCase().includes('shopee') ||
-            senderName.toLowerCase().includes('lazada') ||
-            senderName.toLowerCase().includes('grab') ||
-            senderName.toLowerCase().includes('momo') ||
-            senderName.toLowerCase().includes('zalopay')
+        const lowerName = senderName.toLowerCase()
+        const isBankingContact = lowerName.includes('ngân hàng') ||
+            lowerName.includes('bank') ||
+            lowerName.includes('shopee') ||
+            lowerName.includes('lazada') ||
+            lowerName.includes('grab') ||
+            lowerName.includes('momo') ||
+            lowerName.includes('zalopay')
 
         if (isBankingContact) {
-            console.log('[AI Reply] 🏦 Banking/Notification contact detected - skipping AI generation (user can still send messages)')
+            console.log('[AI Reply] 🏦 Notification contact detected - sending auto-reply template')
+
+            // 📱 AUTO-REPLY TEMPLATES (Realistic simulation of real services)
+            let autoReply = ''
+
+            if (lowerName.includes('ngân hàng') || lowerName.includes('bank')) {
+                autoReply = userLanguage === 'vi'
+                    ? '📱 Tin nhắn không được phản hồi tự động. Vui lòng liên hệ Hotline: 1900-xxxx hoặc mở App ngân hàng để được hỗ trợ.'
+                    : '📱 This number does not support auto-reply. Please contact Hotline: 1900-xxxx or open Banking App for support.'
+            } else if (lowerName.includes('shopee')) {
+                autoReply = userLanguage === 'vi'
+                    ? '🛍️ Shopee không hỗ trợ phản hồi qua SMS. Vui lòng mở app Shopee hoặc liên hệ hotline: 1900-1234 để được hỗ trợ.'
+                    : '🛍️ Shopee does not support SMS replies. Please open Shopee app or call: 1900-1234.'
+            } else if (lowerName.includes('lazada')) {
+                autoReply = userLanguage === 'vi'
+                    ? '📦 Lazada không hỗ trợ phản hồi qua tin nhắn. Vui lòng truy cập app Lazada hoặc gọi: 1900-6035.'
+                    : '📦 Lazada does not support SMS replies. Please visit Lazada app or call: 1900-6035.'
+            } else if (lowerName.includes('grab')) {
+                autoReply = userLanguage === 'vi'
+                    ? '🚗 Grab không hỗ trợ phản hồi qua SMS. Vui lòng mở app Grab để theo dõi chuyến đi hoặc liên hệ hotline: 1900-1239.'
+                    : '🚗 Grab does not support SMS replies. Please open Grab app to track your ride or call: 1900-1239.'
+            } else if (lowerName.includes('momo')) {
+                autoReply = userLanguage === 'vi'
+                    ? '💰 MoMo không hỗ trợ phản hồi tự động. Vui lòng mở app MoMo hoặc gọi Hotline: 1900-545-436.'
+                    : '💰 MoMo does not support auto-reply. Please open MoMo app or call: 1900-545-436.'
+            } else if (lowerName.includes('zalopay')) {
+                autoReply = userLanguage === 'vi'
+                    ? '💳 ZaloPay không hỗ trợ phản hồi qua SMS. Vui lòng mở app ZaloPay hoặc liên hệ: 1900-5555.'
+                    : '💳 ZaloPay does not support SMS replies. Please open ZaloPay app or call: 1900-5555.'
+            } else {
+                // Generic fallback for other notification services
+                autoReply = userLanguage === 'vi'
+                    ? '🤖 Dịch vụ này không hỗ trợ phản hồi tự động. Vui lòng liên hệ qua app hoặc hotline.'
+                    : '🤖 This service does not support auto-reply. Please contact via app or hotline.'
+            }
+
+            // Save auto-reply to database (as 'contact' role - from the service)
+            console.log(`[AI Reply] 💬 Auto-reply: "${autoReply.slice(0, 50)}..."`)
+            const autoMessage = await prisma.phoneMessage.create({
+                data: {
+                    conversationId: conversationId,
+                    content: autoReply,
+                    role: 'contact', // Auto-reply = from service/contact (LEFT side)
+                    timestamp: new Date()
+                }
+            })
+
+            // Update conversation preview
+            await prisma.phoneConversation.update({
+                where: { id: conversationId },
+                data: {
+                    lastMessage: autoReply.slice(0, 50),
+                    timestamp: new Date()
+                }
+            })
+
+            console.log('[AI Reply] ✅ Auto-reply sent successfully')
+
             return NextResponse.json({
                 success: true,
-                message: null,
-                generated: false,
-                reason: 'NOTIFICATION_ONLY_CONTACT',
-                info: 'User message saved but AI will not reply'
-            }, { status: 200 }) // Return 200 OK, not 403 Forbidden
+                message: autoMessage,
+                generated: true,
+                isAutoReply: true,
+                sentiment: { impact: 0, reaction: 'NONE' }
+            }, { status: 200 })
         }
 
         // 1. Validation

@@ -734,16 +734,7 @@ export default function MessageDetail({
             {/* Reply Input + DEV DIRECTOR CONSOLE */}
             <div className="px-3 py-2 border-t border-gray-100 bg-white">
 
-                {/* 🏦 Banking soft notice (friendly UX, not blocking) */}
-                {isBankingContact && (
-                    <div className="mb-2 px-2 py-1.5 bg-blue-50 border border-blue-100 rounded-lg">
-                        <p className="text-[11px] text-blue-600 text-center">
-                            � {lang === 'vi'
-                                ? 'Tin nhắn không tự động phản hồi (Liên hệ Hotline hoặc website để được hỗ trợ)'
-                                : 'Auto-reply disabled (Contact hotline or visit website for support)'}
-                        </p>
-                    </div>
-                )}
+                {/* 🏦 Banking/Notification contacts: Auto-reply handled by backend, no UI notice needed */}
 
                 {/* 🎬 DEV DIRECTOR TOOLBAR (Chỉ hiện cho Dev) */}
                 {isDevUser && (
