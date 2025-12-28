@@ -202,6 +202,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
     // 🎬 DEV FLOATING BUBBLE STATE
     const [showDevMenu, setShowDevMenu] = useState(false)
+    const [isQuickGenerating, setIsQuickGenerating] = useState(false) // Loading state for Quick Gen
 
     // 🔥 NEW: Missing info warning state
     const [showMissingInfoWarning, setShowMissingInfoWarning] = useState(false)
@@ -689,16 +690,18 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
     // 🚀 DEV FLOATING BUBBLE: Quick Generate 25 messages + Phone unlock
     const handleQuickDevGenerate = async () => {
-        if (!character?.id || !user) return
+        if (!character?.id || !user || isQuickGenerating) return
 
         const confirmed = confirm('🚀 Generate 25 fake messages + unlock Phone?\n\n' +
             'This will:\n' +
-            '✅ Create 25 chat messages\n' +
+            '✅ Create 25 chat messages (takes ~1 minute)\n' +
             '✅ Increase affection to 101+\n' +
             '✅ Unlock Phone immediately\n\n' +
             'Continue?')
 
         if (!confirmed) return
+
+        setIsQuickGenerating(true) // Start loading
 
         try {
             console.log('[Quick Dev Gen] Starting 25 message generation...')
@@ -725,6 +728,10 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 console.log('[Quick Dev Gen] ✅ Success! Reloading...')
                 await Promise.all([loadMessages(), loadCharacter()])
 
+                // 🔓 Force update phoneUnlocked based on affection
+                if (data.relationship?.affectionPoints >= 101) {
+                    setPhoneUnlocked(true)
+                }
                 if (data.phoneJustUnlocked) {
                     setPhoneJustUnlocked(true)
                 }
@@ -732,7 +739,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 setShowDevMenu(false) // Close menu after action
                 alert(`✅ Quick Dev Gen Complete!\n\n` +
                     `📊 Affection: ${data.relationship?.affectionPoints || 0}\n` +
-                    `📱 Phone: ${data.relationship?.phoneUnlocked ? 'UNLOCKED ✓' : 'Locked'}\n` +
+                    `📱 Phone: ${data.relationship?.affectionPoints >= 101 ? 'UNLOCKED ✓' : 'Locked'}\n` +
                     `💬 Messages: 25`)
             } else {
                 alert('❌ Gen failed: ' + (data.error || 'Unknown'))
@@ -740,6 +747,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         } catch (error: any) {
             console.error('[Quick Dev Gen] Error:', error)
             alert('❌ Failed: ' + error.message)
+        } finally {
+            setIsQuickGenerating(false) // Stop loading
         }
     }
 
@@ -1423,11 +1432,11 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 }}
                 onPhone={() => {
                     // 📱 Phone - opens new Phone OS screen
-                    // 🔓 CHECK: Phone must be unlocked (affection >= 101)
-                    // ALL users (including devs) must have phoneUnlocked === true
-                    console.log('[ChatPage] onPhone click - phoneUnlocked:', phoneUnlocked, 'affection:', affectionPoints)
+                    // 🔓 CHECK: Phone unlocked via flag OR affection >= 101 (fallback)
+                    const isUnlocked = phoneUnlocked || affectionPoints >= 101
+                    console.log('[ChatPage] onPhone click - phoneUnlocked:', phoneUnlocked, 'affection:', affectionPoints, 'isUnlocked:', isUnlocked)
 
-                    if (!phoneUnlocked) {
+                    if (!isUnlocked) {
                         console.log('[ChatPage] 🔒 Phone is LOCKED - affection < 101, showing locked modal')
                         setShowPhoneLockedModal(true)
                         return
@@ -1684,9 +1693,23 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                 {/* Quick Gen */}
                                 <button
                                     onClick={handleQuickDevGenerate}
-                                    className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg transition-colors"
+                                    disabled={isQuickGenerating}
+                                    className={`w-full py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 ${isQuickGenerating
+                                            ? 'bg-orange-400 cursor-wait'
+                                            : 'bg-orange-500 hover:bg-orange-600'
+                                        } text-white`}
                                 >
-                                    🚀 Quick Gen (25 msgs)
+                                    {isQuickGenerating ? (
+                                        <>
+                                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                            Đang tạo 25 tin... (~1 phút)
+                                        </>
+                                    ) : (
+                                        '🚀 Quick Gen (25 msgs)'
+                                    )}
                                 </button>
 
                                 {/* Affection Controls */}

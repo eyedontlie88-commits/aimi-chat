@@ -135,24 +135,40 @@ export async function updateAffection(
         const shouldUnlockPhone = newPoints >= PHONE_UNLOCK_THRESHOLD;
         let phoneJustUnlocked = false;
 
+        // 🔥 FORCE: Always set to true if points >= 101
+        const finalPhoneUnlocked = shouldUnlockPhone ? true : wasPhoneUnlocked;
+
         if (!wasPhoneUnlocked && shouldUnlockPhone) {
             phoneJustUnlocked = true;
+            console.log(`🔓 [UPDATE AFFECTION] PHONE JUST UNLOCKED! Points: ${newPoints} >= ${PHONE_UNLOCK_THRESHOLD}`);
         }
 
-        // 6. Update database
+        console.log(`📊 [UPDATE AFFECTION] Stats:`, {
+            userId: userId.slice(0, 8) + '...',
+            characterId: characterId.slice(0, 8) + '...',
+            currentPoints,
+            newPoints,
+            wasPhoneUnlocked,
+            shouldUnlockPhone,
+            finalPhoneUnlocked,
+            phoneJustUnlocked
+        });
+
+        // 6. Update database - FORCE phone_unlocked = true when >= 101
         const { error: updateError } = await supabase
             .from('RelationshipConfig')
             .update({
                 affectionPoints: newPoints,
                 intimacyLevel: newLevel,
                 stage: stage,
-                phone_unlocked: wasPhoneUnlocked || shouldUnlockPhone,
+                phone_unlocked: finalPhoneUnlocked, // 🔥 FORCE TRUE if points >= 101
                 updatedAt: new Date().toISOString(),
             })
             .eq('userId', userId)
             .eq('characterId', characterId);
 
         if (updateError) {
+            console.error(`❌ [UPDATE AFFECTION] Database update failed:`, updateError);
             return {
                 success: false,
                 affectionPoints: currentPoints,
@@ -164,13 +180,15 @@ export async function updateAffection(
             };
         }
 
+        console.log(`✅ [UPDATE AFFECTION] SUCCESS! phone_unlocked=${finalPhoneUnlocked}`);
+
         // 7. Return success with new state
         return {
             success: true,
             affectionPoints: newPoints,
             intimacyLevel: newLevel,
             stage: stage,
-            phoneUnlocked: wasPhoneUnlocked || shouldUnlockPhone,
+            phoneUnlocked: finalPhoneUnlocked,
             phoneJustUnlocked: phoneJustUnlocked,
         };
 
