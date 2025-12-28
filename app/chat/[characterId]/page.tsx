@@ -10,7 +10,6 @@ import MemoryViewer from '@/components/MemoryViewer'
 import CreateMemoryModal, { type MemoryData } from '@/components/CreateMemoryModal'
 import CharacterSettingsModal from '@/components/CharacterSettingsModal'
 import HeartToast from '@/components/HeartToast'
-import DevRelationshipTools from '@/components/DevRelationshipTools'
 import ParseToolbar from '@/components/ParseToolbar'
 import PlusDropdownModal from '@/components/PlusDropdownModal'
 import SceneDirectorModal from '@/components/SceneDirectorModal'
@@ -201,27 +200,11 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [isGeneratingPhoneMessages, setIsGeneratingPhoneMessages] = useState(false)
     const lastSeenPhoneTimestampRef = useRef<number>(0) // Track when user last viewed phone messages
 
-    // 🎬 DEV AUTO-CONVERSATION GENERATOR STATE (Main Chat)
-    const [showDevChatPanel, setShowDevChatPanel] = useState(false)
-    const [devChatTopic, setDevChatTopic] = useState('flirting')
-    const [devChatMsgCount, setDevChatMsgCount] = useState(10)
-    const [isDevChatGenerating, setIsDevChatGenerating] = useState(false)
-    const [isDevChatSaving, setIsDevChatSaving] = useState(false)
-    const [devChatPreview, setDevChatPreview] = useState<{ role: string; content: string }[]>([])
+    // 🎬 DEV FLOATING BUBBLE STATE
+    const [showDevMenu, setShowDevMenu] = useState(false)
 
     // 🔥 NEW: Missing info warning state
     const [showMissingInfoWarning, setShowMissingInfoWarning] = useState(false)
-
-    const DEV_CHAT_TOPICS = [
-        { value: 'flirting', label: '💕 Thả thính' },
-        { value: 'arguing', label: '🔥 Cãi nhau' },
-        { value: 'caring', label: '❤️ Quan tâm' },
-        { value: 'jealous', label: '😤 Ghen tuông' },
-        { value: 'makeup', label: '🤝 Làm lành' },
-        { value: 'planning', label: '📅 Hẹn hò' },
-        { value: 'gossip', label: '🗣️ Tâm sự' },
-        { value: 'toxic', label: '💔 Toxic (Test Chia tay)' }, // 🔥 NEW for AI Breakup testing
-    ]
 
     // Get user's custom colors from ColorContext (must be before any conditional returns)
     const { textColor, backgroundColor } = useColors()
@@ -703,180 +686,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         }
     }
 
-    // ⚡ DEV TOOL: Fast Forward Unlock (Phone progression simulation)
-    const handleFastForwardUnlock = async () => {
-        if (!character?.id || isSimulating) return
 
-        setIsSimulating(true)
-
-        try {
-            console.log('[Fast Forward] Starting progression simulation...')
-            // 🟢 Use authFetch to maintain authentication
-            const res = await authFetch('/api/dev/simulate-progression', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ characterId: character.id })
-            })
-
-            const data = await res.json()
-
-            if (res.ok && data.success) {
-                console.log('[Fast Forward] ✅ Progression complete:', data.relationship)
-
-                // Update local relationship state
-                if (data.relationship) {
-                    setAffectionPoints(data.relationship.affectionPoints)
-                    setIntimacyLevel(data.relationship.intimacyLevel)
-                    setRelationshipStage(data.relationship.stage || 'UNDEFINED')
-                    setPhoneUnlocked(data.relationship.phoneUnlocked)
-                }
-
-                // If phone was unlocked, show celebration popup
-                if (data.phoneJustUnlocked) {
-                    setPhoneJustUnlocked(true)
-                    console.log('[Fast Forward] 🎉 Phone just unlocked!')
-                }
-
-                alert(`✅ Fast Forward hoàn tất!\n\n` +
-                    `📊 Affection: ${data.relationship?.affectionPoints || 0}\n` +
-                    `📱 Phone: ${data.relationship?.phoneUnlocked ? 'Mở khóa ✓' : 'Vẫn khóa'}\n` +
-                    `💬 Đã tạo: ${data.messagesCreated} tin nhắn Phone`)
-
-                // Reload to ensure UI is in sync
-                window.location.reload()
-            } else {
-                alert(`❌ Lỗi: ${data.error || 'Unknown error'}`)
-            }
-        } catch (error: any) {
-            console.error('[Fast Forward] Error:', error)
-            alert(`❌ Thất bại: ${error.message}`)
-        } finally {
-            setIsSimulating(false)
-        }
-    }
-
-    // 🎬 DEV CHAT GENERATOR: Preview messages (no save)
-    const handleDevChatGenerate = async () => {
-        if (!character?.id || !user) return
-
-        setIsDevChatGenerating(true)
-        try {
-            const response = await authFetch('/api/chat/dev-generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userEmail: user.email,
-                    userId: user.uid,
-                    characterId: character.id,
-                    characterName: character.name,
-                    characterPersona: character.persona || '',
-                    topic: devChatTopic,
-                    messageCount: devChatMsgCount,
-                    userLanguage: userLanguage,
-                    saveToDb: false, // Preview only
-                })
-            })
-
-            const data = await response.json()
-
-            if (data.messages && Array.isArray(data.messages)) {
-                setDevChatPreview(data.messages)
-                console.log(`[Dev Gen] Preview ready: ${data.messages.length} messages`)
-            } else {
-                console.error('[Dev Gen] No messages in response')
-                alert('❌ Failed to generate preview')
-            }
-        } catch (error: any) {
-            console.error('[Dev Gen] Generate error:', error)
-            alert('❌ Generate failed: ' + error.message)
-        } finally {
-            setIsDevChatGenerating(false)
-        }
-    }
-
-    // 🎬 DEV CHAT GENERATOR: Save to chat + Affection progression
-    const handleDevChatSave = async () => {
-        if (!character?.id || !user) return
-
-        setIsDevChatSaving(true)
-        try {
-            console.log('[Dev Gen] Saving 25 messages + affection progression...')
-
-            const response = await authFetch('/api/chat/dev-generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userEmail: user.email,
-                    userId: user.uid,
-                    characterId: character.id,
-                    characterName: character.name,
-                    characterPersona: character.persona || '',
-                    topic: devChatTopic,
-                    messageCount: 25, // Force 25 for affection progression
-                    userLanguage: userLanguage,
-                    saveToDb: true,
-                })
-            })
-
-            const data = await response.json()
-
-            if (data.saved) {
-                console.log('[Dev Gen] ✅ Saved successfully, reloading...')
-
-                // Reload chat messages
-                await Promise.all([
-                    // Reload messages
-                    (async () => {
-                        const res = await authFetch(`/api/messages?characterId=${character.id}`)
-                        if (res.ok) {
-                            const msgs = await res.json()
-                            setMessages(msgs)
-                        }
-                    })(),
-                    // Reload character/relationship data
-                    (async () => {
-                        const res = await authFetch(`/api/characters/${character.id}`)
-                        if (res.ok) {
-                            const charData = await res.json()
-                            if (charData.relationshipConfig) {
-                                setAffectionPoints(charData.relationshipConfig.affectionPoints || 0)
-                                setIntimacyLevel(charData.relationshipConfig.intimacyLevel || 0)
-                                setRelationshipStage(charData.relationshipConfig.status || 'STRANGER')
-                                if (typeof charData.relationshipConfig.phoneUnlocked === 'boolean') {
-                                    setPhoneUnlocked(charData.relationshipConfig.phoneUnlocked)
-                                }
-                            }
-                        }
-                    })()
-                ])
-
-                // 🔓 Trigger Phone unlock celebration if it just unlocked
-                if (data.phoneJustUnlocked) {
-                    console.log('[Dev Gen] 🎉 Phone just unlocked! Triggering celebration popup.')
-                    setPhoneJustUnlocked(true)
-                }
-
-                // Clear preview and close panel
-                setDevChatPreview([])
-                setShowDevChatPanel(false)
-
-                alert(`✅ Saved ${data.count || 25} messages!\n\n` +
-                    `📊 Affection: ${data.relationship?.affectionPoints || 0}\n` +
-                    `📱 Phone: ${data.relationship?.phoneUnlocked ? 'Unlocked ✓' : 'Locked'}\n` +
-                    `Check relationship bar for updates.`)
-            } else {
-                console.error('[Dev Gen] Save failed:', data.error || data.devError)
-                alert('❌ Save failed: ' + (data.error || data.devError || 'Unknown error'))
-            }
-        } catch (error: any) {
-            console.error('[Dev Gen] Save error:', error)
-            alert('❌ Save failed: ' + error.message)
-        } finally {
-            setIsDevChatSaving(false)
-        }
-    }
-
-    // 🚀 QUICK DEV GENERATOR: One-click 25 messages + Phone unlock
+    // 🚀 DEV FLOATING BUBBLE: Quick Generate 25 messages + Phone unlock
     const handleQuickDevGenerate = async () => {
         if (!character?.id || !user) return
 
@@ -901,7 +712,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     characterId: character.id,
                     characterName: character.name,
                     characterPersona: character.persona || '',
-                    topic: 'caring', // Default friendly topic
+                    topic: 'caring',
                     messageCount: 25,
                     userLanguage,
                     saveToDb: true
@@ -912,18 +723,13 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
             if (data.saved) {
                 console.log('[Quick Dev Gen] ✅ Success! Reloading...')
+                await Promise.all([loadMessages(), loadCharacter()])
 
-                // Reload everything
-                await Promise.all([
-                    loadMessages(),
-                    loadCharacter()
-                ])
-
-                // Check if phone unlocked
                 if (data.phoneJustUnlocked) {
                     setPhoneJustUnlocked(true)
                 }
 
+                setShowDevMenu(false) // Close menu after action
                 alert(`✅ Quick Dev Gen Complete!\n\n` +
                     `📊 Affection: ${data.relationship?.affectionPoints || 0}\n` +
                     `📱 Phone: ${data.relationship?.phoneUnlocked ? 'UNLOCKED ✓' : 'Locked'}\n` +
@@ -934,6 +740,40 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         } catch (error: any) {
             console.error('[Quick Dev Gen] Error:', error)
             alert('❌ Failed: ' + error.message)
+        }
+    }
+
+    // � DEV FLOATING BUBBLE: Adjust affection points
+    const handleAffectionAdjust = async (delta: number) => {
+        try {
+            const res = await authFetch('/api/relationship/update-affection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ characterId, affectionDelta: delta })
+            })
+            if (res.ok) {
+                await loadCharacter()
+                console.log(`[Dev] Affection adjusted by ${delta}`)
+            }
+        } catch (error) {
+            console.error('[Dev] Affection adjust error:', error)
+        }
+    }
+
+    // 🔧 DEV FLOATING BUBBLE: Change relationship stage
+    const handleDevStageChange = async (stage: string) => {
+        try {
+            const res = await authFetch(`/api/characters/${characterId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stage })
+            })
+            if (res.ok) {
+                await loadCharacter()
+                console.log(`[Dev] Stage changed to ${stage}`)
+            }
+        } catch (error) {
+            console.error('[Dev] Stage change error:', error)
         }
     }
 
@@ -1240,16 +1080,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
                         {/* Header buttons: Memory + Plus */}
                         <div className="flex items-center gap-1 flex-shrink-0">
-                            {/* 🎬 DEV CHAT PANEL TOGGLE */}
-                            {isDev && (
-                                <button
-                                    onClick={() => setShowDevChatPanel(!showDevChatPanel)}
-                                    className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition ${showDevChatPanel ? 'bg-orange-500 text-white' : theme.buttons.primaryBg + ' ' + theme.resolvedButtonText + ' ' + theme.buttons.primaryHover}`}
-                                    title="DEV: Auto-Conversation Generator"
-                                >
-                                    🎬
-                                </button>
-                            )}
+
                             {/* Auto-Save Memory button */}
                             <button
                                 onClick={() => handleAutoSaveMemory('button')}
@@ -1271,83 +1102,7 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     </div>
                 </div>
 
-                {/* 🧪 DEV RELATIONSHIP TOOLS (Yellow Dev Panel with Archive button) */}
-                {isDev && (
-                    <div className="shrink-0 px-4 py-2 bg-black/20">
-                        <DevRelationshipTools
-                            characterId={characterId}
-                            currentStage={relationshipStage}
-                            currentAffection={affectionPoints}
-                            onUpdate={(data) => {
-                                setAffectionPoints(data.affectionPoints)
-                                setIntimacyLevel(data.intimacyLevel)
-                                setRelationshipStage(data.stage)
-                            }}
-                        />
-                    </div>
-                )}
 
-                {/* 🎬 DEV AUTO-CONVERSATION GENERATOR PANEL (Main Chat) */}
-                {isDev && showDevChatPanel && (
-                    <div className="shrink-0 bg-gradient-to-r from-orange-500 to-red-500 text-white p-3 space-y-3">
-                        <div className="max-w-4xl mx-auto space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="font-bold text-sm">🎬 Auto-Conversation Generator (Main Chat)</span>
-                                <span className="text-[10px] opacity-75">DEV ONLY - Saves to messages table</span>
-                            </div>
-
-                            {/* Topic Selector + Message Count */}
-                            <div className="flex gap-2 items-center flex-wrap">
-                                <span className="text-xs">Chủ đề:</span>
-                                <select
-                                    value={devChatTopic}
-                                    onChange={(e) => setDevChatTopic(e.target.value)}
-                                    className="bg-white/20 text-white text-xs px-2 py-1 rounded border-none outline-none"
-                                >
-                                    {DEV_CHAT_TOPICS.map(t => (
-                                        <option key={t.value} value={t.value} className="text-gray-800">{t.label}</option>
-                                    ))}
-                                </select>
-
-                                <span className="text-xs ml-2">Số tin:</span>
-                                <input
-                                    type="range"
-                                    min="3"
-                                    max="20"
-                                    value={devChatMsgCount}
-                                    onChange={(e) => setDevChatMsgCount(Number(e.target.value))}
-                                    className="w-20"
-                                />
-                                <span className="text-xs font-bold">{devChatMsgCount}</span>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleDevChatGenerate}
-                                    disabled={isDevChatGenerating}
-                                    className="flex-1 bg-white text-orange-600 font-bold text-xs py-2 px-3 rounded hover:bg-orange-50 disabled:opacity-50 transition-colors"
-                                >
-                                    {isDevChatGenerating ? '🔄 Đang tạo...' : '⚡ GENERATE PREVIEW'}
-                                </button>
-                                <button
-                                    onClick={handleDevChatSave}
-                                    disabled={isDevChatSaving || devChatPreview.length === 0}
-                                    className="bg-green-500 text-white font-bold text-xs py-2 px-3 rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
-                                >
-                                    {isDevChatSaving ? '💾...' : `💾 SAVE (${devChatPreview.length})`}
-                                </button>
-                            </div>
-
-                            {/* Preview Count + Expected Result */}
-                            {devChatPreview.length > 0 && (
-                                <div className="text-xs opacity-90 text-center">
-                                    ✅ Preview: {devChatPreview.length} tin → Sau khi SAVE: Intimacy tăng + Phone unlock!
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Messages */}
                 <div
@@ -1908,15 +1663,78 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 </div>
             )}
 
-            {/* 🚀 DEV TOOL: Quick Generate Button (One-Click) */}
+            {/* ⚙️ DEV FLOATING BUBBLE (Clean Replacement for old dev panels) */}
             {isDev && !showPhoneOS && (
-                <button
-                    onClick={handleQuickDevGenerate}
-                    className="fixed bottom-24 left-4 z-40 px-5 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-full shadow-2xl hover:shadow-orange-500/50 hover:scale-105 transition-all duration-300"
-                    title="Quick Dev Gen - Instant 25 messages + Phone unlock"
-                >
-                    🚀 Quick Gen
-                </button>
+                <>
+                    {/* Floating Bubble Button */}
+                    <button
+                        onClick={() => setShowDevMenu(!showDevMenu)}
+                        className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full shadow-lg flex items-center justify-center text-white text-2xl z-50 hover:scale-110 transition-transform"
+                        title="Dev Tools"
+                    >
+                        ⚙️
+                    </button>
+
+                    {/* Dev Menu (expanded) */}
+                    {showDevMenu && (
+                        <div className="fixed bottom-40 right-6 bg-gray-800/95 backdrop-blur-sm rounded-2xl shadow-2xl p-4 z-50 w-64">
+                            <div className="text-white text-sm space-y-3">
+                                <div className="font-bold text-lg mb-3">🛠 Dev Tools</div>
+
+                                {/* Quick Gen */}
+                                <button
+                                    onClick={handleQuickDevGenerate}
+                                    className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg transition-colors"
+                                >
+                                    🚀 Quick Gen (25 msgs)
+                                </button>
+
+                                {/* Affection Controls */}
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleAffectionAdjust(10)}
+                                        className="flex-1 bg-green-600 hover:bg-green-700 py-2 rounded transition-colors"
+                                    >
+                                        +10
+                                    </button>
+                                    <button
+                                        onClick={() => handleAffectionAdjust(-10)}
+                                        className="flex-1 bg-red-600 hover:bg-red-700 py-2 rounded transition-colors"
+                                    >
+                                        -10
+                                    </button>
+                                </div>
+
+                                {/* Stage selector */}
+                                <select
+                                    value={relationshipStage}
+                                    onChange={(e) => handleDevStageChange(e.target.value)}
+                                    className="w-full bg-gray-700 text-white py-2 px-3 rounded outline-none"
+                                >
+                                    <option value="UNDEFINED">UNDEFINED</option>
+                                    <option value="STRANGER">STRANGER</option>
+                                    <option value="ACQUAINTANCE">ACQUAINTANCE</option>
+                                    <option value="CRUSH">CRUSH</option>
+                                    <option value="DATING">DATING</option>
+                                    <option value="COMMITTED">COMMITTED</option>
+                                </select>
+
+                                {/* Current Stats */}
+                                <div className="text-xs text-gray-400 text-center">
+                                    📊 Affection: {affectionPoints} | Stage: {relationshipStage}
+                                </div>
+
+                                {/* Close */}
+                                <button
+                                    onClick={() => setShowDevMenu(false)}
+                                    className="w-full bg-gray-600 hover:bg-gray-500 py-2 rounded mt-2 transition-colors"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </>
             )}
         </>
     )
