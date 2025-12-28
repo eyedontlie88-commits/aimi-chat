@@ -1,5 +1,5 @@
 ---
-trigger: always_on
+description: rule
 ---
 
 You are editing an existing Next.js 16 + TypeScript + Prisma + Supabase project.

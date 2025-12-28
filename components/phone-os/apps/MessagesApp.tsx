@@ -33,11 +33,6 @@ const MESSAGE_THRESHOLD = 10
 // Cooldown: 60 seconds
 const REFRESH_COOLDOWN = 60
 
-// 🔐 DEV EMAILS WHITELIST
-const DEV_EMAILS = [
-    'eyedontlie88@gmail.com',
-    'giangcm987@gmail.com', // <-- Thêm mới chuẩn rồi!
-]
 
 /**
  * 🧠 RULE #6: Smart Context - Merge messages instead of wiping
@@ -102,179 +97,6 @@ export default function MessagesApp({
 
     // Selected conversation for detail view
     const [selectedConversation, setSelectedConversation] = useState<ConversationItem | null>(null)
-
-    // 🔐 RULE #7: DEV Identity Check - Only whitelisted emails can see DEV tools
-    const isDevUser = userEmail && DEV_EMAILS.includes(userEmail)
-
-    // 📱 Triple-tap gesture to reveal DEV button (mobile-friendly)
-    const [devVisible, setDevVisible] = useState(false)
-    const [debugToast, setDebugToast] = useState<{ message: string; details: string } | null>(null)
-    const tapCountRef = useRef(0)
-    const lastTapTimeRef = useRef(0)
-
-    // 🔧 DEV PANEL: Test states (one-time use per session)
-    const [devTestInitialDone, setDevTestInitialDone] = useState(false)
-    const [devTestInChatDone, setDevTestInChatDone] = useState(false)
-    const [devTestSelfContDone, setDevTestSelfContDone] = useState(false)
-    const [devTestRunning, setDevTestRunning] = useState<'initial' | 'inchat' | 'selfcont' | null>(null)
-
-    const handleLockIconTap = useCallback(() => {
-        // Only DEV users can trigger this
-        if (!isDevUser) return
-
-        const now = Date.now()
-        const timeDiff = now - lastTapTimeRef.current
-
-        // Reset if too slow (> 2 seconds between taps)
-        if (timeDiff > 2000) {
-            tapCountRef.current = 1
-        } else {
-            tapCountRef.current += 1
-        }
-
-        lastTapTimeRef.current = now
-
-        // Triple tap detected!
-        if (tapCountRef.current >= 3) {
-            setDevVisible(prev => !prev)
-            tapCountRef.current = 0
-            console.log(`[MessagesApp] 🔧 DEV mode: ${!devVisible ? 'VISIBLE' : 'HIDDEN'} (triple-tap by ${userEmail})`)
-        }
-    }, [isDevUser, devVisible, userEmail])
-
-    // 🧪 DEV TEST 1: Initial Messages Generation
-    const runDevTestInitial = useCallback(async () => {
-        if (devTestInitialDone || devTestRunning) return
-
-        console.log('%c🔓 [DEV TEST 1/3] INITIAL MESSAGES BYPASS', 'background: #FF6B00; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
-        console.log('%c📍 Bypassing message threshold check...', 'color: #FF6B00; font-weight: bold;')
-        console.log(`%c📍 Character: ${characterName}`, 'color: #FF6B00;')
-        console.log('%c📍 Expected: LOCKED screen → conversation list appears', 'color: #22C55E; font-weight: bold;')
-
-        setDevTestRunning('initial')
-        setLoading(true)
-
-        try {
-            const response = await fetch('/api/phone/generate-messages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    characterId,
-                    characterName: characterName || 'Character',
-                    characterDescription: characterDescription || '',
-                    userLanguage: lang,
-                    isInitial: true,
-                    forceGenerate: true, // DEV bypass
-                    currentMessages: conversationsRef.current,
-                    userEmail: userEmail,
-                }),
-            })
-
-            if (!response.ok) throw new Error('API request failed')
-
-            const data = await response.json()
-            const messages = data.messages || []
-
-            if (messages.length > 0) {
-                sessionStorage.setItem(getCacheKey(characterId), JSON.stringify(messages))
-                setConversations(messages)
-                setSource('ai')
-                console.log(`%c✅ [DEV TEST 1/3] SUCCESS! Generated ${messages.length} conversations`, 'color: #22C55E; font-weight: bold; font-size: 14px;')
-                setDevTestInitialDone(true)
-            } else {
-                console.log('%c⚠️ [DEV TEST 1/3] AI returned empty messages', 'color: #EAB308; font-weight: bold;')
-            }
-        } catch (err: unknown) {
-            console.error('%c❌ [DEV TEST 1/3] FAILED!', 'background: #EF4444; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
-            console.error(err)
-        } finally {
-            setLoading(false)
-            setDevTestRunning(null)
-        }
-    }, [devTestInitialDone, devTestRunning, characterId, characterName, characterDescription, lang, userEmail])
-
-    // 🧪 DEV TEST 2: In-Chat Instant Reply
-    const runDevTestInChat = useCallback(() => {
-        if (devTestInChatDone || devTestRunning) return
-
-        console.log('%c💬 [DEV TEST 2/3] IN-CHAT INSTANT REPLY', 'background: #3B82F6; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
-        console.log('%c📍 Instruction: Open any conversation, send a message', 'color: #3B82F6; font-weight: bold;')
-        console.log('%c📍 Expected: AI replies within 2-10 seconds (dev cooldown)', 'color: #22C55E; font-weight: bold;')
-        console.log('%c📍 Watch for console log: "User in active chat - INSTANT REPLY"', 'color: #3B82F6;')
-
-        setDevTestRunning('inchat')
-
-        // Enable fast polling mode to catch AI reply quickly
-        setFastPollingMode(true)
-        console.log('%c⚡ Fast polling enabled (2s interval) for 30s', 'color: #3B82F6; font-style: italic;')
-
-        // Mark as done after 5 seconds (enough time for user to see the effect)
-        setTimeout(() => {
-            console.log('%c✅ [DEV TEST 2/3] In-Chat mode activated. Now send a message and wait for AI reply.', 'color: #22C55E; font-weight: bold; font-size: 14px;')
-            setDevTestInChatDone(true)
-            setDevTestRunning(null)
-        }, 5000)
-    }, [devTestInChatDone, devTestRunning])
-
-    // 🧪 DEV TEST 3: Self-Continuation
-    const runDevTestSelfCont = useCallback(async () => {
-        if (devTestSelfContDone || devTestRunning || conversations.length === 0) return
-
-        console.log('%c🔄 [DEV TEST 3/3] SELF-CONTINUATION BYPASS', 'background: #8B5CF6; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
-        console.log('%c📍 Triggering AI follow-up for all conversations...', 'color: #8B5CF6; font-weight: bold;')
-        console.log('%c📍 Expected: AI generates new messages even without user reply', 'color: #22C55E; font-weight: bold;')
-
-        setDevTestRunning('selfcont')
-
-        let successCount = 0
-
-        for (const conv of conversations) {
-            // Skip notification contacts
-            const lowerName = conv.name.toLowerCase()
-            const isNotification = ['ngân hàng', 'bank', 'shopee', 'lazada', 'grab', 'momo', 'zalopay']
-                .some(keyword => lowerName.includes(keyword))
-
-            if (isNotification) {
-                console.log(`%c⏭️ Skipping notification contact: ${conv.name}`, 'color: #6B7280; font-style: italic;')
-                continue
-            }
-
-            try {
-                const response = await fetch('/api/phone/get-conversation-detail', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        characterId: characterId,
-                        senderName: conv.name,
-                        characterName: characterName,
-                        characterDescription: characterDescription,
-                        forceRegenerate: true, // DEV bypass cooldown
-                        userEmail: userEmail,
-                        userLanguage: lang,
-                    }),
-                })
-
-                if (response.ok) {
-                    const data = await response.json()
-                    if (data.regenerated) {
-                        successCount++
-                        console.log(`%c✓ AI self-continuation for ${conv.name}`, 'color: #22C55E; font-weight: bold;')
-                    }
-                }
-            } catch (err) {
-                console.warn(`Self-continuation failed for ${conv.name}:`, err)
-            }
-        }
-
-        // Refresh list to show new messages
-        console.log(`%c🔄 Refreshing conversation list to show ${successCount} new AI messages...`, 'color: #8B5CF6; font-weight: bold;')
-        // Note: We can't use fetchMessages here due to hook order, so manually refresh
-        window.location.reload() // Simple refresh to show new messages
-
-        console.log(`%c✅ [DEV TEST 3/3] SUCCESS! Generated ${successCount} self-continuation messages`, 'color: #22C55E; font-weight: bold; font-size: 14px;')
-        setDevTestSelfContDone(true)
-        setDevTestRunning(null)
-    }, [devTestSelfContDone, devTestRunning, conversations, characterId, characterName, characterDescription, userEmail, lang])
 
     // Check cooldown on mount
     useEffect(() => {
@@ -644,17 +466,6 @@ export default function MessagesApp({
 
     return (
         <div className="flex flex-col h-full bg-white">
-            {/* 🚨 DEV DEBUG TOAST - Only for dev users */}
-            {debugToast && isDevUser && (
-                <div
-                    className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] max-w-[90vw] bg-red-600 text-white px-4 py-3 rounded-lg shadow-2xl cursor-pointer animate-pulse"
-                    onClick={() => setDebugToast(null)}
-                >
-                    <div className="font-bold text-sm">{debugToast.message}</div>
-                    <div className="text-xs opacity-90 mt-1 font-mono break-all">{debugToast.details}</div>
-                    <div className="text-[10px] opacity-70 mt-2">Tap to dismiss</div>
-                </div>
-            )}
 
             {/* Header */}
             <div className="flex items-center gap-2 px-2 py-3 border-b border-gray-100 bg-[#FFF9F0]">
@@ -719,9 +530,7 @@ export default function MessagesApp({
                         /* 🔒 LOCKED STATE - Beautiful empty UI */
                         <div className="h-full flex flex-col items-center justify-center px-6 py-12 text-center">
                             <div
-                                className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-4 shadow-inner cursor-pointer hover:scale-105 transition-transform"
-                                onClick={handleLockIconTap}
-                                title={isDevUser ? 'Triple-tap to reveal DEV tools' : undefined}
+                                className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-4 shadow-inner"
                             >
                                 <span className="text-4xl">🔒</span>
                             </div>
@@ -739,88 +548,6 @@ export default function MessagesApp({
                                     {lang === 'en' ? '💬 Keep chatting to unlock!' : '💬 Tiếp tục trò chuyện nhé!'}
                                 </span>
                             </div>
-
-                            {/* 🛠️ DEV PANEL - Permanent test interface for dev users */}
-                            {isDevUser && (
-                                <div className="mt-8 border-t-2 border-orange-300 pt-4">
-                                    <div className="flex items-center justify-center gap-2 mb-3">
-                                        <span className="text-xs font-bold text-orange-600">🔧 DEV TEST PANEL</span>
-                                        <span className="text-[10px] text-gray-500">
-                                            {devTestInitialDone && devTestInChatDone && devTestSelfContDone
-                                                ? '✅ All tests complete'
-                                                : `${[devTestInitialDone, devTestInChatDone, devTestSelfContDone].filter(Boolean).length}/3 done`}
-                                        </span>
-                                    </div>
-
-                                    <div className="space-y-2 px-4">
-                                        {/* Test 1: Initial Messages */}
-                                        <button
-                                            onClick={runDevTestInitial}
-                                            disabled={devTestInitialDone || devTestRunning !== null || loading}
-                                            className={`w-full px-3 py-2 text-xs font-medium rounded-lg transition-all ${devTestInitialDone
-                                                ? 'bg-green-100 text-green-700 cursor-not-allowed'
-                                                : devTestRunning === 'initial'
-                                                    ? 'bg-orange-200 text-orange-800 animate-pulse'
-                                                    : 'bg-orange-500 hover:bg-orange-600 text-white'
-                                                }`}
-                                        >
-                                            {devTestInitialDone
-                                                ? '✅ 1. Initial Messages (Done)'
-                                                : devTestRunning === 'initial'
-                                                    ? '⏳ Running Test 1...'
-                                                    : '🔓 1. Test Initial Unlock'}
-                                        </button>
-
-                                        {/* Test 2: In-Chat Reply */}
-                                        <button
-                                            onClick={runDevTestInChat}
-                                            disabled={devTestInChatDone || devTestRunning !== null || conversations.length === 0}
-                                            className={`w-full px-3 py-2 text-xs font-medium rounded-lg transition-all ${devTestInChatDone
-                                                ? 'bg-green-100 text-green-700 cursor-not-allowed'
-                                                : devTestRunning === 'inchat'
-                                                    ? 'bg-blue-200 text-blue-800 animate-pulse'
-                                                    : conversations.length === 0
-                                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                                        : 'bg-blue-500 hover:bg-blue-600 text-white'
-                                                }`}
-                                        >
-                                            {devTestInChatDone
-                                                ? '✅ 2. In-Chat Reply (Done)'
-                                                : devTestRunning === 'inchat'
-                                                    ? '⏳ Running Test 2...'
-                                                    : conversations.length === 0
-                                                        ? '🔒 2. In-Chat Reply (unlock first)'
-                                                        : '💬 2. Test In-Chat Reply'}
-                                        </button>
-
-                                        {/* Test 3: Self-Continuation */}
-                                        <button
-                                            onClick={runDevTestSelfCont}
-                                            disabled={devTestSelfContDone || devTestRunning !== null || conversations.length === 0}
-                                            className={`w-full px-3 py-2 text-xs font-medium rounded-lg transition-all ${devTestSelfContDone
-                                                ? 'bg-green-100 text-green-700 cursor-not-allowed'
-                                                : devTestRunning === 'selfcont'
-                                                    ? 'bg-purple-200 text-purple-800 animate-pulse'
-                                                    : conversations.length === 0
-                                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                                        : 'bg-purple-500 hover:bg-purple-600 text-white'
-                                                }`}
-                                        >
-                                            {devTestSelfContDone
-                                                ? '✅ 3. Self-Continuation (Done)'
-                                                : devTestRunning === 'selfcont'
-                                                    ? '⏳ Running Test 3...'
-                                                    : conversations.length === 0
-                                                        ? '🔒 3. Self-Continuation (unlock first)'
-                                                        : '🔄 3. Test Self-Continuation'}
-                                        </button>
-                                    </div>
-
-                                    <p className="text-[10px] text-center text-gray-500 mt-3 px-4">
-                                        Each test runs once to prove the flow. Check console for detailed logs.
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     ) : (
                         conversations.map((conv) => (
