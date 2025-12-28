@@ -1856,88 +1856,6 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 />
             )}
 
-            {/* 🎬 DEV CHAT GENERATOR PANEL (Dev-only) */}
-            {isDev && showDevChatPanel && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 max-h-[80vh] overflow-y-auto">
-                        {/* Header */}
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                    🎬 DEV Auto-Conversation Generator
-                                </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                    Generate 25 realistic messages to seed chat + advance affection. Can unlock Phone if affection reaches 101.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setShowDevChatPanel(false)}
-                                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl"
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        {/* Controls */}
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Conversation Topic:
-                                </label>
-                                <select
-                                    value={devChatTopic}
-                                    onChange={(e) => setDevChatTopic(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                >
-                                    {DEV_CHAT_TOPICS.map(topic => (
-                                        <option key={topic.value} value={topic.value}>
-                                            {topic.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleDevChatGenerate}
-                                    disabled={isDevChatGenerating}
-                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
-                                >
-                                    {isDevChatGenerating ? '⏳ Generating...' : '🔍 Generate Preview'}
-                                </button>
-                                <button
-                                    onClick={handleDevChatSave}
-                                    disabled={isDevChatSaving}
-                                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 font-medium"
-                                >
-                                    {isDevChatSaving ? '⏳ Saving...' : '💾 SAVE (25 msgs)'}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Preview Section */}
-                        {devChatPreview.length > 0 && (
-                            <div className="mt-6">
-                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                                    Preview ({devChatPreview.length} messages):
-                                </h4>
-                                <div className="max-h-64 overflow-y-auto space-y-2 bg-gray-100 dark:bg-gray-900 rounded-lg p-4">
-                                    {devChatPreview.map((msg: any, idx: number) => (
-                                        <div key={idx} className="text-sm">
-                                            <span className={`font-semibold ${msg.role === 'user' ? 'text-blue-600' : 'text-green-600'}`}>
-                                                {msg.role === 'user' ? '👤 User' : '🤖 AI'}:
-                                            </span>
-                                            <span className="text-gray-700 dark:text-gray-300 ml-2">
-                                                {msg.content}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
 
             {/* 🔒 Phone LOCKED Modal - shown when user taps Phone before unlock */}
             {showPhoneLockedModal && (
@@ -1988,17 +1906,6 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                         </button>
                     </div>
                 </div>
-            )}
-
-            {/* 🎬 DEV TOOL: Dev Chat Generator Toggle Button */}
-            {isDev && !showPhoneOS && (
-                <button
-                    onClick={() => setShowDevChatPanel(!showDevChatPanel)}
-                    className="fixed bottom-24 right-4 z-40 px-5 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-full shadow-2xl hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300"
-                    title="Dev Chat Generator - Generate 25 messages + advance affection"
-                >
-                    🎬 Chat Gen
-                </button>
             )}
 
             {/* 🚀 DEV TOOL: Quick Generate Button (One-Click) */}
