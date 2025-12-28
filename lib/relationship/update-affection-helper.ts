@@ -7,9 +7,10 @@
 //
 // Centralizes Phone unlock logic to avoid duplication
 
-import { supabase } from '@/lib/supabase/client';
+import { supabase as defaultClient } from '@/lib/supabase/client';
 import { calculatePointsDelta, Sentiment } from '@/lib/affection-calculator';
 import { getIntimacyLevel, isBroken } from '@/lib/relationship-levels';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 // 🔓 PHONE UNLOCK THRESHOLD (centralized constant)
 export const PHONE_UNLOCK_THRESHOLD = 101;
@@ -30,13 +31,30 @@ export interface AffectionUpdateResult {
  * @param userId - User ID
  * @param characterId - Character ID  
  * @param sentiment - POSITIVE, NEUTRAL, or NEGATIVE
+ * @param supabaseClient - Optional Supabase client (pass admin client for server-side calls)
  * @returns Updated relationship state with Phone unlock flags
  */
 export async function updateAffection(
     userId: string,
     characterId: string,
-    sentiment: Sentiment
+    sentiment: Sentiment,
+    supabaseClient?: SupabaseClient
 ): Promise<AffectionUpdateResult> {
+    // Use passed client or default to the imported client
+    const supabase = supabaseClient || defaultClient;
+
+    if (!supabase) {
+        return {
+            success: false,
+            affectionPoints: 0,
+            intimacyLevel: 0,
+            stage: 'STRANGER',
+            phoneUnlocked: false,
+            phoneJustUnlocked: false,
+            error: 'Supabase client not available',
+        };
+    }
+
     try {
         // 1. Fetch existing relationship (use .limit(1) to avoid duplicate crashes)
         const { data: statsArray, error: fetchError } = await supabase

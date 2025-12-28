@@ -198,7 +198,7 @@ Return ONLY a valid JSON array (no markdown, no explanation):
 
             // Loop through exactly 25 messages, applying POSITIVE sentiment each time
             for (let i = 0; i < PROGRESSION_MESSAGE_COUNT; i++) {
-                const result = await updateAffection(userId, characterId, 'POSITIVE')
+                const result = await updateAffection(userId, characterId, 'POSITIVE', supabaseAdmin)
 
                 if (!result.success) {
                     console.warn(`[DEV GEN] Affection update ${i + 1}/${PROGRESSION_MESSAGE_COUNT} failed:`, result.error)
