@@ -7,7 +7,7 @@ import { getAuthContext } from '@/lib/auth/require-auth'
  * 
  * MIGRATED from Supabase to Prisma to avoid RLS and cache issues.
  * 
- * Body: { senderName, characterId, conversationId?, forceRegenerate?, userEmail?, characterDescription? }
+ * Body: { senderName, characterId, conversationId?, forceRegenerate?, userEmail?, characterDescription?, devModeEnabled? }
  * Returns: { messages: [], conversationId, source: 'database' }
  */
 
@@ -26,10 +26,14 @@ export async function POST(req: NextRequest) {
             conversationId,
             userLanguage = 'vi',
             forceRegenerate = false,
-            userEmail
+            userEmail,
+            devModeEnabled = false  // ✅ NEW: Pass to generate-ai-reply for 10s cooldown
         } = body
 
-        console.log(`[Phone Detail] 📖 Request for: "${senderName}" (Char: ${characterId}) | forceRegenerate: ${forceRegenerate}`)
+        // Auto-detect dev mode from email if not explicitly passed
+        const effectiveDevMode = devModeEnabled || DEV_EMAILS.includes(userEmail || '')
+
+        console.log(`[Phone Detail] 📖 Request for: "${senderName}" (Char: ${characterId}) | forceRegenerate: ${forceRegenerate} | devMode: ${effectiveDevMode}`)
 
         // Validation
         if (!senderName || !characterId) {
@@ -95,7 +99,8 @@ export async function POST(req: NextRequest) {
                         characterDescription,
                         userEmail,
                         userLanguage,
-                        forceTrigger: false // Respect rate limit unless dev
+                        forceTrigger: false, // Respect rate limit unless explicit bypass
+                        devModeEnabled: effectiveDevMode // ✅ PASS DEV MODE: enables 10s cooldown
                     })
                 })
 

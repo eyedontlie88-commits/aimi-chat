@@ -46,6 +46,8 @@ interface RelationshipConfig {
     affectionPoints: number
     messageCount: number
     status: string
+    phoneUnlocked?: boolean
+    phoneJustUnlocked?: boolean
 }
 
 interface Character {
@@ -121,6 +123,11 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const [affectionPoints, setAffectionPoints] = useState(0)
     const [intimacyLevel, setIntimacyLevel] = useState(0)
     const [relationshipStage, setRelationshipStage] = useState<string>('UNDEFINED')
+
+    // 🔓 Phone unlock state
+    const [phoneUnlocked, setPhoneUnlocked] = useState(false)
+    const [phoneJustUnlocked, setPhoneJustUnlocked] = useState(false)
+    const [showPhoneLockedModal, setShowPhoneLockedModal] = useState(false)
 
     // Scroll helper state (single state for position)
     const [scrollPosition, setScrollPosition] = useState<'top' | 'middle' | 'bottom'>('bottom')
@@ -382,6 +389,15 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 setIntimacyLevel(rel.intimacyLevel || 0)
                 setRelationshipStage(rel.stage || 'UNDEFINED')
 
+                // 🔓 Phone unlock state from API
+                if (rel.phoneUnlocked !== undefined) {
+                    setPhoneUnlocked(rel.phoneUnlocked)
+                }
+                if (rel.phoneJustUnlocked) {
+                    setPhoneJustUnlocked(true)
+                    console.log('🔓 [LOAD] Phone just unlocked! Showing celebration popup')
+                }
+
                 // 💀 HARD LOCK: Check for BROKEN state on load - prevent Zombie bug
                 if (rel.stage === 'BROKEN' || (rel.affectionPoints !== undefined && rel.affectionPoints <= -10)) {
                     console.log('💀 [LOAD] Character is BROKEN! Affection:', rel.affectionPoints, 'Stage:', rel.stage)
@@ -389,6 +405,10 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     setIsBrokenUp(true)
                     // Don't return - let background continue loading, but modal covers everything
                 }
+            } else {
+                // 🔒 SAFETY: Explicitly lock Phone if no relationshipConfig from API
+                console.log('[ChatPage] 🔒 No relationshipConfig - Phone LOCKED by default')
+                setPhoneUnlocked(false)
             }
 
             // 🔥 NEW: Check for missing info (age/gender) and show warning
@@ -537,6 +557,17 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 setAffectionPoints(data.relationship.affectionPoints)
                 setIntimacyLevel(data.relationship.intimacyLevel)
                 setRelationshipStage(data.relationship.stage || 'UNDEFINED')
+
+                // 🔓 Update Phone unlock status if provided
+                if (typeof data.relationship.phoneUnlocked === 'boolean') {
+                    setPhoneUnlocked(data.relationship.phoneUnlocked)
+                }
+            }
+
+            // 🔓 Handle Phone unlock celebration
+            if (data.phoneJustUnlocked) {
+                setPhoneJustUnlocked(true)
+                console.log('[ChatPage] 🎉 Phone just unlocked from chat response!')
             }
 
             // 💔 AI BREAKUP: Check if relationship is broken
@@ -669,6 +700,240 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             alert('Không thể reset. Vui lòng thử lại.')
         } finally {
             setIsResetting(false)
+        }
+    }
+
+    // ⚡ DEV TOOL: Fast Forward Unlock (Phone progression simulation)
+    const handleFastForwardUnlock = async () => {
+        if (!character?.id || isSimulating) return
+
+        setIsSimulating(true)
+
+        try {
+            console.log('[Fast Forward] Starting progression simulation...')
+            // 🟢 Use authFetch to maintain authentication
+            const res = await authFetch('/api/dev/simulate-progression', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ characterId: character.id })
+            })
+
+            const data = await res.json()
+
+            if (res.ok && data.success) {
+                console.log('[Fast Forward] ✅ Progression complete:', data.relationship)
+
+                // Update local relationship state
+                if (data.relationship) {
+                    setAffectionPoints(data.relationship.affectionPoints)
+                    setIntimacyLevel(data.relationship.intimacyLevel)
+                    setRelationshipStage(data.relationship.stage || 'UNDEFINED')
+                    setPhoneUnlocked(data.relationship.phoneUnlocked)
+                }
+
+                // If phone was unlocked, show celebration popup
+                if (data.phoneJustUnlocked) {
+                    setPhoneJustUnlocked(true)
+                    console.log('[Fast Forward] 🎉 Phone just unlocked!')
+                }
+
+                alert(`✅ Fast Forward hoàn tất!\n\n` +
+                    `📊 Affection: ${data.relationship?.affectionPoints || 0}\n` +
+                    `📱 Phone: ${data.relationship?.phoneUnlocked ? 'Mở khóa ✓' : 'Vẫn khóa'}\n` +
+                    `💬 Đã tạo: ${data.messagesCreated} tin nhắn Phone`)
+
+                // Reload to ensure UI is in sync
+                window.location.reload()
+            } else {
+                alert(`❌ Lỗi: ${data.error || 'Unknown error'}`)
+            }
+        } catch (error: any) {
+            console.error('[Fast Forward] Error:', error)
+            alert(`❌ Thất bại: ${error.message}`)
+        } finally {
+            setIsSimulating(false)
+        }
+    }
+
+    // 🎬 DEV CHAT GENERATOR: Preview messages (no save)
+    const handleDevChatGenerate = async () => {
+        if (!character?.id || !user) return
+
+        setIsDevChatGenerating(true)
+        try {
+            const response = await authFetch('/api/chat/dev-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userEmail: user.email,
+                    userId: user.uid,
+                    characterId: character.id,
+                    characterName: character.name,
+                    characterPersona: character.persona || '',
+                    topic: devChatTopic,
+                    messageCount: devChatMsgCount,
+                    userLanguage: userLanguage,
+                    saveToDb: false, // Preview only
+                })
+            })
+
+            const data = await response.json()
+
+            if (data.messages && Array.isArray(data.messages)) {
+                setDevChatPreview(data.messages)
+                console.log(`[Dev Gen] Preview ready: ${data.messages.length} messages`)
+            } else {
+                console.error('[Dev Gen] No messages in response')
+                alert('❌ Failed to generate preview')
+            }
+        } catch (error: any) {
+            console.error('[Dev Gen] Generate error:', error)
+            alert('❌ Generate failed: ' + error.message)
+        } finally {
+            setIsDevChatGenerating(false)
+        }
+    }
+
+    // 🎬 DEV CHAT GENERATOR: Save to chat + Affection progression
+    const handleDevChatSave = async () => {
+        if (!character?.id || !user) return
+
+        setIsDevChatSaving(true)
+        try {
+            console.log('[Dev Gen] Saving 25 messages + affection progression...')
+
+            const response = await authFetch('/api/chat/dev-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userEmail: user.email,
+                    userId: user.uid,
+                    characterId: character.id,
+                    characterName: character.name,
+                    characterPersona: character.persona || '',
+                    topic: devChatTopic,
+                    messageCount: 25, // Force 25 for affection progression
+                    userLanguage: userLanguage,
+                    saveToDb: true,
+                })
+            })
+
+            const data = await response.json()
+
+            if (data.saved) {
+                console.log('[Dev Gen] ✅ Saved successfully, reloading...')
+
+                // Reload chat messages
+                await Promise.all([
+                    // Reload messages
+                    (async () => {
+                        const res = await authFetch(`/api/messages?characterId=${character.id}`)
+                        if (res.ok) {
+                            const msgs = await res.json()
+                            setMessages(msgs)
+                        }
+                    })(),
+                    // Reload character/relationship data
+                    (async () => {
+                        const res = await authFetch(`/api/characters/${character.id}`)
+                        if (res.ok) {
+                            const charData = await res.json()
+                            if (charData.relationshipConfig) {
+                                setAffectionPoints(charData.relationshipConfig.affectionPoints || 0)
+                                setIntimacyLevel(charData.relationshipConfig.intimacyLevel || 0)
+                                setRelationshipStage(charData.relationshipConfig.status || 'STRANGER')
+                                if (typeof charData.relationshipConfig.phoneUnlocked === 'boolean') {
+                                    setPhoneUnlocked(charData.relationshipConfig.phoneUnlocked)
+                                }
+                            }
+                        }
+                    })()
+                ])
+
+                // 🔓 Trigger Phone unlock celebration if it just unlocked
+                if (data.phoneJustUnlocked) {
+                    console.log('[Dev Gen] 🎉 Phone just unlocked! Triggering celebration popup.')
+                    setPhoneJustUnlocked(true)
+                }
+
+                // Clear preview and close panel
+                setDevChatPreview([])
+                setShowDevChatPanel(false)
+
+                alert(`✅ Saved ${data.count || 25} messages!\n\n` +
+                    `📊 Affection: ${data.relationship?.affectionPoints || 0}\n` +
+                    `📱 Phone: ${data.relationship?.phoneUnlocked ? 'Unlocked ✓' : 'Locked'}\n` +
+                    `Check relationship bar for updates.`)
+            } else {
+                console.error('[Dev Gen] Save failed:', data.error || data.devError)
+                alert('❌ Save failed: ' + (data.error || data.devError || 'Unknown error'))
+            }
+        } catch (error: any) {
+            console.error('[Dev Gen] Save error:', error)
+            alert('❌ Save failed: ' + error.message)
+        } finally {
+            setIsDevChatSaving(false)
+        }
+    }
+
+    // 🚀 QUICK DEV GENERATOR: One-click 25 messages + Phone unlock
+    const handleQuickDevGenerate = async () => {
+        if (!character?.id || !user) return
+
+        const confirmed = confirm('🚀 Generate 25 fake messages + unlock Phone?\n\n' +
+            'This will:\n' +
+            '✅ Create 25 chat messages\n' +
+            '✅ Increase affection to 101+\n' +
+            '✅ Unlock Phone immediately\n\n' +
+            'Continue?')
+
+        if (!confirmed) return
+
+        try {
+            console.log('[Quick Dev Gen] Starting 25 message generation...')
+
+            const response = await authFetch('/api/chat/dev-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userEmail: user.email,
+                    userId: user.uid,
+                    characterId: character.id,
+                    characterName: character.name,
+                    characterPersona: character.persona || '',
+                    topic: 'caring', // Default friendly topic
+                    messageCount: 25,
+                    userLanguage,
+                    saveToDb: true
+                })
+            })
+
+            const data = await response.json()
+
+            if (data.saved) {
+                console.log('[Quick Dev Gen] ✅ Success! Reloading...')
+
+                // Reload everything
+                await Promise.all([
+                    loadMessages(),
+                    loadCharacter()
+                ])
+
+                // Check if phone unlocked
+                if (data.phoneJustUnlocked) {
+                    setPhoneJustUnlocked(true)
+                }
+
+                alert(`✅ Quick Dev Gen Complete!\n\n` +
+                    `📊 Affection: ${data.relationship?.affectionPoints || 0}\n` +
+                    `📱 Phone: ${data.relationship?.phoneUnlocked ? 'UNLOCKED ✓' : 'Locked'}\n` +
+                    `💬 Messages: 25`)
+            } else {
+                alert('❌ Gen failed: ' + (data.error || 'Unknown'))
+            }
+        } catch (error: any) {
+            console.error('[Quick Dev Gen] Error:', error)
+            alert('❌ Failed: ' + error.message)
         }
     }
 
@@ -833,100 +1098,6 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         }
     }
 
-    // 🎬 DEV: Generate main chat conversation preview
-    const handleDevChatGenerate = async () => {
-        if (!isDev || isDevChatGenerating) return
-
-        setIsDevChatGenerating(true)
-        setDevChatPreview([])
-
-        try {
-            console.log(`🎬 [DEV CHAT] Generating ${devChatMsgCount} messages - Topic: ${devChatTopic}`)
-
-            const response = await authFetch('/api/chat/dev-generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userEmail: user?.email,  // Required for DEV check
-                    userId: user?.uid,       // Firebase User.uid
-                    characterId,
-                    characterName: character?.name,
-                    characterPersona: character?.persona,
-                    topic: devChatTopic,
-                    messageCount: devChatMsgCount,
-                    userLanguage,
-                    saveToDb: false
-                })
-            })
-
-            const data = await response.json()
-
-            if (data.messages && data.messages.length > 0) {
-                setDevChatPreview(data.messages)
-                console.log(`✅ [DEV CHAT] Preview generated: ${data.messages.length} messages`)
-            } else if (data.error) {
-                console.error('[DEV CHAT] Error:', data.error)
-                alert(`DEV Error: ${data.error}`)
-            }
-        } catch (err) {
-            console.error('[DEV CHAT] Generate error:', err)
-        } finally {
-            setIsDevChatGenerating(false)
-        }
-    }
-
-    // 🎬 DEV: Save preview to database
-    const handleDevChatSave = async () => {
-        if (!isDev || isDevChatSaving || devChatPreview.length === 0) return
-
-        setIsDevChatSaving(true)
-
-        try {
-            console.log(`💾 [DEV CHAT] Saving ${devChatPreview.length} messages to DB...`)
-
-            const response = await authFetch('/api/chat/dev-generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userEmail: user?.email,  // Required for DEV check
-                    userId: user?.uid,       // Firebase User.uid
-                    characterId,
-                    characterName: character?.name,
-                    characterPersona: character?.persona,
-                    topic: devChatTopic,
-                    messageCount: devChatMsgCount,
-                    userLanguage,
-                    saveToDb: true
-                })
-            })
-
-            const data = await response.json()
-
-            if (data.saved) {
-                console.log(`✅ [DEV CHAT] Saved ${data.count} messages! Reloading...`)
-                // Reload messages to show the new ones
-                await loadMessages()
-                // Clear preview and close panel
-                setDevChatPreview([])
-                setShowDevChatPanel(false)
-                // Reload character to update relationship stats
-                await loadCharacter()
-
-                // 💔 FIX: Check if topic was 'toxic' OR stage is BROKEN -> trigger breakup modal
-                if (data.newStage === 'BROKEN' || devChatTopic === 'toxic') {
-                    console.log('💔 [DEV CHAT] BROKEN stage detected! Triggering breakup modal...')
-                    setIsBrokenUp(true)
-                }
-            } else {
-                console.error('[DEV CHAT] Save failed:', data.error)
-                alert(`Save failed: ${data.error}`)
-            }
-        } catch (err) {
-            console.error('[DEV CHAT] Save error:', err)
-        } finally {
-            setIsDevChatSaving(false)
-        }
-    }
 
     // Goodnight keyword detection
     const GOODNIGHT_KEYWORDS = ['ngủ ngon', 'bye', 'tạm biệt', 'chúc ngủ ngon', 'good night', 'goodnight', 'bye bye']
@@ -1497,6 +1668,16 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 }}
                 onPhone={() => {
                     // 📱 Phone - opens new Phone OS screen
+                    // 🔓 CHECK: Phone must be unlocked (affection >= 101)
+                    // ALL users (including devs) must have phoneUnlocked === true
+                    console.log('[ChatPage] onPhone click - phoneUnlocked:', phoneUnlocked, 'affection:', affectionPoints)
+
+                    if (!phoneUnlocked) {
+                        console.log('[ChatPage] 🔒 Phone is LOCKED - affection < 101, showing locked modal')
+                        setShowPhoneLockedModal(true)
+                        return
+                    }
+
                     // Mark messages as "seen" - prevents stale notifications
                     lastSeenPhoneTimestampRef.current = Date.now()
                     setHasNewPhoneMessages(false)
@@ -1673,6 +1854,162 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 <MissingInfoWarningPopup
                     onClose={() => setShowMissingInfoWarning(false)}
                 />
+            )}
+
+            {/* 🎬 DEV CHAT GENERATOR PANEL (Dev-only) */}
+            {isDev && showDevChatPanel && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 max-h-[80vh] overflow-y-auto">
+                        {/* Header */}
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    🎬 DEV Auto-Conversation Generator
+                                </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    Generate 25 realistic messages to seed chat + advance affection. Can unlock Phone if affection reaches 101.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowDevChatPanel(false)}
+                                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        {/* Controls */}
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Conversation Topic:
+                                </label>
+                                <select
+                                    value={devChatTopic}
+                                    onChange={(e) => setDevChatTopic(e.target.value)}
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                >
+                                    {DEV_CHAT_TOPICS.map(topic => (
+                                        <option key={topic.value} value={topic.value}>
+                                            {topic.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleDevChatGenerate}
+                                    disabled={isDevChatGenerating}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
+                                >
+                                    {isDevChatGenerating ? '⏳ Generating...' : '🔍 Generate Preview'}
+                                </button>
+                                <button
+                                    onClick={handleDevChatSave}
+                                    disabled={isDevChatSaving}
+                                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 font-medium"
+                                >
+                                    {isDevChatSaving ? '⏳ Saving...' : '💾 SAVE (25 msgs)'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Preview Section */}
+                        {devChatPreview.length > 0 && (
+                            <div className="mt-6">
+                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                                    Preview ({devChatPreview.length} messages):
+                                </h4>
+                                <div className="max-h-64 overflow-y-auto space-y-2 bg-gray-100 dark:bg-gray-900 rounded-lg p-4">
+                                    {devChatPreview.map((msg: any, idx: number) => (
+                                        <div key={idx} className="text-sm">
+                                            <span className={`font-semibold ${msg.role === 'user' ? 'text-blue-600' : 'text-green-600'}`}>
+                                                {msg.role === 'user' ? '👤 User' : '🤖 AI'}:
+                                            </span>
+                                            <span className="text-gray-700 dark:text-gray-300 ml-2">
+                                                {msg.content}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* 🔒 Phone LOCKED Modal - shown when user taps Phone before unlock */}
+            {showPhoneLockedModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-in zoom-in-95 duration-200">
+                        <div className="text-6xl mb-4">🔒</div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
+                            Phone is Locked
+                        </h3>
+                        <p className="text-gray-600 mb-6">
+                            {character?.name ? `Keep chatting with ${character.name} to unlock the Phone feature!` : 'Keep chatting to unlock the Phone feature!'}
+                        </p>
+                        <p className="text-sm text-gray-500 mb-6">
+                            Reach a closer relationship (Affection ≥ 101) to access their private messages.
+                        </p>
+                        <button
+                            onClick={() => setShowPhoneLockedModal(false)}
+                            className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold rounded-xl hover:from-pink-600 hover:to-purple-600 transition-colors"
+                        >
+                            Got it! 💕
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* 🎉 Phone UNLOCKED Celebration Popup - shown once when first unlocked */}
+            {phoneJustUnlocked && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-in zoom-in-95 duration-300 border-2 border-purple-200">
+                        <div className="text-6xl mb-4 animate-bounce">🎉</div>
+                        <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+                            Phone Unlocked!
+                        </h3>
+                        <p className="text-gray-700 mb-2 font-semibold">
+                            🎉 Chúc mừng! Bạn đã mở khóa tính năng Điện Thoại!
+                        </p>
+                        <p className="text-sm text-gray-500 mb-6">
+                            Lần sau, hãy bấm vào icon Điện Thoại để mở lại nhé.
+                        </p>
+                        <button
+                            onClick={() => {
+                                setPhoneJustUnlocked(false);
+                                setShowPhoneOS(true); // ✨ Immediately open Phone OS
+                            }}
+                            className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-pink-600 transition-colors shadow-lg"
+                        >
+                            Open Phone 📱
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* 🎬 DEV TOOL: Dev Chat Generator Toggle Button */}
+            {isDev && !showPhoneOS && (
+                <button
+                    onClick={() => setShowDevChatPanel(!showDevChatPanel)}
+                    className="fixed bottom-24 right-4 z-40 px-5 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-full shadow-2xl hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300"
+                    title="Dev Chat Generator - Generate 25 messages + advance affection"
+                >
+                    🎬 Chat Gen
+                </button>
+            )}
+
+            {/* 🚀 DEV TOOL: Quick Generate Button (One-Click) */}
+            {isDev && !showPhoneOS && (
+                <button
+                    onClick={handleQuickDevGenerate}
+                    className="fixed bottom-24 left-4 z-40 px-5 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-full shadow-2xl hover:shadow-orange-500/50 hover:scale-105 transition-all duration-300"
+                    title="Quick Dev Gen - Instant 25 messages + Phone unlock"
+                >
+                    🚀 Quick Gen
+                </button>
             )}
         </>
     )

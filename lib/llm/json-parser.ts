@@ -153,15 +153,62 @@ export function parseJsonSafe<T>(raw: string, fallback: T): ParseResult<T> {
 }
 
 /**
- * Parse JSON array from LLM output
- * Returns empty array on failure
+ * Parse JSON array from LLM output with robust fallback
+ * Returns empty array on failure instead of throwing
+ * 
+ * Fallback strategy:
+ * 1. Try standard parseJsonSafe
+ * 2. If fails, try manual bracket fixing
+ * 3. If still fails, return empty array (never throw)
  */
 export function parseJsonArray<T>(raw: string): T[] {
+    // Attempt 1: Standard parse with cleaning
     const result = parseJsonSafe<T[]>(raw, [])
     if (result.success && Array.isArray(result.data)) {
         return result.data
     }
-    return []
+
+    // Attempt 2: Fallback - try to salvage the JSON
+    console.warn('[JSON Parser Fallback] Standard parse failed, attempting manual fix...')
+    console.warn('[JSON Parser Fallback] Input preview:', raw.substring(0, 200))
+
+    try {
+        // Find first [ and last ]
+        const firstBracket = raw.indexOf('[')
+        const lastBracket = raw.lastIndexOf(']')
+
+        if (firstBracket === -1) {
+            console.warn('[JSON Parser Fallback] No opening bracket found, returning empty array')
+            return []
+        }
+
+        let jsonText
+        if (lastBracket > firstBracket) {
+            // Both brackets found
+            jsonText = raw.substring(firstBracket, lastBracket + 1)
+        } else {
+            // Missing closing bracket, append it
+            console.warn('[JSON Parser Fallback] Missing closing bracket, appending ]')
+            jsonText = raw.substring(firstBracket) + ']'
+        }
+
+        // Try to parse the salvaged text
+        const parsed = JSON.parse(jsonText)
+
+        // Validate it's an array
+        if (Array.isArray(parsed)) {
+            console.log(`[JSON Parser Fallback] ✅ Successfully salvaged ${parsed.length} items`)
+            return parsed as T[]
+        } else {
+            console.warn('[JSON Parser Fallback] Parsed result is not an array')
+            return []
+        }
+    } catch (fallbackError) {
+        // Final fallback: return empty array, DO NOT throw
+        console.warn('[JSON Parser Fallback] All attempts failed:', fallbackError instanceof Error ? fallbackError.message : 'Unknown error')
+        console.warn('[JSON Parser Fallback] Returning empty array')
+        return []
+    }
 }
 
 /**

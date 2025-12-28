@@ -248,64 +248,11 @@ export default function MessageDetail({
                         setConversationId(data.conversationId)
                     }
                 }
-                // 🔥 STEP 3: Smart reload - check if AI should reply
-                else if (isReload && fetchedMessages.length > 0) {
-                    const lastMessage = fetchedMessages[fetchedMessages.length - 1]
-                    // ✅ FIXED: Check role instead of is_from_character
-                    // role='user' = last message from user (Hiếu) → AI should reply
-                    const shouldRegenerate = lastMessage.role === 'user'
-
-                    if (shouldRegenerate) {
-                        console.log('[MessageDetail] 🤖 Last message from user, triggering AI reply...')
-
-                        const aiResponse = await fetch('/api/phone/generate-ai-reply', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                conversationId: data.conversationId,
-                                characterId,
-                                senderName,
-                                characterName,
-                                characterDescription,
-                                userLanguage: lang,
-                                userEmail
-                            })
-                        })
-
-                        if (aiResponse.ok) {
-                            console.log('[MessageDetail] ✅ AI reply generated on reload')
-
-                            const refreshResponse = await fetch('/api/phone/get-conversation-detail', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    senderName,
-                                    characterId,
-                                    conversationId: data.conversationId,
-                                    forceRegenerate: false,
-                                    userEmail
-                                })
-                            })
-
-                            if (refreshResponse.ok) {
-                                const refreshData = await refreshResponse.json()
-                                setMessages(refreshData.messages || [])
-                                setConversationId(refreshData.conversationId)
-                            }
-                        } else {
-                            const errorData = await aiResponse.json().catch(() => ({}))
-                            console.log('[MessageDetail] ⚠️ AI reply failed/rate-limited:', errorData.message || 'Unknown')
-                            setMessages(fetchedMessages)
-                            setConversationId(data.conversationId)
-                        }
-                    } else {
-                        console.log('[MessageDetail] ℹ️ Last message from AI, no regeneration needed')
-                        setMessages(fetchedMessages)
-                        setConversationId(data.conversationId)
-                    }
-                }
-                // 🔥 Normal case: just show messages
+                // 🔥 STEP 3: Normal case - just show messages without auto-triggering AI
+                // ✅ FIXED: Removed aggressive reload that triggers AI every time
+                // AI reply is now triggered only when user SENDS a message, with cooldown
                 else {
+                    console.log('[MessageDetail] 📖 Loading messages from DB (no auto-AI trigger)')
                     setMessages(fetchedMessages)
                     setConversationId(data.conversationId)
                 }
@@ -467,10 +414,12 @@ export default function MessageDetail({
 
                                                 if (newMessages.length > 0) {
                                                     console.log(`[MessageDetail] 📥 Adding ${newMessages.length} new messages from DB`)
-                                                    // ✅ Notify parent to reload conversation list with updated preview
+                                                    // ✅ Notify parent to reload conversation list (async to avoid React error)
                                                     if (onConversationUpdate) {
-                                                        console.log('[MessageDetail] 🔄 Triggering conversation list reload')
-                                                        onConversationUpdate()
+                                                        console.log('[MessageDetail] 🔄 Triggering conversation list reload (async)')
+                                                        setTimeout(() => {
+                                                            onConversationUpdate()
+                                                        }, 100) // ✅ Delay to avoid setState during render
                                                     }
                                                     return [...prevMessages, ...newMessages]
                                                 }

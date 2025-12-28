@@ -107,6 +107,7 @@ interface GenerateAIReplyRequest {
     userEmail?: string
     forceTrigger?: boolean
     userLanguage?: 'en' | 'vi'
+    devModeEnabled?: boolean  // ✅ NEW: for dev testing bypass (defaults to false)
 }
 
 export async function POST(req: NextRequest) {
@@ -121,7 +122,8 @@ export async function POST(req: NextRequest) {
             characterDescription,
             userEmail,
             forceTrigger = false,
-            userLanguage = 'vi'
+            userLanguage = 'vi',
+            devModeEnabled = false  // ✅ NEW: defaults to false (production mode)
         } = body
 
         console.log(`[AI Reply] 🤖 Generating reply for conversation: ${conversationId}`)
@@ -217,7 +219,49 @@ export async function POST(req: NextRequest) {
         const isDev = DEV_EMAILS.includes(effectiveEmail)
         console.log(`[AI Reply] 👤 User: ${effectiveEmail || 'anonymous'}, isDev: ${isDev}`)
 
-        // 3. Rate limit check (60 seconds for non-devs) using Prisma
+        // 🚦 EARLY COOLDOWN CHECK (before any generation logic)
+        // This prevents self-continuation spam
+        // 🎛️ COOLDOWN CONFIGURATION:
+        // - Production (default): 2 hours (prevents spam, saves tokens)
+        // - Dev Mode (opt-in via devModeEnabled): 10 seconds (for rapid testing)
+        const COOLDOWN_PRODUCTION = 2 * 60 * 60 * 1000  // 2 hours
+        const COOLDOWN_DEV = 10 * 1000                   // 10 seconds
+        const cooldownMs = devModeEnabled ? COOLDOWN_DEV : COOLDOWN_PRODUCTION
+
+        console.log(`[AI Reply] ⚙️ Cooldown mode: ${devModeEnabled ? 'DEV (10s)' : 'PRODUCTION (2h)'}`)
+
+        // Fetch messages to check last sender
+        const earlyMessages = await prisma.phoneMessage.findMany({
+            where: { conversationId },
+            orderBy: { timestamp: 'desc' },
+            take: 1
+        })
+
+        if (earlyMessages.length > 0) {
+            const lastMessage = earlyMessages[0]
+            const isLastFromAI = lastMessage.role === 'contact'
+
+            if (isLastFromAI && !forceTrigger) {
+                const timeSinceLastAIMsg = Date.now() - new Date(lastMessage.timestamp).getTime()
+
+                if (timeSinceLastAIMsg < cooldownMs) {
+                    const remainingMs = cooldownMs - timeSinceLastAIMsg
+                    const remainingSec = Math.ceil(remainingMs / 1000)
+
+                    console.log(`[AI Reply] ⏰ Self-continuation cooldown: ${remainingSec}s remaining (last AI msg ${Math.floor(timeSinceLastAIMsg / 1000)}s ago)`)
+
+                    return NextResponse.json({
+                        success: false,
+                        generated: false,
+                        reason: 'SELF_CONTINUATION_COOLDOWN',
+                        remainingMs,
+                        info: `AI already replied ${Math.floor(timeSinceLastAIMsg / 1000)}s ago. Cooldown: ${cooldownMs / 1000}s`
+                    }, { status: 200 }) // 200 not 429 - this is expected behavior
+                }
+            }
+        }
+
+        // 3. AI REPLY COOLDOWN - Prevent token waste
         const conversation = await prisma.phoneConversation.findUnique({
             where: { id: conversationId }
         })
@@ -226,8 +270,49 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
         }
 
-        // Note: We don't have last_generated_at in Prisma schema yet, skip rate limiting for now
-        // TODO: Add lastGeneratedAt field to PhoneConversation model
+        // ⏰ SMART COOLDOWN LOGIC (uses cooldownMs from early check above)
+        // In-chat = instant replies (user actively chatting)
+        // Out-of-chat = cooldown enforced (prevents token waste)
+        const IN_CHAT_WINDOW = 60 * 1000 // 60 seconds = considered "in chat"
+
+        // Check if user is "in chat" (sent a message within last 60s)
+        // This allows rapid back-and-forth conversation
+        const lastUserMessage = await prisma.phoneMessage.findFirst({
+            where: { conversationId, role: 'user' },
+            orderBy: { timestamp: 'desc' }
+        })
+
+        const timeSinceLastUserMsg = lastUserMessage
+            ? Date.now() - new Date(lastUserMessage.timestamp).getTime()
+            : Infinity
+
+        const isInChat = timeSinceLastUserMsg < IN_CHAT_WINDOW
+
+        if (isInChat) {
+            console.log(`[AI Reply] 💬 User in active chat (sent ${Math.floor(timeSinceLastUserMsg / 1000)}s ago) - INSTANT REPLY`)
+        } else if (conversation.lastGeneratedAt) {
+            // User left chat or returned after delay → Enforce cooldown
+            const timeSinceLastGen = Date.now() - new Date(conversation.lastGeneratedAt).getTime()
+            const remainingCooldown = cooldownMs - timeSinceLastGen
+
+            if (remainingCooldown > 0 && !forceTrigger) {
+                const remainingMinutes = Math.ceil(remainingCooldown / 1000 / 60)
+                const cooldownLabel = isDev ? `${Math.ceil(remainingCooldown / 1000)}s` : `${remainingMinutes}m`
+
+                console.log(`[AI Reply] ⏰ Cooldown active: ${cooldownLabel} remaining (user left chat ${Math.floor(timeSinceLastGen / 1000)}s ago)`)
+
+                return NextResponse.json({
+                    success: false,
+                    message: null,
+                    generated: false,
+                    reason: 'COOLDOWN_ACTIVE',
+                    remainingMs: remainingCooldown,
+                    info: `AI reply on cooldown. Please wait ${cooldownLabel}.`
+                }, { status: 429 })
+            }
+        }
+
+        console.log('[AI Reply] ✅ Proceeding with AI generation')
 
         // 4. Fetch recent chat history (last 20 messages) using Prisma
         console.log(`[AI Reply] 📖 Fetching chat history...`)
@@ -248,6 +333,50 @@ export async function POST(req: NextRequest) {
                 error: 'No messages',
                 message: 'No messages in conversation to reply to'
             }, { status: 400 })
+        }
+
+        // 🤖 AI SELF-CONTINUATION CHECK
+        // If last message was from AI/contact and user hasn't replied, AI continues the conversation
+        const lastMessage = chatHistory[chatHistory.length - 1]
+        const isLastFromUser = lastMessage.role === 'user'
+        const isLastFromAI = lastMessage.role === 'contact'
+
+        // If last message is from USER, this is a normal reply scenario (not self-continuation)
+        // Continue to AI generation below to reply to user
+        if (isLastFromUser) {
+            console.log('[AI Reply] 📩 Last message from user - generating reply')
+            // Continue to AI generation below
+        } else if (isLastFromAI && !isInChat) {
+            // Last message from AI + user not in chat = potential self-continuation
+            // Check if cooldown passed for self-continuation
+            const timeSinceLastAIMsg = Date.now() - new Date(lastMessage.timestamp).getTime()
+
+            if (timeSinceLastAIMsg >= cooldownMs) {
+                console.log(`[AI Reply] 🔄 AI Self-Continuation: Last AI message was ${Math.floor(timeSinceLastAIMsg / 1000)}s ago, generating follow-up`)
+                // Continue with AI generation below - will generate follow-up message
+            } else if (!forceTrigger) {
+                const remainingCooldown = cooldownMs - timeSinceLastAIMsg
+                const cooldownLabel = isDev ? `${Math.ceil(remainingCooldown / 1000)}s` : `${Math.ceil(remainingCooldown / 1000 / 60)}m`
+
+                console.log(`[AI Reply] ⏰ AI Self-Continuation cooldown: ${cooldownLabel} remaining`)
+                return NextResponse.json({
+                    success: false,
+                    generated: false,
+                    reason: 'SELF_CONTINUATION_COOLDOWN',
+                    remainingMs: remainingCooldown,
+                    info: `AI will continue conversation in ${cooldownLabel}.`
+                }, { status: 429 })
+            }
+        } else if (isLastFromAI && isInChat) {
+            // Last message from AI but user is actively chatting
+            // This means user is in chat, don't auto-continue - wait for user input
+            console.log('[AI Reply] 📭 Last message from AI, user in chat - waiting for user reply')
+            return NextResponse.json({
+                success: false,
+                generated: false,
+                reason: 'NOT_NEEDED',
+                info: 'Last message from AI, waiting for user to reply'
+            }, { status: 200 })
         }
 
         // 6. Build LLM prompt with CORRECT ROLE CONTEXT
@@ -445,12 +574,13 @@ ${SCORING_INSTRUCTION}`
 
         console.log(`[AI Reply] ✅ AI reply saved! ID: ${newMessage.id}`)
 
-        // 9. Update conversation preview using Prisma
+        // 9. Update conversation preview + cooldown timestamp
         await prisma.phoneConversation.update({
             where: { id: conversationId },
             data: {
                 lastMessage: aiReply.slice(0, 50),
-                timestamp: new Date()
+                timestamp: new Date(),
+                lastGeneratedAt: new Date() // ✅ Update cooldown timestamp
             }
         })
 

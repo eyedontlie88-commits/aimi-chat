@@ -323,14 +323,40 @@ ${isEnglish ? `[
 
         let messages: MessageItem[] = parseJsonArray<MessageItem>(result.reply)
 
+        // 🏦 FILTER: Exclude notification-only contacts from AI generation
+        const NOTIFICATION_KEYWORDS = [
+            'ngân hàng', 'bank',
+            'shopee', 'lazada', 'grab',
+            'momo', 'zalopay', 'viettel',
+            'vinaphone', 'mobifone', 'fpt'
+        ]
+
+        const isNotificationContact = (name: string): boolean => {
+            const lower = name.toLowerCase()
+            return NOTIFICATION_KEYWORDS.some(keyword => lower.includes(keyword))
+        }
+
+        const originalCount = messages.length
+        messages = messages.filter(msg => {
+            if (isNotificationContact(msg.name)) {
+                console.log(`[Phone Messages] 🏦 Filtered out notification contact: ${msg.name}`)
+                return false
+            }
+            return true
+        })
+
+        if (messages.length < originalCount) {
+            console.log(`[Phone Messages] 📋 Filtered ${originalCount - messages.length} notification contacts, ${messages.length} remaining`)
+        }
+
         // If parsing returned empty array, return empty - UI will show "Locked State"
         if (messages.length === 0) {
-            console.warn('[Phone Messages] JSON parsing returned empty, returning empty array for Locked State UI')
+            console.warn('[Phone Messages] JSON parsing returned empty (or all filtered), returning empty array for Locked State UI')
             return NextResponse.json({
                 skipped: false,
                 messages: [],
                 source: 'empty',
-                error: 'AI returned no messages'
+                error: 'AI returned no messages (or all were notification contacts)'
             })
         }
 

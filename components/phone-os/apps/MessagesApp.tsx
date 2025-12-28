@@ -88,6 +88,10 @@ export default function MessagesApp({
     const [cooldownRemaining, setCooldownRemaining] = useState(0)
     const [isRefreshing, setIsRefreshing] = useState(false)
 
+    // 📡 PASSIVE SYNC: Fast polling mode after user sends message
+    const [fastPollingMode, setFastPollingMode] = useState(false)
+    const fastPollingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
     // 🧠 RULE #6: Ref to access current conversations from callback without stale closure
     const conversationsRef = useRef<ConversationItem[]>([])
     useEffect(() => {
@@ -107,6 +111,12 @@ export default function MessagesApp({
     const [debugToast, setDebugToast] = useState<{ message: string; details: string } | null>(null)
     const tapCountRef = useRef(0)
     const lastTapTimeRef = useRef(0)
+
+    // 🔧 DEV PANEL: Test states (one-time use per session)
+    const [devTestInitialDone, setDevTestInitialDone] = useState(false)
+    const [devTestInChatDone, setDevTestInChatDone] = useState(false)
+    const [devTestSelfContDone, setDevTestSelfContDone] = useState(false)
+    const [devTestRunning, setDevTestRunning] = useState<'initial' | 'inchat' | 'selfcont' | null>(null)
 
     const handleLockIconTap = useCallback(() => {
         // Only DEV users can trigger this
@@ -131,6 +141,140 @@ export default function MessagesApp({
             console.log(`[MessagesApp] 🔧 DEV mode: ${!devVisible ? 'VISIBLE' : 'HIDDEN'} (triple-tap by ${userEmail})`)
         }
     }, [isDevUser, devVisible, userEmail])
+
+    // 🧪 DEV TEST 1: Initial Messages Generation
+    const runDevTestInitial = useCallback(async () => {
+        if (devTestInitialDone || devTestRunning) return
+
+        console.log('%c🔓 [DEV TEST 1/3] INITIAL MESSAGES BYPASS', 'background: #FF6B00; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
+        console.log('%c📍 Bypassing message threshold check...', 'color: #FF6B00; font-weight: bold;')
+        console.log(`%c📍 Character: ${characterName}`, 'color: #FF6B00;')
+        console.log('%c📍 Expected: LOCKED screen → conversation list appears', 'color: #22C55E; font-weight: bold;')
+
+        setDevTestRunning('initial')
+        setLoading(true)
+
+        try {
+            const response = await fetch('/api/phone/generate-messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    characterId,
+                    characterName: characterName || 'Character',
+                    characterDescription: characterDescription || '',
+                    userLanguage: lang,
+                    isInitial: true,
+                    forceGenerate: true, // DEV bypass
+                    currentMessages: conversationsRef.current,
+                    userEmail: userEmail,
+                }),
+            })
+
+            if (!response.ok) throw new Error('API request failed')
+
+            const data = await response.json()
+            const messages = data.messages || []
+
+            if (messages.length > 0) {
+                sessionStorage.setItem(getCacheKey(characterId), JSON.stringify(messages))
+                setConversations(messages)
+                setSource('ai')
+                console.log(`%c✅ [DEV TEST 1/3] SUCCESS! Generated ${messages.length} conversations`, 'color: #22C55E; font-weight: bold; font-size: 14px;')
+                setDevTestInitialDone(true)
+            } else {
+                console.log('%c⚠️ [DEV TEST 1/3] AI returned empty messages', 'color: #EAB308; font-weight: bold;')
+            }
+        } catch (err: unknown) {
+            console.error('%c❌ [DEV TEST 1/3] FAILED!', 'background: #EF4444; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
+            console.error(err)
+        } finally {
+            setLoading(false)
+            setDevTestRunning(null)
+        }
+    }, [devTestInitialDone, devTestRunning, characterId, characterName, characterDescription, lang, userEmail])
+
+    // 🧪 DEV TEST 2: In-Chat Instant Reply
+    const runDevTestInChat = useCallback(() => {
+        if (devTestInChatDone || devTestRunning) return
+
+        console.log('%c💬 [DEV TEST 2/3] IN-CHAT INSTANT REPLY', 'background: #3B82F6; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
+        console.log('%c📍 Instruction: Open any conversation, send a message', 'color: #3B82F6; font-weight: bold;')
+        console.log('%c📍 Expected: AI replies within 2-10 seconds (dev cooldown)', 'color: #22C55E; font-weight: bold;')
+        console.log('%c📍 Watch for console log: "User in active chat - INSTANT REPLY"', 'color: #3B82F6;')
+
+        setDevTestRunning('inchat')
+
+        // Enable fast polling mode to catch AI reply quickly
+        setFastPollingMode(true)
+        console.log('%c⚡ Fast polling enabled (2s interval) for 30s', 'color: #3B82F6; font-style: italic;')
+
+        // Mark as done after 5 seconds (enough time for user to see the effect)
+        setTimeout(() => {
+            console.log('%c✅ [DEV TEST 2/3] In-Chat mode activated. Now send a message and wait for AI reply.', 'color: #22C55E; font-weight: bold; font-size: 14px;')
+            setDevTestInChatDone(true)
+            setDevTestRunning(null)
+        }, 5000)
+    }, [devTestInChatDone, devTestRunning])
+
+    // 🧪 DEV TEST 3: Self-Continuation
+    const runDevTestSelfCont = useCallback(async () => {
+        if (devTestSelfContDone || devTestRunning || conversations.length === 0) return
+
+        console.log('%c🔄 [DEV TEST 3/3] SELF-CONTINUATION BYPASS', 'background: #8B5CF6; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
+        console.log('%c📍 Triggering AI follow-up for all conversations...', 'color: #8B5CF6; font-weight: bold;')
+        console.log('%c📍 Expected: AI generates new messages even without user reply', 'color: #22C55E; font-weight: bold;')
+
+        setDevTestRunning('selfcont')
+
+        let successCount = 0
+
+        for (const conv of conversations) {
+            // Skip notification contacts
+            const lowerName = conv.name.toLowerCase()
+            const isNotification = ['ngân hàng', 'bank', 'shopee', 'lazada', 'grab', 'momo', 'zalopay']
+                .some(keyword => lowerName.includes(keyword))
+
+            if (isNotification) {
+                console.log(`%c⏭️ Skipping notification contact: ${conv.name}`, 'color: #6B7280; font-style: italic;')
+                continue
+            }
+
+            try {
+                const response = await fetch('/api/phone/get-conversation-detail', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        characterId: characterId,
+                        senderName: conv.name,
+                        characterName: characterName,
+                        characterDescription: characterDescription,
+                        forceRegenerate: true, // DEV bypass cooldown
+                        userEmail: userEmail,
+                        userLanguage: lang,
+                    }),
+                })
+
+                if (response.ok) {
+                    const data = await response.json()
+                    if (data.regenerated) {
+                        successCount++
+                        console.log(`%c✓ AI self-continuation for ${conv.name}`, 'color: #22C55E; font-weight: bold;')
+                    }
+                }
+            } catch (err) {
+                console.warn(`Self-continuation failed for ${conv.name}:`, err)
+            }
+        }
+
+        // Refresh list to show new messages
+        console.log(`%c🔄 Refreshing conversation list to show ${successCount} new AI messages...`, 'color: #8B5CF6; font-weight: bold;')
+        // Note: We can't use fetchMessages here due to hook order, so manually refresh
+        window.location.reload() // Simple refresh to show new messages
+
+        console.log(`%c✅ [DEV TEST 3/3] SUCCESS! Generated ${successCount} self-continuation messages`, 'color: #22C55E; font-weight: bold; font-size: 14px;')
+        setDevTestSelfContDone(true)
+        setDevTestRunning(null)
+    }, [devTestSelfContDone, devTestRunning, conversations, characterId, characterName, characterDescription, userEmail, lang])
 
     // Check cooldown on mount
     useEffect(() => {
@@ -305,7 +449,137 @@ export default function MessagesApp({
             sessionStorage.setItem(getCacheKey(characterId), JSON.stringify(updated))
             return current // Don't change state again, just update cache
         })
+
+        // 📡 Enable fast polling to catch AI reply quickly
+        console.log('[MessagesApp] 📡 Enabling fast polling mode (2s) to catch AI reply...')
+        setFastPollingMode(true)
+
+        // Clear any existing timeout
+        if (fastPollingTimeoutRef.current) {
+            clearTimeout(fastPollingTimeoutRef.current)
+        }
+
+        // Return to normal polling after 30s
+        fastPollingTimeoutRef.current = setTimeout(() => {
+            console.log('[MessagesApp] 📡 Fast polling ended, returning to normal mode')
+            setFastPollingMode(false)
+        }, 30000)
     }, [characterId])
+
+    // 📡 PASSIVE SYNC: Polling to catch AI replies
+    useEffect(() => {
+        if (!characterId || loading) return
+
+        const pollInterval = fastPollingMode ? 2000 : 10000 // 2s fast, 10s normal
+        console.log(`[MessagesApp] 📡 Polling mode: ${fastPollingMode ? 'FAST (2s)' : 'NORMAL (10s)'}`)
+
+        const interval = setInterval(async () => {
+            if (!fastPollingMode) return // Only poll in fast mode
+
+            console.log('[MessagesApp] 🔄 Polling for AI reply...')
+            try {
+                // Fetch fresh data from DB
+                const response = await fetch('/api/phone/generate-messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        characterId,
+                        characterName: characterName || 'Character',
+                        characterDescription: characterDescription || '',
+                        userLanguage: lang,
+                        isInitial: false,
+                        forceGenerate: false,
+                        currentMessages: conversationsRef.current,
+                        userEmail: userEmail,
+                    }),
+                })
+
+                if (response.ok) {
+                    const data = await response.json()
+                    const incomingMessages = data.messages || []
+
+                    if (incomingMessages.length > 0) {
+                        const mergedMessages = mergeMessages(conversationsRef.current, incomingMessages)
+                        if (mergedMessages.length > conversationsRef.current.length) {
+                            console.log('[MessagesApp] ✅ New messages detected, updating list')
+                            setConversations(mergedMessages)
+                            sessionStorage.setItem(getCacheKey(characterId), JSON.stringify(mergedMessages))
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('[MessagesApp] Polling error:', err)
+            }
+        }, pollInterval)
+
+        return () => clearInterval(interval)
+    }, [characterId, fastPollingMode, loading, characterName, characterDescription, lang, userEmail])
+
+    // 🤖 AI SELF-CONTINUATION POLLING
+    // Check if any conversation needs AI follow-up (user hasn't replied after cooldown)
+    useEffect(() => {
+        if (!characterId || conversations.length === 0 || loading) return
+
+        // Notification contact filter
+        const isNotificationContact = (name: string): boolean => {
+            const lower = name.toLowerCase()
+            const keywords = ['ngân hàng', 'bank', 'shopee', 'lazada', 'grab', 'momo', 'zalopay']
+            return keywords.some(keyword => lower.includes(keyword))
+        }
+
+        // Poll every 30 seconds for AI self-continuation
+        const interval = setInterval(async () => {
+            console.log('[MessagesApp] 🔍 Checking for AI self-continuation opportunities...')
+
+            let continuationCount = 0
+
+            for (const conv of conversations) {
+                // Skip notification contacts
+                if (isNotificationContact(conv.name)) {
+                    continue
+                }
+
+                try {
+                    // Trigger AI continuation check via get-conversation-detail
+                    // The API will determine if cooldown has passed and if last message was from AI
+                    const response = await fetch('/api/phone/get-conversation-detail', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            characterId: characterId,
+                            senderName: conv.name,
+                            characterName: characterName,
+                            characterDescription: characterDescription,
+                            forceRegenerate: true, // Trigger AI check
+                            userEmail: userEmail,
+                            userLanguage: lang
+                        })
+                    })
+
+                    if (response.ok) {
+                        const data = await response.json()
+
+                        if (data.regenerated) {
+                            console.log(`[MessagesApp] ✅ AI self-continuation generated for ${conv.name}`)
+                            continuationCount++
+                        }
+                    } else if (response.status === 429) {
+                        // Cooldown active - expected, skip silently
+                    }
+                } catch (error) {
+                    // Silent fail - don't spam console
+                }
+            }
+
+            // If any continuations happened, refresh the list
+            if (continuationCount > 0) {
+                console.log(`[MessagesApp] 🔄 Refreshing list after ${continuationCount} AI continuations`)
+                fetchMessages(false)
+            }
+        }, 30000) // Check every 30 seconds
+
+        return () => clearInterval(interval)
+    }, [conversations, characterId, characterName, characterDescription, userEmail, lang, loading, fetchMessages])
 
     // If a conversation is selected, show the detail view
     if (selectedConversation) {
@@ -427,70 +701,86 @@ export default function MessagesApp({
                                 </span>
                             </div>
 
-                            {/* 🔓 DEV ONLY: Force Unlock Button (Triple-tap lock icon to show) */}
-                            {isDevUser && devVisible && (
-                                <button
-                                    onClick={() => {
-                                        // 🛠️ EXPLICIT DEV FEEDBACK
-                                        console.log('%c🔓 [DEV] BYPASS TRIGGERED!', 'background: #FF6B00; color: white; font-size: 16px; padding: 4px 8px; border-radius: 4px;')
-                                        console.log('%c📍 Bypassing message threshold check...', 'color: #FF6B00; font-weight: bold;')
-                                        console.log('%c📍 Forcing AI generation immediately...', 'color: #FF6B00; font-weight: bold;')
-                                        console.log(`%c📍 Character: ${characterName}`, 'color: #FF6B00;')
-                                        console.log(`%c📍 Language: ${lang}`, 'color: #FF6B00;')
-                                        console.log(`%c📍 Persona: ${characterDescription?.slice(0, 100)}...`, 'color: #FF6B00;')
+                            {/* 🛠️ DEV PANEL - Permanent test interface for dev users */}
+                            {isDevUser && (
+                                <div className="mt-8 border-t-2 border-orange-300 pt-4">
+                                    <div className="flex items-center justify-center gap-2 mb-3">
+                                        <span className="text-xs font-bold text-orange-600">🔧 DEV TEST PANEL</span>
+                                        <span className="text-[10px] text-gray-500">
+                                            {devTestInitialDone && devTestInChatDone && devTestSelfContDone
+                                                ? '✅ All tests complete'
+                                                : `${[devTestInitialDone, devTestInChatDone, devTestSelfContDone].filter(Boolean).length}/3 done`}
+                                        </span>
+                                    </div>
 
-                                        // Visual Toast/Alert for Dev
-                                        alert(`🛠️ [DEV MODE]\n\n✅ Bypassed message threshold check!\n✅ Forcing AI generation...\n\nCharacter: ${characterName}\nLanguage: ${lang}\n\nCheck console for details.`)
+                                    <div className="space-y-2 px-4">
+                                        {/* Test 1: Initial Messages */}
+                                        <button
+                                            onClick={runDevTestInitial}
+                                            disabled={devTestInitialDone || devTestRunning !== null || loading}
+                                            className={`w-full px-3 py-2 text-xs font-medium rounded-lg transition-all ${devTestInitialDone
+                                                ? 'bg-green-100 text-green-700 cursor-not-allowed'
+                                                : devTestRunning === 'initial'
+                                                    ? 'bg-orange-200 text-orange-800 animate-pulse'
+                                                    : 'bg-orange-500 hover:bg-orange-600 text-white'
+                                                }`}
+                                        >
+                                            {devTestInitialDone
+                                                ? '✅ 1. Initial Messages (Done)'
+                                                : devTestRunning === 'initial'
+                                                    ? '⏳ Running Test 1...'
+                                                    : '🔓 1. Test Initial Unlock'}
+                                        </button>
 
-                                        setLoading(true)
-                                        fetch('/api/phone/generate-messages', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                                characterId, // 🔥 Required for DB save
-                                                characterName: characterName || 'Character',
-                                                characterDescription: characterDescription || '',
-                                                userLanguage: lang,
-                                                isInitial: true,
-                                                forceGenerate: true, // DEV bypass flag
-                                                userEmail: userEmail, // 🔐 For server-side DEV verification
-                                            }),
-                                        })
-                                            .then(res => res.json())
-                                            .then(data => {
-                                                console.log('%c✅ [DEV] Force generate SUCCESS!', 'background: #22C55E; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
-                                                console.log('[DEV] Result:', data)
-                                                const messages = data.messages || []
-                                                if (messages.length > 0) {
-                                                    sessionStorage.setItem(getCacheKey(characterId), JSON.stringify(messages))
-                                                    setConversations(messages)
-                                                    setSource(data.source === 'ai' ? 'ai' : 'fallback')
-                                                    console.log(`%c🎉 Generated ${messages.length} messages from AI!`, 'color: #22C55E; font-weight: bold;')
-                                                } else {
-                                                    console.log('%c⚠️ AI returned empty messages', 'color: #EAB308; font-weight: bold;')
-                                                }
-                                            })
-                                            .catch(async err => {
-                                                console.error('%c❌ [DEV] Force generate FAILED!', 'background: #EF4444; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;')
-                                                console.error(err)
+                                        {/* Test 2: In-Chat Reply */}
+                                        <button
+                                            onClick={runDevTestInChat}
+                                            disabled={devTestInChatDone || devTestRunning !== null || conversations.length === 0}
+                                            className={`w-full px-3 py-2 text-xs font-medium rounded-lg transition-all ${devTestInChatDone
+                                                ? 'bg-green-100 text-green-700 cursor-not-allowed'
+                                                : devTestRunning === 'inchat'
+                                                    ? 'bg-blue-200 text-blue-800 animate-pulse'
+                                                    : conversations.length === 0
+                                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                                                }`}
+                                        >
+                                            {devTestInChatDone
+                                                ? '✅ 2. In-Chat Reply (Done)'
+                                                : devTestRunning === 'inchat'
+                                                    ? '⏳ Running Test 2...'
+                                                    : conversations.length === 0
+                                                        ? '🔒 2. In-Chat Reply (unlock first)'
+                                                        : '💬 2. Test In-Chat Reply'}
+                                        </button>
 
-                                                // 🚨 DEV DEBUG TOAST: Show detailed error info
-                                                if (isDevUser) {
-                                                    const details = err?.message || 'Unknown error'
-                                                    setDebugToast({
-                                                        message: '🚨 [DEV] API Error',
-                                                        details: details
-                                                    })
-                                                    // Auto-hide after 8 seconds
-                                                    setTimeout(() => setDebugToast(null), 8000)
-                                                }
-                                            })
-                                            .finally(() => setLoading(false))
-                                    }}
-                                    className="mt-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-full transition-colors shadow-md"
-                                >
-                                    🔓 [DEV] Force Unlock
-                                </button>
+                                        {/* Test 3: Self-Continuation */}
+                                        <button
+                                            onClick={runDevTestSelfCont}
+                                            disabled={devTestSelfContDone || devTestRunning !== null || conversations.length === 0}
+                                            className={`w-full px-3 py-2 text-xs font-medium rounded-lg transition-all ${devTestSelfContDone
+                                                ? 'bg-green-100 text-green-700 cursor-not-allowed'
+                                                : devTestRunning === 'selfcont'
+                                                    ? 'bg-purple-200 text-purple-800 animate-pulse'
+                                                    : conversations.length === 0
+                                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                                        : 'bg-purple-500 hover:bg-purple-600 text-white'
+                                                }`}
+                                        >
+                                            {devTestSelfContDone
+                                                ? '✅ 3. Self-Continuation (Done)'
+                                                : devTestRunning === 'selfcont'
+                                                    ? '⏳ Running Test 3...'
+                                                    : conversations.length === 0
+                                                        ? '🔒 3. Self-Continuation (unlock first)'
+                                                        : '🔄 3. Test Self-Continuation'}
+                                        </button>
+                                    </div>
+
+                                    <p className="text-[10px] text-center text-gray-500 mt-3 px-4">
+                                        Each test runs once to prove the flow. Check console for detailed logs.
+                                    </p>
+                                </div>
                             )}
                         </div>
                     ) : (

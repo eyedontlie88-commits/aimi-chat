@@ -1,0 +1,17 @@
+-- ⚠️ DEPRECATED: This migration was created for a non-existent table.
+-- DO NOT USE THIS FILE.
+--
+-- The correct table is `RelationshipConfig`, NOT `relationship_stats`.
+-- Run the following SQL in Supabase SQL Editor instead:
+--
+-- ALTER TABLE "RelationshipConfig" 
+-- ADD COLUMN IF NOT EXISTS phone_unlocked BOOLEAN DEFAULT FALSE;
+--
+-- CREATE INDEX IF NOT EXISTS idx_relationship_config_phone_unlocked 
+-- ON "RelationshipConfig"("userId", "characterId", phone_unlocked);
+--
+-- COMMENT ON COLUMN "RelationshipConfig".phone_unlocked IS 'Phone feature unlocked when affection >= 101';
+
+-- OLD (WRONG) MIGRATION - DO NOT RUN:
+-- ALTER TABLE relationship_stats 
+-- ADD COLUMN IF NOT EXISTS phone_unlocked BOOLEAN DEFAULT FALSE;

@@ -1,8 +1,16 @@
 // app/api/relationship/get-stats/route.ts
+// 
+// ⚠️ IMPORTANT: This API uses the `RelationshipConfig` table as the single source of truth
+// for relationship data including affection points and phone unlock status.
+// Do NOT reference any other table (like "relationship_stats") - it does not exist.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { getIntimacyLevel, LEVEL_NAMES, LEVEL_EMOJIS, isBroken, shouldTriggerRescue } from '@/lib/relationship-levels';
+
+// 🔓 PHONE UNLOCK THRESHOLD
+// Phone feature unlocks when affection points reach this value
+const PHONE_UNLOCK_THRESHOLD = 101;
 
 export async function GET(req: NextRequest) {
     try {
@@ -28,12 +36,14 @@ export async function GET(req: NextRequest) {
 
         console.log(`[Get Stats] Fetching stats for user ${userId}, character ${characterId}`);
 
-        // Fetch relationship stats
+        // ✅ Fetch from RelationshipConfig - the REAL table in Supabase
+        // Columns: id, userId, characterId, intimacyLevel, affectionPoints, stage, 
+        //          lastActiveAt, messageCount, lastStageChangeAt, trustDebt, phone_unlocked, etc.
         const { data: stats, error } = await supabase
-            .from('relationship_stats')
+            .from('RelationshipConfig')
             .select('*')
-            .eq('user_id', userId)
-            .eq('character_id', characterId)
+            .eq('userId', userId)
+            .eq('characterId', characterId)
             .limit(1)
             .single();
 
@@ -48,6 +58,8 @@ export async function GET(req: NextRequest) {
                 levelEmoji: LEVEL_EMOJIS[0],
                 isBroken: false,
                 rescuePlanTriggered: false,
+                phoneUnlocked: false,
+                phoneJustUnlocked: false,
             });
         }
 
@@ -59,8 +71,36 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        const currentLevel = stats.intimacy_level;
-        const points = stats.affection_points;
+        // ✅ Use camelCase column names from RelationshipConfig
+        const currentLevel = stats.intimacyLevel ?? 0;
+        const points = stats.affectionPoints ?? 0;
+
+        // 🔓 PHONE UNLOCK LOGIC
+        // Check if phone should be unlocked based on affection points
+        const wasPhoneUnlocked = stats.phone_unlocked === true;
+        const shouldUnlockPhone = points >= PHONE_UNLOCK_THRESHOLD;
+        let phoneJustUnlocked = false;
+
+        // First-time unlock: affection crossed threshold but flag not yet set
+        if (!wasPhoneUnlocked && shouldUnlockPhone) {
+            console.log(`[Get Stats] 🔓 PHONE UNLOCKED! Affection: ${points} >= ${PHONE_UNLOCK_THRESHOLD}`);
+
+            // Persist the unlock flag to RelationshipConfig
+            const { error: updateError } = await supabase
+                .from('RelationshipConfig')
+                .update({ phone_unlocked: true })
+                .eq('userId', userId)
+                .eq('characterId', characterId);
+
+            if (updateError) {
+                console.error('[Get Stats] Failed to persist phone_unlocked:', updateError);
+            } else {
+                phoneJustUnlocked = true;
+                console.log('[Get Stats] ✅ phone_unlocked flag persisted to RelationshipConfig');
+            }
+        }
+
+        const phoneUnlocked = wasPhoneUnlocked || shouldUnlockPhone;
 
         return NextResponse.json({
             exists: true,
@@ -68,10 +108,15 @@ export async function GET(req: NextRequest) {
             intimacyLevel: currentLevel,
             levelName: LEVEL_NAMES[currentLevel as keyof typeof LEVEL_NAMES],
             levelEmoji: LEVEL_EMOJIS[currentLevel as keyof typeof LEVEL_EMOJIS],
-            isBroken: stats.is_broken,
-            rescuePlanTriggered: stats.rescue_plan_triggered,
-            createdAt: stats.created_at,
-            updatedAt: stats.updated_at,
+            // Map RelationshipConfig fields (some may not exist, use defaults)
+            stage: stats.stage ?? 'STRANGER',
+            isBroken: stats.stage === 'BROKEN',
+            rescuePlanTriggered: false, // Not tracked in RelationshipConfig
+            createdAt: stats.createdAt,
+            updatedAt: stats.updatedAt,
+            // 🔓 Phone unlock status
+            phoneUnlocked,
+            phoneJustUnlocked,
         });
 
     } catch (error: any) {

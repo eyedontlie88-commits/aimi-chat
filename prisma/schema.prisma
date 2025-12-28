@@ -117,14 +117,15 @@ model Memory {
 // ============================================
 
 model PhoneConversation {
-  id            String         @id @default(cuid())
-  characterId   String
-  userId        String
-  contactName   String
-  contactAvatar String?
-  lastMessage   String?
-  timestamp     DateTime       @default(now())
-  unread        Boolean        @default(false)
+  id              String         @id @default(cuid())
+  characterId     String
+  userId          String
+  contactName     String
+  contactAvatar   String?
+  lastMessage     String?
+  timestamp       DateTime       @default(now())
+  lastGeneratedAt DateTime?      // ✅ NEW: Track last AI reply time for cooldown
+  unread          Boolean        @default(false)
   
   messages      PhoneMessage[]
   character     Character      @relation(fields: [characterId], references: [id], onDelete: Cascade)
