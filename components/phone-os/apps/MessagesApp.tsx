@@ -301,51 +301,92 @@ export default function MessagesApp({
         setLoading(true)
 
         try {
-            // Check cache first (unless force refresh)
-            const cachedData = sessionStorage.getItem(getCacheKey(characterId))
-            const lastFetchCount = parseInt(sessionStorage.getItem(getCountKey(characterId)) || '0')
-            const messageDiff = messageCount - lastFetchCount
+            // 🔥 STEP 1: Always try to fetch EXISTING conversations from database first
+            console.log(`[MessagesApp] 📖 Fetching existing conversations from DB...`)
+            const dbRes = await fetch(`/api/phone/get-conversations?characterId=${characterId}`)
 
-            // Detect if this is initial phone open (no cache exists)
-            const isInitial = !cachedData
+            if (dbRes.ok) {
+                const dbData = await dbRes.json()
+                const existingConversations = dbData.conversations || []
 
-            if (!forceRefresh && cachedData) {
-                // Use cached data if threshold not met
-                if (messageDiff < MESSAGE_THRESHOLD) {
-                    console.log(`[MessagesApp] Using cached data (diff: ${messageDiff} < ${MESSAGE_THRESHOLD})`)
-                    setConversations(JSON.parse(cachedData))
-                    setSource('cached')
+                console.log(`[MessagesApp] ✅ Loaded ${existingConversations.length} conversations from DB`)
+
+                if (existingConversations.length > 0) {
+                    // 🎉 We have real conversations in DB - show them!
+                    setConversations(existingConversations)
+                    setSource('cached') // Mark as cached/database data
+                    sessionStorage.setItem(getCacheKey(characterId), JSON.stringify(existingConversations))
                     setLoading(false)
+
+                    // If forceRefresh, also trigger AI to generate MORE messages
+                    if (forceRefresh) {
+                        console.log(`[MessagesApp] 🔄 Force refresh: Requesting more AI messages...`)
+                        // Fire-and-forget AI generation in background
+                        fetch('/api/phone/generate-messages', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                characterId,
+                                characterName: characterName || 'Character',
+                                characterDescription: characterDescription || '',
+                                userLanguage: lang,
+                                isInitial: false,
+                                forceGenerate: forceRefresh,
+                                currentMessages: existingConversations,
+                                userEmail: userEmail,
+                            }),
+                        }).then(async (res) => {
+                            if (res.ok) {
+                                const data = await res.json()
+                                if (data.messages?.length > 0) {
+                                    const merged = mergeMessages(conversationsRef.current, data.messages)
+                                    setConversations(merged)
+                                    sessionStorage.setItem(getCacheKey(characterId), JSON.stringify(merged))
+                                    setSource('ai')
+                                }
+                            }
+                        }).catch(err => console.error('[MessagesApp] Background AI error:', err))
+                    }
                     return
                 }
             }
 
+            // 🔒 STEP 2: No conversations in DB - check if we should generate or show Locked
+            // Check cache first (unless force refresh)
+            const cachedData = sessionStorage.getItem(getCacheKey(characterId))
+
+            if (!forceRefresh && cachedData) {
+                console.log(`[MessagesApp] Using cached data`)
+                setConversations(JSON.parse(cachedData))
+                setSource('cached')
+                setLoading(false)
+                return
+            }
+
             // 🔒 LOCKED DEFAULT LOGIC:
-            // If no cache AND not forceRefresh -> Show Locked State, DON'T call API
-            if (isInitial && !forceRefresh) {
-                console.log('[MessagesApp] 🔒 No cache, no force refresh -> Showing LOCKED state')
+            // If no DB data AND not forceRefresh -> Show Locked State, DON'T call AI
+            if (!forceRefresh) {
+                console.log('[MessagesApp] 🔒 No DB data, no force refresh -> Showing LOCKED state')
                 setConversations([])
                 setSource('empty')
                 setLoading(false)
-                return // CRITICAL: Exit early, no API call!
+                return
             }
 
-            // Only reach here if:
-            // 1. forceRefresh is true (Dev bypass or user refresh button)
-            // 2. OR cache exists but threshold met (time to refresh)
-            console.log(`[MessagesApp] Fetching messages from API... isInitial=${isInitial}, forceRefresh=${forceRefresh}`)
+            // 🔥 STEP 3: forceRefresh is true - Generate initial messages via AI
+            console.log(`[MessagesApp] 🤖 No DB data, generating via AI...`)
             const response = await fetch('/api/phone/generate-messages', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    characterId, // 🔥 Required for DB save
+                    characterId,
                     characterName: characterName || 'Character',
                     characterDescription: characterDescription || '',
-                    userLanguage: lang, // 'en' or 'vi'
-                    isInitial: isInitial, // Flag for first-time persona-based generation
-                    forceGenerate: forceRefresh, // Pass forceRefresh to API for DEV bypass
-                    currentMessages: conversationsRef.current, // 🧠 RULE #6: Use ref for fresh data
-                    userEmail: userEmail, // 🔐 For server-side DEV verification
+                    userLanguage: lang,
+                    isInitial: true,
+                    forceGenerate: true,
+                    currentMessages: conversationsRef.current,
+                    userEmail: userEmail,
                 }),
             })
 
@@ -356,8 +397,7 @@ export default function MessagesApp({
             const data = await response.json()
             const incomingMessages = data.messages || []
 
-            // 🧠 RULE #6: MERGE instead of WIPE
-            // Use mergeMessages to combine existing + new (not replace)
+            // Merge with existing (if any)
             const mergedMessages = mergeMessages(conversationsRef.current, incomingMessages)
 
             // Update cache with merged data
@@ -385,8 +425,7 @@ export default function MessagesApp({
             setLoading(false)
             setIsRefreshing(false)
         }
-        // Note: conversations not in deps - we use conversationsRef.current instead to avoid infinite loop
-    }, [characterId, characterName, characterDescription, messageCount, lang])
+    }, [characterId, characterName, characterDescription, messageCount, lang, userEmail])
 
     // Initial fetch on mount
     useEffect(() => {
