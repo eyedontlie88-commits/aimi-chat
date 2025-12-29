@@ -1432,15 +1432,25 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 }}
                 onPhone={() => {
                     // 📱 Phone - opens new Phone OS screen
-                    // 🔓 CHECK: Phone unlocked via flag OR affection >= 101 (fallback)
+                    // 🔒 HARD LOCK: Check unlock condition ONLY (NO DEV BYPASS)
                     const isUnlocked = phoneUnlocked || affectionPoints >= 101
-                    console.log('[ChatPage] onPhone click - phoneUnlocked:', phoneUnlocked, 'affection:', affectionPoints, 'isUnlocked:', isUnlocked)
 
+                    console.log('[ChatPage] 🔒 onPhone click - HARD LOCK', {
+                        phoneUnlocked,
+                        affection: affectionPoints,
+                        isUnlocked,
+                        userEmail: user?.email
+                    })
+
+                    // Show lock modal if not unlocked
                     if (!isUnlocked) {
-                        console.log('[ChatPage] 🔒 Phone is LOCKED - affection < 101, showing locked modal')
+                        console.log('[ChatPage] ❌ Phone is LOCKED - affection < 101')
                         setShowPhoneLockedModal(true)
                         return
                     }
+
+                    // ✅ SUCCESS: Unlocked properly
+                    console.log('[ChatPage] ✅ Phone UNLOCKED - Opening Phone OS')
 
                     // Mark messages as "seen" - prevents stale notifications
                     lastSeenPhoneTimestampRef.current = Date.now()
