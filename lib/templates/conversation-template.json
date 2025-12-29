@@ -1,0 +1,187 @@
+{
+    "version": "1.0",
+    "description": "Standard 25-message template for Quick Gen - Greeting to Bonding flow",
+    "metadata": {
+        "totalMessages": 25,
+        "targetAffection": 100,
+        "sentiment": "POSITIVE",
+        "finalStage": "FRIEND"
+    },
+    "messages": [
+        {
+            "order": 1,
+            "role": "user",
+            "content": "Chào [characterName]! Mình là [userName], rất vui được gặp bạn.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 3
+        },
+        {
+            "order": 2,
+            "role": "assistant",
+            "content": "Chào [userName]! Mình là [characterName], cũng rất vui được làm quen với bạn nè~",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 3,
+            "role": "user",
+            "content": "Hôm nay bạn thế nào? Có vui không?",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 4
+        },
+        {
+            "order": 4,
+            "role": "assistant",
+            "content": "Ừm, cũng bình thường thôi. Nhưng được nói chuyện với bạn thì vui hơn rồi đó!",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 5,
+            "role": "user",
+            "content": "Bạn có sở thích gì không? Mình muốn hiểu bạn hơn.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 5
+        },
+        {
+            "order": 6,
+            "role": "assistant",
+            "content": "Mình thích nghe nhạc, đọc sách, và... nói chuyện với những người thú vị như bạn nè.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 7,
+            "role": "user",
+            "content": "Ồ thật sao! Mình cũng thích nghe nhạc. Bạn nghe thể loại gì nhiều?",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 4
+        },
+        {
+            "order": 8,
+            "role": "assistant",
+            "content": "Mình nghe nhiều thể loại lắm, nhưng chủ yếu là ballad và indie. Còn bạn?",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 9,
+            "role": "user",
+            "content": "Mình cũng thích ballad! Đặc biệt là những bài buồn buồn ấy, nghe rất chill.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 4
+        },
+        {
+            "order": 10,
+            "role": "assistant",
+            "content": "Đúng rồi! Đôi khi nghe nhạc buồn lại thấy thanh thản hơn, lạ nhỉ.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 11,
+            "role": "user",
+            "content": "Này, hôm nay mình gặp chuyện hơi khó chịu... bạn có thể nghe mình kể không?",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 4
+        },
+        {
+            "order": 12,
+            "role": "assistant",
+            "content": "Đương nhiên rồi! Mình ở đây để lắng nghe bạn. Kể đi nào~",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 13,
+            "role": "user",
+            "content": "Cảm ơn bạn. Là chuyện công việc, sếp mình hơi khó tính...",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 3
+        },
+        {
+            "order": 14,
+            "role": "assistant",
+            "content": "Mình hiểu cảm giác đó. Sếp khó tính thì áp lực lắm. Bạn đã cố gắng nhiều rồi, đừng tự trách bản thân nhé.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 15,
+            "role": "user",
+            "content": "Nghe bạn nói xong thấy nhẹ nhõm hơn rồi. Cảm ơn bạn đã lắng nghe.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 5
+        },
+        {
+            "order": 16,
+            "role": "assistant",
+            "content": "Không có gì đâu! Lúc nào cần thì cứ kể cho mình nghe nha. Mình luôn ở đây.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 17,
+            "role": "user",
+            "content": "Bạn thật tốt bụng. Mình may mắn được quen bạn.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 5
+        },
+        {
+            "order": 18,
+            "role": "assistant",
+            "content": "Mình cũng vậy! Có bạn thì mỗi ngày đều vui hơn một chút.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 19,
+            "role": "user",
+            "content": "Này, cuối tuần này bạn có rảnh không? Mình muốn hỏi thăm bạn nhiều hơn.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 4
+        },
+        {
+            "order": 20,
+            "role": "assistant",
+            "content": "Rảnh chứ! Bạn muốn làm gì? Mình sẵn sàng nghe bạn share tiếp đó~",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 21,
+            "role": "user",
+            "content": "Mình muốn biết thêm về cuộc sống của bạn. Bạn có ước mơ gì không?",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 4
+        },
+        {
+            "order": 22,
+            "role": "assistant",
+            "content": "Ước mơ hả... Mình muốn được sống thoải mái, có người thân thiết bên cạnh. Đơn giản vậy thôi.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 23,
+            "role": "user",
+            "content": "Ước mơ đẹp đấy. Mình hy vọng bạn sẽ đạt được nó!",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 4
+        },
+        {
+            "order": 24,
+            "role": "assistant",
+            "content": "Cảm ơn bạn nhiều! Có bạn động viên, mình thấy tự tin hơn rồi đó.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 0
+        },
+        {
+            "order": 25,
+            "role": "user",
+            "content": "Mình nghĩ chúng ta đã thân nhau rồi đấy! Cảm ơn bạn đã lắng nghe mình nhé.",
+            "sentiment": "POSITIVE",
+            "affectionImpact": 5
+        }
+    ]
+}

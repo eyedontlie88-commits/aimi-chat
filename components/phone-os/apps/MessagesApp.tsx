@@ -33,6 +33,12 @@ const MESSAGE_THRESHOLD = 10
 // Cooldown: 60 seconds
 const REFRESH_COOLDOWN = 60
 
+// 🔐 DEV EMAILS WHITELIST - Auto unlock phone for dev users
+const DEV_EMAILS = [
+    'eyedontlie88@gmail.com',
+    'giangcm987@gmail.com',
+]
+
 
 /**
  * 🧠 RULE #6: Smart Context - Merge messages instead of wiping
@@ -187,12 +193,21 @@ export default function MessagesApp({
 
             // 🔒 LOCKED DEFAULT LOGIC:
             // If no DB data AND not forceRefresh -> Show Locked State, DON'T call AI
-            if (!forceRefresh) {
+            // 🔓 DEV BYPASS: Dev users always auto-generate
+            const isDevUser = userEmail && DEV_EMAILS.includes(userEmail)
+            const shouldAutoGenerate = isDevUser || forceRefresh
+
+            if (!shouldAutoGenerate) {
                 console.log('[MessagesApp] 🔒 No DB data, no force refresh -> Showing LOCKED state')
                 setConversations([])
                 setSource('empty')
                 setLoading(false)
                 return
+            }
+
+            // 🔓 DEV: Auto-generate for dev users
+            if (isDevUser && !forceRefresh) {
+                console.log('[MessagesApp] 🔓 DEV BYPASS: Auto-generating conversations for dev user')
             }
 
             // 🔥 STEP 3: forceRefresh is true - Generate initial messages via AI

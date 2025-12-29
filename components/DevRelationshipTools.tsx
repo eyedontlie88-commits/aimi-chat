@@ -7,6 +7,13 @@ interface DevRelationshipToolsProps {
     currentStage: string
     currentAffection: number
     onUpdate: (data: { affectionPoints: number; intimacyLevel: number; stage: string }) => void
+    // 🚀 Quick Gen Template props
+    userId?: string
+    userEmail?: string
+    characterName?: string
+    userName?: string
+    onQuickGenComplete?: () => void
+    onPhoneJustUnlocked?: () => void  // 🎉 Trigger celebration modal
 }
 
 const STAGES = ['STRANGER', 'ACQUAINTANCE', 'CRUSH', 'DATING', 'COMMITTED']
@@ -20,10 +27,17 @@ export default function DevRelationshipTools({
     currentStage,
     currentAffection,
     onUpdate,
+    userId,
+    userEmail,
+    characterName,
+    userName,
+    onQuickGenComplete,
+    onPhoneJustUnlocked,
 }: DevRelationshipToolsProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [isExpanded, setIsExpanded] = useState(false)
     const [isArchiving, setIsArchiving] = useState(false)  // 📦 Archive state
+    const [isQuickGenning, setIsQuickGenning] = useState(false) // 🚀 Quick Gen Template state
 
     const callDevApi = async (action: string, params: Record<string, any> = {}) => {
         setIsLoading(true)
@@ -148,6 +162,59 @@ export default function DevRelationshipTools({
             >
                 🔄 Reset Rel
             </button>
+
+            {/* 🚀 Quick Gen from Template */}
+            {userId && userEmail && (
+                <button
+                    onClick={async () => {
+                        if (!confirm('🚀 Quick Gen from Template?\n\n• Tạo 25 tin nhắn từ template\n• Tăng affection ~100 điểm\n• Unlock Phone (nếu đủ)\n\nTiếp tục?')) return
+
+                        setIsQuickGenning(true)
+                        try {
+                            const res = await fetch('/api/chat/quick-gen-template', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    userEmail,
+                                    userId,
+                                    characterId,
+                                    characterName: characterName || 'Character',
+                                    userName: userName || 'User',
+                                })
+                            })
+                            const data = await res.json()
+
+                            if (data.success) {
+                                console.log('[QuickGenTemplate] ✅ Success!', data)
+
+                                // 🎉 Check if Phone just unlocked - show celebration modal FIRST
+                                if (data.phoneJustUnlocked) {
+                                    console.log('[QuickGenTemplate] 🎉 phoneJustUnlocked detected - triggering celebration!')
+                                    onPhoneJustUnlocked?.()
+                                    // Don't show alert if celebration modal will show
+                                } else {
+                                    alert(`✅ Quick Gen Complete!\n\n📝 Đã tạo ${data.messagesCreated} tin nhắn\n❤️ Affection: +${data.affectionGain}\n📱 Phone: ${data.relationship?.phoneUnlocked ? 'UNLOCKED ✓' : 'Locked'}`)
+                                }
+
+                                onQuickGenComplete?.()
+                            } else {
+                                console.error('[QuickGenTemplate] Failed:', data.error)
+                                alert('❌ Quick Gen failed: ' + data.error)
+                            }
+                        } catch (error) {
+                            console.error('[QuickGenTemplate] Error:', error)
+                            alert('❌ Quick Gen error!')
+                        } finally {
+                            setIsQuickGenning(false)
+                        }
+                    }}
+                    disabled={isQuickGenning || isLoading}
+                    className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded hover:bg-cyan-500/30 disabled:opacity-50"
+                    title="Generate 25 messages from template (fast!)"
+                >
+                    {isQuickGenning ? '⏳ Generating...' : '🚀 Quick Gen'}
+                </button>
+            )}
 
             {/* 📦 Archive to Telegram & Clean DB */}
             <button

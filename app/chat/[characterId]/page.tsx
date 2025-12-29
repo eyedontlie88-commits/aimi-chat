@@ -15,6 +15,7 @@ import PlusDropdownModal from '@/components/PlusDropdownModal'
 import SceneDirectorModal from '@/components/SceneDirectorModal'
 import PhoneHomeScreen from '@/components/phone-os/PhoneHomeScreen'
 import { MissingInfoWarningPopup } from '@/components/MissingInfoWarningPopup'
+import DevRelationshipTools from '@/components/DevRelationshipTools'
 import { useColors } from '@/lib/ColorContext'
 import { useLanguage } from '@/lib/i18n'
 import { useModal } from '@/contexts/ModalContext'
@@ -1682,7 +1683,36 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                 </div>
             )}
 
-            {/* Dev tools removed for production */}
+            {/* 🧪 DEV TOOLS: Floating bubble (bottom-right) - Dev users only */}
+            {isDev && character && (
+                <div className="fixed bottom-24 right-4 z-[100]">
+                    <DevRelationshipTools
+                        characterId={characterId}
+                        currentStage={relationshipStage}
+                        currentAffection={affectionPoints}
+                        onUpdate={(data) => {
+                            setAffectionPoints(data.affectionPoints)
+                            setIntimacyLevel(data.intimacyLevel)
+                            setRelationshipStage(data.stage)
+                        }}
+                        userId={user?.uid}
+                        userEmail={user?.email}
+                        characterName={character.name}
+                        userName={user?.displayName || 'User'}
+                        onQuickGenComplete={() => {
+                            // Reload messages and character after Quick Gen
+                            loadMessages()
+                            loadCharacter()
+                        }}
+                        onPhoneJustUnlocked={() => {
+                            // 🎉 Trigger celebration modal
+                            console.log('[ChatPage] 🎉 onPhoneJustUnlocked triggered - showing celebration modal!')
+                            setPhoneJustUnlocked(true)
+                            setPhoneUnlocked(true)  // Also update the unlocked state
+                        }}
+                    />
+                </div>
+            )}
         </>
     )
 }

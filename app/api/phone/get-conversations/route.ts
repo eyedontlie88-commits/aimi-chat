@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/auth/require-auth'
 
+// 🔓 DEV EMAILS - Auto unlock phone for dev users
+const DEV_EMAILS = [
+    'eyedontlie88@gmail.com',
+    'giangcm987@gmail.com',
+]
+
 /**
  * API Route: Get Phone Conversations List (READ FROM DATABASE)
  * GET /api/phone/get-conversations
@@ -11,7 +17,7 @@ import { getAuthContext } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
     try {
-        const { uid, prisma } = await getAuthContext(req)
+        const { uid, prisma, email } = await getAuthContext(req)
 
         // Get characterId from query params
         const { searchParams } = new URL(req.url)
@@ -21,10 +27,13 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'characterId is required' }, { status: 400 })
         }
 
-        console.log(`[Phone GetConv] 📖 Fetching conversations for character: ${characterId}, user: ${uid}`)
+        // 🔓 Check if dev user
+        const isDevUser = email && DEV_EMAILS.includes(email)
+
+        console.log(`[Phone GetConv] 📖 Fetching conversations for character: ${characterId}, user: ${uid}, dev: ${isDevUser}`)
 
         // Fetch existing conversations from database
-        const conversations = await prisma.phoneConversation.findMany({
+        let conversations = await prisma.phoneConversation.findMany({
             where: {
                 characterId: characterId,
                 userId: uid
@@ -33,6 +42,46 @@ export async function GET(req: NextRequest) {
                 timestamp: 'desc'
             }
         })
+
+        // 🔓 DEV BYPASS: Auto-create default conversations if dev user has none
+        if (isDevUser && conversations.length === 0) {
+            console.log(`[Phone GetConv] 🔓 DEV BYPASS: Creating default conversations for dev user`)
+
+            // Create 5 default conversations for dev user
+            const defaultContacts = [
+                { contactName: 'Mẹ', lastMessage: 'Con về ăn cơm nhé! 💕' },
+                { contactName: 'Ngân hàng', lastMessage: 'Giao dịch 500,000 VND thành công' },
+                { contactName: 'Shopee', lastMessage: 'Đơn hàng #1234 đã giao thành công! 📦' },
+                { contactName: 'Grab', lastMessage: 'Tài xế đang đến đón bạn 🚗' },
+                { contactName: 'Bạn thân', lastMessage: 'Ê tối nay đi cafe không? ☕' },
+            ]
+
+            for (const contact of defaultContacts) {
+                await prisma.phoneConversation.create({
+                    data: {
+                        characterId: characterId,
+                        userId: uid,
+                        contactName: contact.contactName,
+                        lastMessage: contact.lastMessage,
+                        timestamp: new Date(),
+                        unread: true,
+                    }
+                })
+            }
+
+            // Re-fetch after creating
+            conversations = await prisma.phoneConversation.findMany({
+                where: {
+                    characterId: characterId,
+                    userId: uid
+                },
+                orderBy: {
+                    timestamp: 'desc'
+                }
+            })
+
+            console.log(`[Phone GetConv] ✅ DEV: Created ${defaultContacts.length} default conversations`)
+        }
 
         console.log(`[Phone GetConv] ✅ Found ${conversations.length} conversations`)
 
@@ -49,8 +98,9 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({
             conversations: formattedConversations,
-            source: 'database',
-            count: conversations.length
+            source: isDevUser && conversations.length > 0 ? 'dev' : 'database',
+            count: conversations.length,
+            isDevUser
         })
 
     } catch (error: any) {
