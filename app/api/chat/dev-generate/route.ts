@@ -308,7 +308,9 @@ Return ONLY a valid JSON array (no markdown, no explanation):
                 console.log(`💉 [DEV GEN] Calling set-relationship API: Stage=${newStage}, Status=${newStatus}, Points=${affectionChange}`)
 
                 // 🔄 Call the dedicated set-relationship API (handles insert/update properly)
-                const setRelRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(req.url).origin : 'http://localhost:3000'}/api/dev/set-relationship`, {
+                // Derive base URL from request headers or use NEXT_PUBLIC_APP_URL
+                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+                const setRelRes = await fetch(`${baseUrl}/api/dev/set-relationship`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

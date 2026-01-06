@@ -10,8 +10,8 @@ import prisma from '@/lib/prisma'
 export interface AuthContext {
     /** User ID: Firebase UID if authenticated, 'me' if anonymous */
     uid: string
-    /** User role from Firebase claims: 'dev' or 'user' */
-    role: 'dev' | 'user'
+    /** User role from Firebase claims: 'dev', 'admin', or 'user' */
+    role: 'dev' | 'admin' | 'user'
     /** Prisma client (shared instance) */
     prisma: PrismaClient
     /** Whether user is authenticated */

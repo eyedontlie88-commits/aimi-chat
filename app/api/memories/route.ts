@@ -28,12 +28,25 @@ export async function GET(request: NextRequest) {
         })
 
         return NextResponse.json({ memories })
-    } catch (error) {
+    } catch (error: any) {
         if (isAuthError(error)) {
-            return NextResponse.json({ error: error.message }, { status: 401 })
+            console.error('[API /memories GET] Auth error:', error.message)
+            return NextResponse.json({ 
+                memories: [], 
+                error: error.message 
+            }, { status: 401 })
         }
-        console.error('Error fetching memories:', error)
-        return NextResponse.json({ error: 'Failed to fetch memories' }, { status: 500 })
+        // Log full error details for debugging
+        console.error('[API /memories GET] Error:', {
+            message: error?.message || String(error),
+            stack: error?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack trace',
+            name: error?.name || 'Unknown error'
+        })
+        // Always return consistent shape
+        return NextResponse.json({ 
+            memories: [], 
+            error: 'Failed to fetch memories' 
+        }, { status: 500 })
     }
 }
 
@@ -77,12 +90,23 @@ export async function POST(request: NextRequest) {
         })
 
         return NextResponse.json({ memory })
-    } catch (error) {
+    } catch (error: any) {
         if (isAuthError(error)) {
-            return NextResponse.json({ error: error.message }, { status: 401 })
+            console.error('[API /memories POST] Auth error:', error.message)
+            return NextResponse.json({ 
+                memory: null, 
+                error: error.message 
+            }, { status: 401 })
         }
-        console.error('Error creating memory:', error)
-        return NextResponse.json({ error: 'Failed to create memory' }, { status: 500 })
+        console.error('[API /memories POST] Error:', {
+            message: error?.message || String(error),
+            stack: error?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack trace',
+            name: error?.name || 'Unknown error'
+        })
+        return NextResponse.json({ 
+            memory: null, 
+            error: 'Failed to create memory' 
+        }, { status: 500 })
     }
 }
 
@@ -117,11 +141,22 @@ export async function DELETE(request: NextRequest) {
         })
 
         return NextResponse.json({ success: true })
-    } catch (error) {
+    } catch (error: any) {
         if (isAuthError(error)) {
-            return NextResponse.json({ error: error.message }, { status: 401 })
+            console.error('[API /memories DELETE] Auth error:', error.message)
+            return NextResponse.json({ 
+                success: false, 
+                error: error.message 
+            }, { status: 401 })
         }
-        console.error('Error deleting memory:', error)
-        return NextResponse.json({ error: 'Failed to delete memory' }, { status: 500 })
+        console.error('[API /memories DELETE] Error:', {
+            message: error?.message || String(error),
+            stack: error?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack trace',
+            name: error?.name || 'Unknown error'
+        })
+        return NextResponse.json({ 
+            success: false, 
+            error: 'Failed to delete memory' 
+        }, { status: 500 })
     }
 }

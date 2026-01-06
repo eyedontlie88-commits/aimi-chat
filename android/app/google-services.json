@@ -1,0 +1,100 @@
+{
+  "project_info": {
+    "project_number": "647583841932",
+    "project_id": "aimi-chat",
+    "storage_bucket": "aimi-chat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:647583841932:android:4192d7c88273e685e245a9",
+        "android_client_info": {
+          "package_name": "com.aimi.chat"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "647583841932-dshut2n2ngg6a60iborrb719i7tpjht9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aimi.chat",
+            "certificate_hash": "ac4314358c8f7720e50790db7c2073240949a76c"
+          }
+        },
+        {
+          "client_id": "647583841932-nip545lj3mfusukl9fk56v2ckm88bmnr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aimi.chat",
+            "certificate_hash": "eb1a40a37139f3b47aa769c2a2ed5084a7e8c7b7"
+          }
+        },
+        {
+          "client_id": "647583841932-gekeglpllnt43tb0gkqnq294j5ejomla.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDj_un2olQd6SXu1bt06OpkhqkXtGE0RMA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "647583841932-gekeglpllnt43tb0gkqnq294j5ejomla.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:647583841932:android:2f14005490858f4ae245a9",
+        "android_client_info": {
+          "package_name": "com.aurgilabs.aimichat"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "647583841932-ga07llrgpnq4h1ai9p0bhulv1nbdnhhn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aurgilabs.aimichat",
+            "certificate_hash": "ac4314358c8f7720e50790db7c2073240949a76c"
+          }
+        },
+        {
+          "client_id": "647583841932-jkvqdk495qua1rntcfe1dk7pn1l69lqt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aurgilabs.aimichat",
+            "certificate_hash": "eb1a40a37139f3b47aa769c2a2ed5084a7e8c7b7"
+          }
+        },
+        {
+          "client_id": "647583841932-gekeglpllnt43tb0gkqnq294j5ejomla.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDj_un2olQd6SXu1bt06OpkhqkXtGE0RMA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "647583841932-gekeglpllnt43tb0gkqnq294j5ejomla.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

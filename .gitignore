@@ -26,8 +26,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
 .env
+.env.*
+.env*.local
 
 # vercel
 .vercel
@@ -39,3 +40,8 @@ next-env.d.ts
 # prisma
 /prisma/*.db
 /prisma/*.db-journal
+
+# android keystore (security - never commit!)
+android/keystore.properties
+android/app/*.keystore
+android/app/*.jks

@@ -23,19 +23,38 @@ export async function GET(request: NextRequest) {
         }
 
         if (!profile) {
-            return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
+            return NextResponse.json({ 
+                profile: null, 
+                error: 'User profile not found',
+                _meta: { isAuthed, role, schema }
+            }, { status: 404 })
         }
 
         return NextResponse.json({
             profile,
             _meta: { isAuthed, role, schema }
         })
-    } catch (error) {
+    } catch (error: any) {
         if (isAuthError(error)) {
-            return NextResponse.json({ error: error.message }, { status: 401 })
+            console.error('[API /user-profile GET] Auth error:', error.message)
+            return NextResponse.json({ 
+                profile: null,
+                error: error.message,
+                _meta: { isAuthed: false, role: 'guest', schema: 'user' }
+            }, { status: 401 })
         }
-        console.error('Error fetching user profile:', error)
-        return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 })
+        // Log full error details for debugging
+        console.error('[API /user-profile GET] Error:', {
+            message: error?.message || String(error),
+            stack: error?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack trace',
+            name: error?.name || 'Unknown error'
+        })
+        // Always return consistent shape
+        return NextResponse.json({ 
+            profile: null,
+            error: 'Failed to fetch user profile',
+            _meta: { isAuthed: false, role: 'guest', schema: 'user' }
+        }, { status: 500 })
     }
 }
 
@@ -83,11 +102,24 @@ export async function PUT(request: NextRequest) {
         })
 
         return NextResponse.json({ profile, _meta: { isAuthed } })
-    } catch (error) {
+    } catch (error: any) {
         if (isAuthError(error)) {
-            return NextResponse.json({ error: error.message }, { status: 401 })
+            console.error('[API /user-profile PUT] Auth error:', error.message)
+            return NextResponse.json({ 
+                profile: null,
+                error: error.message,
+                _meta: { isAuthed: false }
+            }, { status: 401 })
         }
-        console.error('Error updating user profile:', error)
-        return NextResponse.json({ error: 'Failed to update user profile' }, { status: 500 })
+        console.error('[API /user-profile PUT] Error:', {
+            message: error?.message || String(error),
+            stack: error?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack trace',
+            name: error?.name || 'Unknown error'
+        })
+        return NextResponse.json({ 
+            profile: null,
+            error: 'Failed to update user profile',
+            _meta: { isAuthed: false }
+        }, { status: 500 })
     }
 }

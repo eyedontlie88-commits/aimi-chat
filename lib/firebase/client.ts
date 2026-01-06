@@ -14,6 +14,45 @@ import {
 import { Capacitor } from '@capacitor/core'
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth'
 
+// CRITICAL: Initialize GoogleAuth plugin on native platforms
+// This MUST be done before calling GoogleAuth.signIn()
+let googleAuthInitialized = false
+
+async function ensureGoogleAuthInitialized() {
+    console.log('[GoogleAuth] Version: 2026-01-06-21:15 - Initialize before signIn fix')
+
+    if (googleAuthInitialized) {
+        return
+    }
+
+    if (!Capacitor.isNativePlatform()) {
+        return
+    }
+
+    try {
+        console.log('[GoogleAuth] Initializing plugin...')
+
+        // Android: initialize without params (reads androidClientId/serverClientId from capacitor.config.ts)
+        if (Capacitor.getPlatform() === 'android') {
+            await GoogleAuth.initialize()
+            console.log('[GoogleAuth] Android plugin initialized (using capacitor.config.ts)')
+        } else {
+            // iOS/Web: initialize with web clientId
+            await GoogleAuth.initialize({
+                clientId: process.env.NEXT_PUBLIC_FIREBASE_WEB_CLIENT_ID || '647583841932-gekeglpllnt43tb0gkqnq294j5ejomla.apps.googleusercontent.com',
+                scopes: ['profile', 'email'],
+                grantOfflineAccess: true,
+            })
+            console.log('[GoogleAuth] Plugin initialized with web clientId')
+        }
+
+        googleAuthInitialized = true
+    } catch (error) {
+        console.error('[GoogleAuth] Initialization error:', error)
+        throw new Error('Failed to initialize Google Auth plugin')
+    }
+}
+
 /**
  * Firebase Client SDK
  * All env vars prefixed with NEXT_PUBLIC_ are exposed to browser
@@ -58,14 +97,26 @@ export async function signInWithGoogle(): Promise<User> {
 
     // Check if running on native platform (Android/iOS)
     if (Capacitor.isNativePlatform()) {
+        // CRITICAL: Initialize GoogleAuth plugin before use
+        await ensureGoogleAuthInitialized()
+
+        console.log('[signInWithGoogle] Calling GoogleAuth.signIn()...')
+
         // Use native Google Auth plugin
         const googleUser = await GoogleAuth.signIn()
+
+        console.log('[signInWithGoogle] GoogleAuth.signIn() successful, user:', googleUser.email)
 
         // Create Firebase credential from the ID token
         const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken)
 
+        console.log('[signInWithGoogle] Signing in to Firebase...')
+
         // Sign in to Firebase with the credential
         const result = await signInWithCredential(auth, credential)
+
+        console.log('[signInWithGoogle] Firebase sign-in successful')
+
         return result.user
     } else {
         // Web browser: use Firebase popup

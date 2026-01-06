@@ -100,6 +100,63 @@ export async function POST(request: NextRequest) {
         }
 
         // ============================================
+        // 🛡️ PER-USER COOLDOWN: Prevent rapid spam across all characters (DB-based, serverless-safe)
+        // ============================================
+        const COOLDOWN_MS = 2000 // 2 seconds
+
+        if (profile.lastChatAt) {
+            const timeSinceLastMessage = Date.now() - profile.lastChatAt.getTime()
+            if (timeSinceLastMessage < COOLDOWN_MS) {
+                const waitSeconds = Math.ceil((COOLDOWN_MS - timeSinceLastMessage) / 1000)
+                return NextResponse.json(
+                    {
+                        error: `Bạn gửi nhanh quá, chờ ${waitSeconds} giây nhé 😊`,
+                        cooldown: true
+                    },
+                    { status: 429 }
+                )
+            }
+        }
+
+        // ============================================
+        // ❤️ HEARTS QUOTA: Daily limit (30 hearts/day, resets at UTC midnight)
+        // ============================================
+        const MAX_HEARTS = 30
+        const now = new Date()
+
+        // Check if hearts need reset (UTC midnight)
+        if (!profile.heartsResetAt || now >= profile.heartsResetAt) {
+            const nextMidnight = new Date(now)
+            nextMidnight.setUTCHours(24, 0, 0, 0) // Next UTC midnight
+
+            await prisma.userProfile.update({
+                where: { id: uid },
+                data: {
+                    heartsRemaining: MAX_HEARTS,
+                    heartsResetAt: nextMidnight,
+                },
+            })
+
+            // Update local profile object
+            profile.heartsRemaining = MAX_HEARTS
+            profile.heartsResetAt = nextMidnight
+        }
+
+        // Check if user has hearts remaining
+        if (profile.heartsRemaining <= 0) {
+            const resetTime = profile.heartsResetAt?.toISOString() || new Date().toISOString()
+            return NextResponse.json(
+                {
+                    error: 'OUT_OF_HEARTS',
+                    detail: 'Bạn đã hết hearts hôm nay. Hearts sẽ được reset vào lúc nửa đêm UTC.',
+                    heartsRemaining: 0,
+                    heartsResetAt: resetTime,
+                },
+                { status: 402 }
+            )
+        }
+
+        // ============================================
         // ADAPTIVE CONTEXT WINDOW
         // Different providers have different context capacities
         // ============================================
@@ -166,6 +223,55 @@ export async function POST(request: NextRequest) {
 
         const defaultModelEnv = process.env.LLM_DEFAULT_MODEL
         const preferredModel = rawModel || defaultModelEnv || undefined
+
+        // ============================================
+        // 🛡️ PROVIDER VALIDATION: Block unsupported providers gracefully
+        // ============================================
+        const SUPPORTED_PROVIDERS = ['silicon', 'gemini', 'zhipu', 'moonshot', 'openrouter', 'default']
+
+        if (!SUPPORTED_PROVIDERS.includes(preferredProvider)) {
+            console.warn(`[Chat API] ⚠️ Unsupported provider "${preferredProvider}" - returning friendly message`)
+
+            // Save user message
+            await prisma.message.create({
+                data: {
+                    characterId,
+                    role: 'user',
+                    content: message,
+                },
+            })
+
+            // Save assistant message explaining the issue
+            const disabledMessage = `⚠️ Provider "${preferredProvider}" is currently disabled.\n\nPlease open Settings and select one of: Gemini, DeepSeek, SiliconFlow, Moonshot, or OpenRouter.`
+
+            const assistantMsg = await prisma.message.create({
+                data: {
+                    characterId,
+                    role: 'assistant',
+                    content: disabledMessage,
+                    reactionType: 'NONE',
+                },
+            })
+
+            // Update message count
+            await prisma.relationshipConfig.update({
+                where: { characterId },
+                data: { messageCount: { increment: 2 } },
+            })
+
+            return NextResponse.json({
+                reply: disabledMessage,
+                messageId: assistantMsg.id,
+                providerUsed: 'none',
+                modelUsed: 'none',
+                relationship: {
+                    affectionPoints: relationshipConfig?.affectionPoints || 0,
+                    intimacyLevel: relationshipConfig?.intimacyLevel || 0,
+                    stage: relationshipConfig?.stage || 'STRANGER',
+                    messageCount: (relationshipConfig?.messageCount || 0) + 2,
+                },
+            })
+        }
 
         // CRITICAL: Always append current user message to prompt
         // (Otherwise Gemini receives empty contents array on first message)
@@ -400,6 +506,18 @@ ${nextDirection.trim()}`
             },
         })
 
+        // Update user's last chat timestamp (only after message successfully saved)
+        await prisma.userProfile.update({
+            where: { id: uid },
+            data: { lastChatAt: new Date() },
+        })
+
+        // Decrement hearts (atomic)
+        await prisma.userProfile.update({
+            where: { id: uid },
+            data: { heartsRemaining: { decrement: 1 } },
+        })
+
         // Save assistant message (clean - no metadata)
         const assistantMessage = await prisma.message.create({
             data: {
@@ -466,7 +584,9 @@ ${nextDirection.trim()}`
                             console.log(`[PhoneContent] ✅ Auto-trigger for ${character.name} (${newCount} messages)`)
 
                             // Trigger background generation (fire-and-forget)
-                            fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/phone-content/generate`, {
+                            // Derive base URL from request headers or use NEXT_PUBLIC_APP_URL
+                            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+                            fetch(`${baseUrl}/api/phone-content/generate`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ characterId, forceRefresh: false })
@@ -502,6 +622,9 @@ ${nextDirection.trim()}`
                 model: modelUsed,
                 // 🎯 Smart Model Selection: message category (short/long)
                 category: messageCategory,
+                // ❤️ Hearts quota: remaining + reset time
+                heartsRemaining: profile.heartsRemaining - 1, // Show decremented value
+                heartsResetAt: profile.heartsResetAt?.toISOString(),
             },
         })
     } catch (error: any) {
@@ -516,10 +639,31 @@ ${nextDirection.trim()}`
         // Handle case when all fallback providers failed
         if (code === 'LLM_ALL_PROVIDERS_FAILED') {
             const providersTried = (error.providersTried || []).join(', ')
+            const attemptDetails = error.attempts || []
+            
+            // Build detailed error message showing what was tried
+            let errorDetail = `Tất cả mô hình AI đều đang quá tải hoặc hết quota. Bạn thử lại sau một chút nhé.`
+            
+            // Add provider list in parentheses
+            if (providersTried) {
+                errorDetail += ` (Đã thử: ${providersTried})`
+            }
+            
+            // Log detailed attempt info for debugging (server-side only)
+            console.error('[Chat API] All providers failed. Attempt details:', 
+                attemptDetails.map((a: any) => ({
+                    provider: a.provider,
+                    model: a.model,
+                    status: a.status,
+                    category: a.category
+                }))
+            )
+            
             return NextResponse.json(
                 {
                     error: 'LLM_ERROR',
-                    detail: `Tất cả mô hình AI đều đang quá tải hoặc hết quota. Bạn thử lại sau một chút nhé. (Đã thử: ${providersTried})`,
+                    detail: errorDetail,
+                    providersTried: providersTried, // Include in response for client debugging
                 },
                 { status: 503 }
             )

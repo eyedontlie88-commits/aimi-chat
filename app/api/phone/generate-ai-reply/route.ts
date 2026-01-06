@@ -598,7 +598,8 @@ ${SCORING_INSTRUCTION}`
                 console.log(`[AI Reply] 🎯 Updating affection: sentiment=${sentiment}, characterId=${characterId}`)
 
                 const affectionResponse = await fetch(
-                    `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/relationship/update-affection`,
+                    // Derive base URL from request headers or use NEXT_PUBLIC_APP_URL
+                    `${process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin}/api/relationship/update-affection`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

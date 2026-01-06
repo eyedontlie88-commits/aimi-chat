@@ -23,6 +23,8 @@ import type { SiliconPresetModel } from '@/lib/llm/silicon-presets'
 import type { MoonshotPresetModel } from '@/lib/llm/moonshot-presets'
 import type { OpenRouterPresetModel } from '@/lib/llm/openrouter-presets'
 import { getResolvedTheme, ChatTextMode, ChatThemeId } from '@/lib/ui/chatThemes'
+import HeartsBadge from '@/components/HeartsBadge'
+import OutOfHeartsModal from '@/components/OutOfHeartsModal'
 
 // Intimacy level emojis (labels come from t.chat.intimacyLevels)
 const LEVEL_EMOJIS = ['🙂', '😊', '🤝', '💖', '💍']
@@ -179,6 +181,11 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
     const loadingStartRef = useRef<number>(0)
     const loadingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
+    // ❤️ Hearts Quota state
+    const [heartsRemaining, setHeartsRemaining] = useState<number>(30)
+    const [heartsResetAt, setHeartsResetAt] = useState<string | null>(null)
+    const [isOutOfHearts, setIsOutOfHearts] = useState(false)
+
     // Comforting loading messages based on elapsed time - uses t translations
     const getComfortingMessage = (elapsedMs: number, charName: string): string => {
         if (elapsedMs < 3000) {
@@ -303,7 +310,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
             setSearchResults([])
             return
         }
-        const results = messages.filter((m) => m.content.toLowerCase().includes(q))
+        // Safe default: ensure messages is always an array
+        const results = (messages || []).filter((m) => m.content.toLowerCase().includes(q))
         setSearchResults(results.slice(0, 50))
     }
 
@@ -404,7 +412,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                     const profileRes = await authFetch('/api/user-profile')
                     if (profileRes.ok) {
                         const profileData = await profileRes.json()
-                        const userInfoMissing = !profileData.profile?.age && !profileData.profile?.gender
+                        // Safe access with optional chaining
+                        const userInfoMissing = !profileData?.profile?.age && !profileData?.profile?.gender
                         if (userInfoMissing) {
                             setShowMissingInfoWarning(true)
                         }
@@ -460,15 +469,17 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         try {
             const res = await authFetch('/api/user-profile')
             const data = await res.json()
-            if (data.profile?.chatTheme) {
+            // Safe access with optional chaining
+            if (data?.profile?.chatTheme) {
                 setThemeId(data.profile.chatTheme as ChatThemeId)
             }
-            if (data.profile?.chatTextTone) {
+            if (data?.profile?.chatTextTone) {
                 setTextMode(data.profile.chatTextTone as ChatTextMode)
             }
-            console.log('[ChatPage] Loaded theme:', data.profile?.chatTheme, 'textMode:', data.profile?.chatTextTone)
+            console.log('[ChatPage] Loaded theme:', data?.profile?.chatTheme, 'textMode:', data?.profile?.chatTextTone)
         } catch (error) {
-            console.error('Error loading theme:', error)
+            console.error('[ChatPage] Error loading theme:', error)
+            // Use defaults on error - page will still work
         }
     }
 
@@ -476,9 +487,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         try {
             const res = await authFetch(`/api/messages?characterId=${characterId}&limit=50`)
             const data = await res.json()
-            setMessages(data.messages)
+            // Safe default: always use array fallback
+            setMessages(data.messages || [])
         } catch (error) {
-            console.error('Error loading messages:', error)
+            console.error('[ChatPage] Error loading messages:', error)
+            // Set empty array on error to prevent crashes
+            setMessages([])
         }
     }
 
@@ -486,9 +500,12 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
         try {
             const res = await authFetch(`/api/memories?characterId=${characterId}`)
             const data = await res.json()
-            setMemories(data.memories)
+            // Safe default: always use array fallback
+            setMemories(data.memories || [])
         } catch (error) {
-            console.error('Error loading memories:', error)
+            console.error('[ChatPage] Error loading memories:', error)
+            // Set empty array on error to prevent crashes
+            setMemories([])
         }
     }
 
@@ -531,11 +548,40 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
             if (!res.ok) {
                 const errorBody = await res.json().catch(() => null)
+
+                // ❤️ Handle OUT_OF_HEARTS (402)
+                if (res.status === 402 && errorBody?.error === 'OUT_OF_HEARTS') {
+                    setIsOutOfHearts(true)
+                    setHeartsRemaining(0)
+                    setHeartsResetAt(errorBody.heartsResetAt || null)
+
+                    // Clear loading state to prevent stuck spinner
+                    if (loadingIntervalRef.current) {
+                        clearInterval(loadingIntervalRef.current)
+                        loadingIntervalRef.current = null
+                    }
+                    setLoadingText('')
+                    setIsLoading(false)
+
+                    return // Stop processing
+                }
+
                 console.error('Send message error:', errorBody)
                 throw new Error(errorBody?.detail || 'AI không trả lời được')
             }
 
             const data = await res.json()
+
+            // ❤️ Update hearts from response meta
+            if (data.meta?.heartsRemaining !== undefined) {
+                setHeartsRemaining(data.meta.heartsRemaining)
+                setHeartsResetAt(data.meta.heartsResetAt || null)
+
+                // Check if hearts just hit 0
+                if (data.meta.heartsRemaining === 0) {
+                    setIsOutOfHearts(true)
+                }
+            }
 
             // Update relationship stats from response
             if (data.relationship) {
@@ -894,7 +940,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
         try {
             // Extract last 15 messages for context
-            const recentHistory = messages.slice(-15).map(m => ({
+            // Safe default: ensure messages is always an array
+            const recentHistory = (messages || []).slice(-15).map(m => ({
                 role: m.role,
                 content: m.content
             }))
@@ -1085,6 +1132,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
                                         </>
                                     )}
                                 </div>
+                                {/* ❤️ Hearts Badge */}
+                                <HeartsBadge heartsRemaining={heartsRemaining} className="mt-1" />
                             </div>
                         </div>
 
@@ -1314,7 +1363,8 @@ export default function ChatPage({ params }: { params: Promise<{ characterId: st
 
             {/* Convert memories createdAt to Date for MemoryViewer */}
             {(() => {
-                const memoriesForViewer = memories.map((m) => ({
+                // Safe default: ensure memories is always an array
+                const memoriesForViewer = (memories || []).map((m) => ({
                     ...m,
                     createdAt: new Date(m.createdAt as any),
                 }))

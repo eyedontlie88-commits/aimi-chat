@@ -76,7 +76,7 @@ export class OpenRouterProvider implements LLMProviderClient {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+                    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://aimi-chat-yig9.vercel.app',
                     'X-Title': 'Almi Chat'
                 },
                 body: JSON.stringify({

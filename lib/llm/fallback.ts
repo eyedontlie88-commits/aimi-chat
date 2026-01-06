@@ -6,7 +6,7 @@
  * Strategy:
  * - If primary model fails (429/500/network), automatically try alternatives
  * - Each fallback should be "lighter" and "faster" than the previous
- * - Maximum 3 attempts per request
+ * - Maximum 2 attempts per request (overload protection)
  * 
  * NEW: Smart Model Selection
  * - Pre-selects optimal model based on message length
@@ -52,6 +52,8 @@ const hasGeminiKey = (): boolean => !!(process.env.GEMINI_API_KEY || process.env
 const hasSiliconKey = (): boolean => !!process.env.SILICON_API_KEY
 const hasMoonshotKey = (): boolean => !!process.env.MOONSHOT_API_KEY
 const hasOpenRouterKey = (): boolean => !!process.env.OPENROUTER_API_KEY
+const hasZhipuKey = (): boolean => !!process.env.ZHIPU_API_KEY
+const hasDeepseekKey = (): boolean => !!process.env.DEEPSEEK_API_KEY
 
 // Build fallback chains dynamically, EXCLUDING providers without keys
 export const getFallbackChains = (): Record<string, FallbackModel[]> => {
@@ -60,16 +62,20 @@ export const getFallbackChains = (): Record<string, FallbackModel[]> => {
     const siliconAvailable = hasSiliconKey()
     const moonshotAvailable = hasMoonshotKey()
     const openrouterAvailable = hasOpenRouterKey()
+    const zhipuAvailable = hasZhipuKey()
+    const deepseekAvailable = hasDeepseekKey()
 
     // Log available providers for debugging
-    console.log(`[Fallback] Provider availability: Gemini=${geminiAvailable}, Silicon=${siliconAvailable}, Moonshot=${moonshotAvailable}, OpenRouter=${openrouterAvailable}`)
+    console.log(`[Fallback] Provider availability: Gemini=${geminiAvailable}, Silicon=${siliconAvailable}, Zhipu=${zhipuAvailable}, Moonshot=${moonshotAvailable}, OpenRouter=${openrouterAvailable}, DeepSeek=${deepseekAvailable}`)
 
     // Define all possible models
     const geminiModel: FallbackModel = { provider: 'gemini', model: geminiFlash, name: 'Gemini 2.5 Flash' }
     const qwenModel: FallbackModel = { provider: 'silicon', model: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B' }
-    const deepseekModel: FallbackModel = { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' }
+    const siliconDeepseekModel: FallbackModel = { provider: 'silicon', model: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3 (Silicon)' }
+    const deepseekModel: FallbackModel = { provider: 'deepseek', model: 'deepseek-chat', name: 'DeepSeek Chat' }
     const moonshotModel: FallbackModel = { provider: 'moonshot', model: 'moonshot-v1-32k', name: 'Moonshot V1 32K' }
     const openrouterModel: FallbackModel = { provider: 'openrouter', model: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (OpenRouter)' }
+    const zhipuModel: FallbackModel = { provider: 'zhipu', model: 'glm-4-plus', name: 'GLM-4 Plus' }
 
     // Filter function to only include models with valid keys
     const filterByAvailableKeys = (models: FallbackModel[]): FallbackModel[] => {
@@ -78,6 +84,8 @@ export const getFallbackChains = (): Record<string, FallbackModel[]> => {
             if (model.provider === 'silicon') return siliconAvailable
             if (model.provider === 'moonshot') return moonshotAvailable
             if (model.provider === 'openrouter') return openrouterAvailable
+            if (model.provider === 'zhipu') return zhipuAvailable
+            if (model.provider === 'deepseek') return deepseekAvailable
             return true // Unknown providers pass through
         })
     }
@@ -85,24 +93,27 @@ export const getFallbackChains = (): Record<string, FallbackModel[]> => {
     // Build chains with filtering
     const rawChains = {
         // Google Gemini chain
-        gemini: [geminiModel, qwenModel, deepseekModel, moonshotModel, openrouterModel],
-        google: [geminiModel, qwenModel, deepseekModel, moonshotModel, openrouterModel],
+        gemini: [geminiModel, qwenModel, siliconDeepseekModel, deepseekModel, moonshotModel, openrouterModel],
+        google: [geminiModel, qwenModel, siliconDeepseekModel, deepseekModel, moonshotModel, openrouterModel],
 
         // SiliconFlow chain
-        silicon: [deepseekModel, qwenModel, geminiModel, moonshotModel, openrouterModel],
-        siliconflow: [deepseekModel, qwenModel, geminiModel, moonshotModel, openrouterModel],
+        silicon: [siliconDeepseekModel, qwenModel, geminiModel, deepseekModel, moonshotModel, openrouterModel],
+        siliconflow: [siliconDeepseekModel, qwenModel, geminiModel, deepseekModel, moonshotModel, openrouterModel],
 
-        // DeepSeek chain (hosted on SiliconFlow)
-        deepseek: [deepseekModel, qwenModel, geminiModel, moonshotModel, openrouterModel],
+        // DeepSeek chain (native DeepSeek API)
+        deepseek: [deepseekModel, siliconDeepseekModel, qwenModel, geminiModel, moonshotModel, openrouterModel],
+
+        // Zhipu chain (SAFE: only activated when user selects zhipu)
+        zhipu: [zhipuModel, qwenModel, siliconDeepseekModel, deepseekModel, geminiModel],
 
         // Moonshot chain
-        moonshot: [moonshotModel, geminiModel, qwenModel, deepseekModel, openrouterModel],
+        moonshot: [moonshotModel, geminiModel, qwenModel, siliconDeepseekModel, deepseekModel, openrouterModel],
 
         // OpenRouter chain
-        openrouter: [openrouterModel, geminiModel, qwenModel, deepseekModel, moonshotModel],
+        openrouter: [openrouterModel, geminiModel, qwenModel, siliconDeepseekModel, deepseekModel, moonshotModel],
 
-        // Default: Silicon first (most reliable), then Gemini, then Moonshot, then OpenRouter
-        default: [qwenModel, deepseekModel, geminiModel, moonshotModel, openrouterModel],
+        // Default: Silicon first (most reliable), then DeepSeek, then Gemini, then Moonshot, then OpenRouter
+        default: [qwenModel, siliconDeepseekModel, deepseekModel, geminiModel, moonshotModel, openrouterModel],
     }
 
     // Apply filtering to all chains
@@ -148,7 +159,12 @@ export async function generateWithFallback(
     primaryModel?: string
 ): Promise<FallbackResult> {
     const attempts: { provider: string; model: string; error: string }[] = []
-    const MAX_ATTEMPTS = 3
+
+    // 🛡️ OVERLOAD PROTECTION: Reduce attempts to limit cascading load
+    const MAX_ATTEMPTS = 2
+
+    // ⏱️ TIMEOUT PROTECTION: Per-attempt timeout to prevent stuck requests
+    const ATTEMPT_TIMEOUT_MS = 8000 // 8 seconds
 
     // Build attempt chain: Primary first, then fallbacks
     const chain: FallbackModel[] = []
@@ -178,10 +194,16 @@ export async function generateWithFallback(
         try {
             console.log(`[Fallback] Attempt ${i + 1}/${MAX_ATTEMPTS}: ${attempt.name}`)
 
-            const result = await generateWithProviders(messages, {
-                provider: attempt.provider,
-                model: attempt.model
-            })
+            // Wrap call with timeout using Promise.race
+            const result = await Promise.race([
+                generateWithProviders(messages, {
+                    provider: attempt.provider,
+                    model: attempt.model
+                }),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout after ${ATTEMPT_TIMEOUT_MS}ms`)), ATTEMPT_TIMEOUT_MS)
+                )
+            ])
 
             console.log(`[Fallback] ✅ Success with ${attempt.name}`)
 
@@ -195,7 +217,9 @@ export async function generateWithFallback(
 
         } catch (error: any) {
             const errorMsg = error?.message || 'Unknown error'
-            console.warn(`[Fallback] ❌ ${attempt.name} failed: ${errorMsg}`)
+            const isTimeout = errorMsg.includes('Timeout')
+
+            console.warn(`[Fallback] ❌ ${attempt.name} failed: ${errorMsg}${isTimeout ? ' [TIMEOUT]' : ''}`)
 
             attempts.push({
                 provider: attempt.provider,
@@ -208,12 +232,13 @@ export async function generateWithFallback(
                 const aggregatedError = new Error(
                     `Tất cả ${attempts.length} model đều thất bại. Vui lòng thử lại sau.`
                 ) as any
-                aggregatedError.code = 'ALL_FALLBACKS_FAILED'
+                aggregatedError.code = 'LLM_ALL_PROVIDERS_FAILED'
                 aggregatedError.attempts = attempts
+                aggregatedError.providersTried = attempts.map(a => `${a.provider}/${a.model}`)
                 throw aggregatedError
             }
 
-            // Otherwise, continue to next fallback
+            // Otherwise, continue to next fallback (timeouts are retriable)
             console.log(`[Fallback] Trying next fallback...`)
         }
     }
@@ -239,7 +264,11 @@ export async function generateWithSmartFallback(
     messages: LLMMessage[],
     userLanguage: string = 'vi'
 ): Promise<SmartFallbackResult> {
-    const MAX_ATTEMPTS = 3
+    // 🛡️ OVERLOAD PROTECTION: Reduce attempts to limit cascading load
+    const MAX_ATTEMPTS = 2
+
+    // ⏱️ TIMEOUT PROTECTION: Per-attempt timeout to prevent stuck requests
+    const ATTEMPT_TIMEOUT_MS = 8000 // 8 seconds
 
     // Extract user's latest message for category detection
     const userMessages = messages.filter(m => m.role === 'user')
@@ -277,6 +306,7 @@ export async function generateWithSmartFallback(
         if (m.provider === 'gemini') return hasGeminiKey()
         if (m.provider === 'moonshot') return hasMoonshotKey()
         if (m.provider === 'openrouter') return hasOpenRouterKey()
+        if (m.provider === 'zhipu') return hasZhipuKey()
         return true
     })
 
@@ -285,7 +315,7 @@ export async function generateWithSmartFallback(
     }
 
     // Try each model in priority order (same category)
-    const attempts: { model: string; error: string }[] = []
+    const attempts: { provider: string; model: string; displayName: string; error: string }[] = []
 
     for (let i = 0; i < Math.min(availableModels.length, MAX_ATTEMPTS); i++) {
         const modelConfig = availableModels[i]
@@ -293,10 +323,16 @@ export async function generateWithSmartFallback(
         try {
             console.log(`[Smart Fallback] Attempt ${i + 1}/${MAX_ATTEMPTS}: ${modelConfig.displayName}`)
 
-            const result = await generateWithProviders(enhancedMessages, {
-                provider: modelConfig.provider as LLMProviderId,
-                model: modelConfig.modelName
-            })
+            // Wrap call with timeout using Promise.race
+            const result = await Promise.race([
+                generateWithProviders(enhancedMessages, {
+                    provider: modelConfig.provider as LLMProviderId,
+                    model: modelConfig.modelName
+                }),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout after ${ATTEMPT_TIMEOUT_MS}ms`)), ATTEMPT_TIMEOUT_MS)
+                )
+            ])
 
             console.log(`[Smart Fallback] ✅ Success with ${modelConfig.displayName} | Response length: ${result.reply.length} chars`)
 
@@ -313,14 +349,18 @@ export async function generateWithSmartFallback(
 
         } catch (error: any) {
             const errorMsg = error?.message || 'Unknown error'
-            console.warn(`[Smart Fallback] ❌ ${modelConfig.displayName} failed: ${errorMsg}`)
+            const isTimeout = errorMsg.includes('Timeout')
+
+            console.warn(`[Smart Fallback] ❌ ${modelConfig.displayName} failed: ${errorMsg}${isTimeout ? ' [TIMEOUT]' : ''}`)
 
             attempts.push({
-                model: modelConfig.displayName,
+                provider: modelConfig.provider,
+                model: modelConfig.modelName,
+                displayName: modelConfig.displayName,
                 error: errorMsg
             })
 
-            // Continue to next model in SAME category
+            // Continue to next model in SAME category (timeouts are retriable)
             console.log(`[Smart Fallback] Trying next model in ${category.toUpperCase()} category...`)
         }
     }
@@ -329,9 +369,9 @@ export async function generateWithSmartFallback(
     const aggregatedError = new Error(
         `Tất cả ${attempts.length} model ${category} đều thất bại. Vui lòng thử lại sau.`
     ) as any
-    aggregatedError.code = 'ALL_CATEGORY_MODELS_FAILED'
+    aggregatedError.code = 'LLM_ALL_PROVIDERS_FAILED'
     aggregatedError.category = category
     aggregatedError.attempts = attempts
+    aggregatedError.providersTried = attempts.map(a => `${a.provider}/${a.model}`)
     throw aggregatedError
 }
-

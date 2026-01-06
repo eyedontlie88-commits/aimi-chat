@@ -87,7 +87,8 @@ export async function POST(req: NextRequest) {
             console.log(`[Phone Detail] 🤖 Force regenerate requested, triggering AI reply...`)
 
             try {
-                const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+                // Derive base URL from request headers or use NEXT_PUBLIC_APP_URL
+                const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
                 const regenRes = await fetch(`${appUrl}/api/phone/generate-ai-reply`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

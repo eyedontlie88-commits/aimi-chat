@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Enable static export for Capacitor
+    output: 'export',
+
     // Bỏ qua lỗi TypeScript khi build production
     typescript: {
         ignoreBuildErrors: true,
@@ -14,6 +17,7 @@ const nextConfig = {
                 hostname: '**',
             },
         ],
+        unoptimized: true, // Required for static export
     },
     // Allow Firebase auth popup to communicate with parent window
     async headers() {

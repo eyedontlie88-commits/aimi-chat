@@ -7,22 +7,54 @@ import { deepseekProvider } from './providers/deepseek'
 import { openrouterProvider } from './providers/openrouter'
 
 // Valid provider IDs
-const VALID_PROVIDERS: LLMProviderId[] = ['silicon', 'gemini', 'zhipu', 'moonshot', 'openrouter']
+const VALID_PROVIDERS: LLMProviderId[] = ['silicon', 'gemini', 'zhipu', 'moonshot', 'openrouter', 'deepseek']
 
 /**
- * Check if error is retriable (quota/rate limit/overloaded)
+ * Categorize error for logging (no sensitive data)
+ */
+function categorizeError(error: any): string {
+    const status = error?.response?.status || error?.status
+    const msg = String(error?.message || '').toLowerCase()
+
+    if (status === 429 || msg.includes('rate limit')) return 'rate_limit'
+    if (status === 503 || msg.includes('503')) return 'service_unavailable'
+    if (status >= 500 || msg.includes('500')) return 'server_error'
+    if (status === 401 || status === 403 || msg.includes('unauthorized') || msg.includes('api key')) return 'invalid_key'
+    if (msg.includes('quota') || msg.includes('resource_exhausted')) return 'quota_exceeded'
+    if (msg.includes('overload')) return 'overloaded'
+    if (msg.includes('timeout') || msg.includes('timed out')) return 'timeout'
+    if (msg.includes('network') || msg.includes('fetch failed')) return 'network_error'
+    
+    return 'unknown'
+}
+
+/**
+ * Check if error is retriable (quota/rate limit/overloaded/misconfigured)
  */
 function isRetriableLLMError(error: any): boolean {
-    // Check HTTP status
-    const status = error?.response?.status || error?.status || error?.code
-    if (status === 429 || status === 503) return true
+    // Check HTTP status (only use actual HTTP status codes, not error.code)
+    const status = error?.response?.status || error?.status
+    if (typeof status === 'number') {
+        // Rate limit and service unavailable
+        if (status === 429 || status === 503) return true
+        // Server errors (overload, quota exceeded, temporary failures)
+        if (status >= 500 && status < 600) return true
+        // Auth errors (invalid API key) - allow fallback to other providers
+        if (status === 401 || status === 403) return true
+    }
 
     // Check error message for common patterns
     const msg = String(error?.message || '').toLowerCase()
     if (msg.includes('quota') || msg.includes('rate limit')) return true
     if (msg.includes('overload') || msg.includes('unavailable')) return true
+    if (msg.includes('resource_exhausted') || msg.includes('resource exhausted')) return true
     if (msg.includes('network') || msg.includes('fetch failed')) return true
-    if (msg.includes('503') || msg.includes('429')) return true
+    if (msg.includes('503') || msg.includes('429') || msg.includes('500')) return true
+
+    // API key validation errors (Gemini: API_KEY_INVALID, etc.)
+    if (msg.includes('api key not valid') || msg.includes('api_key_invalid')) return true
+    if (msg.includes('invalid api key') || msg.includes('invalid_api_key')) return true
+    if (msg.includes('unauthorized')) return true
 
     return false
 }
@@ -55,6 +87,9 @@ function hasProviderKey(provider: string): boolean {
     if (provider === 'openrouter') {
         return !!process.env.OPENROUTER_API_KEY
     }
+    if (provider === 'deepseek') {
+        return !!process.env.DEEPSEEK_API_KEY
+    }
     // Unknown providers - assume they have keys (might fail later with clear error)
     return true
 }
@@ -72,7 +107,7 @@ export async function generateWithProviders(
     }
 
     // 2. Track all tried providers for error reporting
-    const tried: { provider: LLMProviderId; model: string; error: any }[] = []
+    const tried: { provider: LLMProviderId; model: string; error: any; status?: number; category?: string }[] = []
 
     // 3. Try each candidate
     for (const candidateId of candidates) {
@@ -81,32 +116,36 @@ export async function generateWithProviders(
 
             const reply = await callProvider(candidateId, messages, model)
 
-            console.log(`[LLM Router] Success with ${candidateId}`)
+            console.log(`[LLM Router] ✅ Success with ${candidateId}`)
             return {
                 reply,
                 providerUsed: candidateId,
                 modelUsed: model || 'default-for-provider',
             }
         } catch (error: any) {
-            const isDev = process.env.NODE_ENV === 'development'
+            const status = error?.response?.status || error?.status
+            const errorMsg = error?.message || String(error)
+            const errorCategory = categorizeError(error)
 
-            // Log detailed error for dev
-            if (isDev) {
-                console.error(
-                    `[LLM Router] Provider ${candidateId} failed with model ${model || 'default'}:`,
-                    {
-                        model: model,
-                        provider: candidateId,
-                        error: error?.response?.data || error?.message || error,
-                        status: error?.response?.status || error?.status
-                    }
-                )
-            } else {
-                // Production: simple log
-                console.error(`[LLM Router] Provider ${candidateId} failed`)
-            }
+            // Enhanced logging with error details (no secrets)
+            console.error(
+                `[LLM Router] ❌ Provider ${candidateId} failed:`,
+                {
+                    provider: candidateId,
+                    model: model || 'default',
+                    status: status || 'N/A',
+                    category: errorCategory,
+                    message: errorMsg.substring(0, 200)
+                }
+            )
 
-            tried.push({ provider: candidateId, model: model || 'default', error })
+            tried.push({ 
+                provider: candidateId, 
+                model: model || 'default', 
+                error,
+                status,
+                category: errorCategory
+            })
 
             // Check if fallback is enabled
             if (process.env.LLM_ENABLE_FALLBACK !== 'true') {
@@ -237,6 +276,8 @@ async function callProvider(
             return moonshotProvider.generateResponse(messages, { model })
         case 'openrouter':
             return openrouterProvider.generateResponse(messages, { model })
+        case 'deepseek':
+            return deepseekProvider.generateResponse(messages, { model })
         default:
             throw new Error(`Unknown provider: ${id}`)
     }
